@@ -1,0 +1,651 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2010 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the  terms of the  GNU General Public License as published by the Free
+** Software Foundation; either version 2.1, or (at your option) any later
+** version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see  the  file  COPYING.  If not, write to the Free
+** Software Foundation, 51  Franklin  Street,  Fifth  Floor,  Boston,  MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+**
+** Contributed by Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+** Time: March, 2010
+**
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">ATS_DYNLOADFLAG 0</span> <span class="comment">// no need for dynamic loading
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">LQ <span class="keyword">=</span> "libats/SATS/linqueue_arr.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anon*)</span> <span class="keyword">=</span> "libats/DATS/linqueue_arr.dats"</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="1702"><span class="stacstdec">QUEUE <span class="keyword">=</span> $LQ<span class="keyword">.</span>QUEUE1</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">PT <span class="keyword">=</span> "libc/SATS/pthread.sats"</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="1788"><span class="stacstdec">mutex <span class="keyword">=</span> $PT<span class="keyword">.</span>mutex_vt</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="1816"><span class="stacstdec">cond <span class="keyword">=</span> $PT<span class="keyword">.</span>cond_vt</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"libats/SATS/parworkshop.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+
+extern ats_void_type
+atslib_linqueue_arr_queue_initialize_tsz
+  (ats_ptr_type pq, ats_size_type qsz, ats_size_type tsz) ;
+// end of [atslib_linqueue_arr_queue_initialize_tsz]
+
+ats_ptr_type
+atslib_parworkshop_workshop_make_tsz (
+  ats_size_type qsz, ats_fun_ptr_type fwork, ats_size_type tsz
+) {
+  atslib_parworkshop_WORKSHOP *p ;
+  p = ATS_MALLOC (sizeof(atslib_parworkshop_WORKSHOP)) ;
+  pthread_mutex_init (&amp;p-&gt;WSmut, (pthread_mutexattr_t*)0) ;
+  atslib_linqueue_arr_queue_initialize_tsz (&amp;p-&gt;WQ, qsz, tsz) ;
+  pthread_cond_init (&amp;p-&gt;WQemp, (pthread_condattr_t*)0) ;
+  pthread_cond_init (&amp;p-&gt;WQful, (pthread_condattr_t*)0) ;
+  p-&gt;nworker = 0 ;
+  pthread_cond_init (&amp;p-&gt;WSisz, (pthread_condattr_t*)0) ;
+  p-&gt;npaused = 0 ;
+  pthread_cond_init (&amp;p-&gt;WSpaused, (pthread_condattr_t*)0) ;
+  pthread_cond_init (&amp;p-&gt;WSequ1, (pthread_condattr_t*)0) ;
+  p-&gt;nblocked = 0 ;
+  pthread_cond_init (&amp;p-&gt;WSequ2, (pthread_condattr_t*)0) ;
+  p-&gt;fwork = fwork ;
+  p-&gt;refcount = 0 ;
+  return (p) ;
+} // end of [atslib_parworkshop_workshop_make_tsz]
+
+%}</span> <span class="comment">// end of [%{^]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+
+ats_void_type
+atslib_parworkshop_workshop_free_lin
+  (ats_ptr_type p0, ats_int_type lin) {
+  atslib_parworkshop_WORKSHOP *p = (atslib_parworkshop_WORKSHOP*)p0 ;
+  atslib_linqueue_arr_QUEUE *p_WQ = &amp;(p-&gt;WQ) ;
+  pthread_mutex_lock (&amp;p-&gt;WSmut);
+  while (1) {
+    if (p-&gt;nworker != 0) {
+      pthread_cond_wait (&amp;p-&gt;WSisz, &amp;p-&gt;WSmut) ;
+    } else {
+      break ;
+    } // end of [if]
+  } // end of [while]
+  // [p-&gt;WSmut] is held at this point
+  if (lin &amp;&amp; p_WQ-&gt;nitm != 0) {
+    fprintf (stderr
+    , "exit(ATS): [atslib_parworkshop_workshop_free_lin]: work queue is not empty\n"
+    ) ; exit (1) ;
+  } // end of [if]
+  atslib_linqueue_arr_queue_uninitialize (p_WQ) ;
+  pthread_mutex_destroy (&amp;p-&gt;WSmut) ;
+  pthread_cond_destroy (&amp;p-&gt;WQemp) ;
+  pthread_cond_destroy (&amp;p-&gt;WQful) ;
+  pthread_cond_destroy (&amp;p-&gt;WSisz) ;
+  pthread_cond_destroy (&amp;p-&gt;WSpaused) ;
+  pthread_cond_destroy (&amp;p-&gt;WSequ1) ;
+  pthread_cond_destroy (&amp;p-&gt;WSequ2) ;
+  ATS_FREE(p) ;
+  return ;
+} // end of [atslib_parworkshop_workshop_free_lin]
+
+ats_void_type
+atslib_parworkshop_workshop_free
+  (ats_ptr_type p0) { atslib_parworkshop_workshop_free_lin (p0, 0) ; return ; }
+// end of [atslib_parworkshop_workshop_free]
+
+ats_void_type
+atslib_parworkshop_workshop_free_vt_exn
+  (ats_ptr_type p0) { atslib_parworkshop_workshop_free_lin (p0, 1) ; return ; }
+// end of [atslib_parworkshop_workshop_free]
+
+%}</span> <span class="comment">// end of [%{^]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span>
+workshop_make <span class="keyword">(</span>qsz<span class="keyword">,</span> f<span class="keyword">)</span> <span class="keyword">=</span> workshop_make_tsz <span class="keyword">(</span>qsz<span class="keyword">,</span> f<span class="keyword">,</span> sizeof&lt;<span class="staexp">a</span><span class="keyword">&gt;</span><span class="keyword">)</span>
+<span class="comment">// end of [workshop_make]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span>
+<span class="keyword">fun</span> <a name="4537"><span class="dyncstdec">workshop_get_fwork <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span>ws<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>WORKSHOPptr <span class="keyword">(</span>a<span class="keyword">,</span> l<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">!</span>WORKSHOPptr <span class="keyword">(</span>a<span class="keyword">,</span> l<span class="keyword">)</span><span class="keyword">,</span> <span class="keyword">&amp;</span>a &gt;&gt; a?<span class="keyword">)</span> <span class="keyword">-&lt;</span><span class="keyword">fun</span><span class="keyword">&gt;</span> int</span></span></a>
+  <span class="keyword">=</span> "atslib_parworkshop_workshop_get_fwork"
+<span class="comment">// end of [workshop_get_fwork]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span>
+<span class="keyword">fun</span> <a name="4761"><span class="dyncstdec">workshop_nworker_inc
+  <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>ws<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>WORKSHOPptr <span class="keyword">(</span>a<span class="keyword">,</span> l<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atslib_parworkshop_workshop_nworker_inc"
+<span class="comment">// end of [workshop_nworker_inc]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="4954"><span class="stacstdec">WORKSHOP <span class="keyword">(</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">$extype_struct</span> "atslib_parworkshop_WORKSHOP" <span class="keyword">of</span> <span class="keyword">{</span>
+<span class="comment">//
+</span><span class="comment">// WSmut = $PT.mutex_vt
+</span><span class="comment">//
+</span>  WQ <span class="keyword">=</span> $LQ<span class="keyword">.</span>QUEUE1 <span class="keyword">(</span>a<span class="keyword">)</span>
+<span class="keyword">,</span> WQemp <span class="keyword">=</span> $PT<span class="keyword">.</span>cond_vt
+<span class="keyword">,</span> WQful <span class="keyword">=</span> $PT<span class="keyword">.</span>cond_vt
+<span class="keyword">,</span> nworker <span class="keyword">=</span> int <span class="comment">// number of workers affiliated with the workshop
+</span><span class="keyword">,</span> WSisz <span class="keyword">=</span> $PT<span class="keyword">.</span>cond_vt <span class="comment">// nworker = 0
+</span><span class="keyword">,</span> npaused <span class="keyword">=</span> int <span class="comment">// number of workers paused
+</span><span class="keyword">,</span> WSpaused <span class="keyword">=</span> $PT<span class="keyword">.</span>cond_vt
+<span class="keyword">,</span> WSequ1 <span class="keyword">=</span> $PT<span class="keyword">.</span>cond_vt <span class="comment">// npaused = nworker
+</span><span class="keyword">,</span> nblocked <span class="keyword">=</span> int <span class="comment">// number of workers blocked
+</span><span class="keyword">,</span> WSequ2 <span class="keyword">=</span> $PT<span class="keyword">.</span>cond_vt <span class="comment">// nblocked = nworker
+</span><span class="keyword">,</span> fwork <span class="keyword">=</span> <span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span> <span class="keyword">(</span><span class="keyword">!</span>WORKSHOPptr <span class="keyword">(</span>a<span class="keyword">,</span> l<span class="keyword">)</span><span class="keyword">,</span> <span class="keyword">&amp;</span>a &gt;&gt; a?<span class="keyword">)</span> <span class="keyword">-&lt;</span>cloref<span class="keyword">&gt;</span> int
+<span class="keyword">,</span> refcount <span class="keyword">=</span> int
+<span class="keyword">}</span></span></a></span> <span class="comment">// end of [WORKSHOP]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span>
+<a name="5572"><span class="dyncstdec">workshop_acquire <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span>ws<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>WORKSHOPptr <span class="keyword">(</span>a<span class="keyword">,</span> l<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">(</span>WORKSHOP <span class="keyword">(</span>a<span class="keyword">)</span> @ l <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atslib_parworkshop_workshop_acquire"
+<span class="comment">// end of [workshop_wkqueue_acquire]
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span>
+<a name="5761"><span class="dyncstdec">workshop_release <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">WORKSHOP <span class="keyword">(</span>a<span class="keyword">)</span> @ l</span></span> <span class="keyword">|</span> p_ws<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atslib_parworkshop_workshop_release"
+<span class="comment">// end of [workshop_release]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span>
+<a name="5952"><span class="dyncstdec">workshop_get_WSmut
+  <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>WORKSHOP <span class="keyword">(</span>a<span class="keyword">)</span> @ l</span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l_mut<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>
+    mutex <span class="keyword">(</span>WORKSHOP a @ l<span class="keyword">)</span> @ l_mut<span class="keyword">,</span> minus <span class="keyword">(</span>ptr l<span class="keyword">,</span> mutex <span class="keyword">(</span>WORKSHOP a @ l<span class="keyword">)</span> @ l_mut<span class="keyword">)</span>
+  <span class="keyword">|</span> ptr l_mut
+  <span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atslib_parworkshop_workshop_get_WSmut"
+<span class="comment">// end of [workshop_get_WSmut]
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span>
+<a name="6237"><span class="dyncstdec">workshop_get_WQemp
+  <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>WORKSHOP <span class="keyword">(</span>a<span class="keyword">)</span> @ l</span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l_emp<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>
+    cond @ l_emp<span class="keyword">,</span> minus <span class="keyword">(</span>ptr l<span class="keyword">,</span> cond @ l_emp<span class="keyword">)</span> <span class="keyword">|</span> ptr l_emp
+  <span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atslib_parworkshop_workshop_get_WQemp"
+<span class="comment">// end of [workshop_get_WQemp]
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span>
+<a name="6486"><span class="dyncstdec">workshop_get_WQful
+  <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>WORKSHOP <span class="keyword">(</span>a<span class="keyword">)</span> @ l</span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l_ful<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>
+    cond @ l_ful<span class="keyword">,</span> minus <span class="keyword">(</span>ptr l<span class="keyword">,</span> cond @ l_ful<span class="keyword">)</span> <span class="keyword">|</span> ptr l_ful
+  <span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atslib_parworkshop_workshop_get_WQful"
+<span class="comment">// end of [workshop_get_WQful]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span>
+<a name="6756"><span class="dyncstdec">workshop_get_WSisz
+  <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>WORKSHOP <span class="keyword">(</span>a<span class="keyword">)</span> @ l</span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l_isz<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>
+    cond @ l_isz<span class="keyword">,</span> minus <span class="keyword">(</span>ptr l<span class="keyword">,</span> cond @ l_isz<span class="keyword">)</span> <span class="keyword">|</span> ptr l_isz
+  <span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atslib_parworkshop_workshop_get_WSisz"
+<span class="comment">// end of [workshop_get_WSisz]
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span>
+<a name="7005"><span class="dyncstdec">workshop_get_WSpaused
+  <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>WORKSHOP <span class="keyword">(</span>a<span class="keyword">)</span> @ l</span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l_pau<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>
+    cond @ l_pau<span class="keyword">,</span> minus <span class="keyword">(</span>ptr l<span class="keyword">,</span> cond @ l_pau<span class="keyword">)</span> <span class="keyword">|</span> ptr l_pau
+  <span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atslib_parworkshop_workshop_get_WSpaused"
+<span class="comment">// end of [workshop_get_WSpaused]
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span>
+<a name="7263"><span class="dyncstdec">workshop_get_WSequ1
+  <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>WORKSHOP <span class="keyword">(</span>a<span class="keyword">)</span> @ l</span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l_equ<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>
+    cond @ l_equ<span class="keyword">,</span> minus <span class="keyword">(</span>ptr l<span class="keyword">,</span> cond @ l_equ<span class="keyword">)</span> <span class="keyword">|</span> ptr l_equ
+  <span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atslib_parworkshop_workshop_get_WSequ1"
+<span class="comment">// end of [workshop_get_WSequ1]
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span>
+<a name="7515"><span class="dyncstdec">workshop_get_WSequ2
+  <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>WORKSHOP <span class="keyword">(</span>a<span class="keyword">)</span> @ l</span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l_equ<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>
+    cond @ l_equ<span class="keyword">,</span> minus <span class="keyword">(</span>ptr l<span class="keyword">,</span> cond @ l_equ<span class="keyword">)</span> <span class="keyword">|</span> ptr l_equ
+  <span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atslib_parworkshop_workshop_get_WSequ2"
+<span class="comment">// end of [workshop_get_WSequ2]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+workshop_get_nworker
+  <span class="keyword">(</span>ws<span class="keyword">)</span> <span class="keyword">=</span> nworker <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span> <span class="keyword">=</span> workshop_acquire <span class="keyword">(</span>ws<span class="keyword">)</span>
+  <span class="keyword">val</span> nworker <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>nworker
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_release <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [workshop_get_nworker]
+</span>
+<span class="keyword">implement</span>
+workshop_get_npaused
+  <span class="keyword">(</span>ws<span class="keyword">)</span> <span class="keyword">=</span> npaused <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span> <span class="keyword">=</span> workshop_acquire <span class="keyword">(</span>ws<span class="keyword">)</span>
+  <span class="keyword">val</span> npaused <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>npaused
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_release <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [workshop_get_npaused]
+</span>
+<span class="keyword">implement</span>
+workshop_get_nblocked
+  <span class="keyword">(</span>ws<span class="keyword">)</span> <span class="keyword">=</span> nblocked <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span> <span class="keyword">=</span> workshop_acquire <span class="keyword">(</span>ws<span class="keyword">)</span>
+  <span class="keyword">val</span> nblocked <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>nblocked
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_release <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [workshop_get_nblocked]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span>
+<span class="keyword">fun</span> <a name="8444"><span class="dyncstdec">workshop_nworker_inc <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>ws<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>WORKSHOPptr <span class="keyword">(</span>a<span class="keyword">,</span> l<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></a>
+
+<span class="keyword">implement</span>
+workshop_nworker_inc <span class="keyword">(</span>ws<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span> <span class="keyword">=</span> workshop_acquire <span class="keyword">(</span>ws<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>nworker := p_ws<span class="keyword">-&gt;</span>nworker + 1
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_release <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [workshop_nworker_inc]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span>
+<span class="keyword">fun</span> <a name="8776"><span class="dyncstdec">workshop_ref <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>ws<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>WORKSHOPptr <span class="keyword">(</span>a<span class="keyword">,</span> l<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp">WORKSHOPptr <span class="keyword">(</span>a<span class="keyword">,</span> l<span class="keyword">)</span></span></span></a>
+
+<span class="keyword">implement</span>
+workshop_ref <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">}</span></span> <span class="keyword">(</span>ws<span class="keyword">)</span> <span class="keyword">=</span> ws <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span> <span class="keyword">=</span> workshop_acquire <span class="keyword">(</span>ws<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>refcount := p_ws<span class="keyword">-&gt;</span>refcount + 1
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_release <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+  <span class="keyword">val</span> ws <span class="keyword">=</span> __cast <span class="keyword">(</span>ws<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">extern</span> <span class="keyword">castfn</span> <a name="9101"><span class="dyncstdec">__cast <span class="keyword">(</span>ws<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>WORKSHOPptr <span class="keyword">(</span>a<span class="keyword">,</span> l<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">WORKSHOPptr <span class="keyword">(</span>a<span class="keyword">,</span> l<span class="keyword">)</span></span></span></a>
+  <span class="keyword">}</span> <span class="comment">// end of [val]
+</span><span class="keyword">}</span> <span class="comment">// end of [workshop_ref]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span>
+<span class="keyword">fun</span> <a name="9236"><span class="dyncstdec">workshop_unref
+  <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>ws<span class="keyword">:</span> <span class="staexp">WORKSHOPptr <span class="keyword">(</span>a<span class="keyword">,</span> l<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a>
+<span class="comment">// end of [workshop_unref]
+</span>
+<span class="keyword">implement</span>
+workshop_unref <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">}</span></span> <span class="keyword">(</span>ws<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span> <span class="keyword">=</span> workshop_acquire <span class="keyword">(</span>ws<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>refcount := p_ws<span class="keyword">-&gt;</span>refcount - 1
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_release <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+  <span class="keyword">val</span> _ptr <span class="keyword">=</span> __cast <span class="keyword">(</span>ws<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">extern</span> <span class="keyword">castfn</span> <a name="9579"><span class="dyncstdec">__cast <span class="keyword">(</span>ws<span class="keyword">:</span> <span class="staexp">WORKSHOPptr <span class="keyword">(</span>a<span class="keyword">,</span> l<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">ptr l</span></span></a>
+  <span class="keyword">}</span> <span class="comment">// end of [val]
+</span><span class="keyword">}</span> <span class="comment">// end of [workshop_unref]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">//
+</span><span class="comment">// HX:
+</span><span class="comment">// return status &gt;  0 : continue
+</span><span class="comment">// return status =  0 : quit
+</span><span class="comment">// return status = ~1 : pause
+</span><span class="comment">//
+</span><span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span>
+workshop_add_worker
+  <span class="staexp"><span class="keyword">{</span>l<span class="keyword">}</span></span> <span class="keyword">(</span>ws<span class="keyword">)</span> <span class="keyword">=</span> err <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">viewtypedef</span> <span class="staexp"><a name="9868"><span class="stacstdec">env <span class="keyword">=</span> WORKSHOPptr <span class="keyword">(</span>a<span class="keyword">,</span> l<span class="keyword">)</span></span></a></span>
+  <span class="keyword">fun</span> worker <span class="keyword">(</span>ws<span class="keyword">:</span> <span class="staexp">env</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">var</span> wk <span class="keyword">=</span> workshop_remove_work&lt;<span class="staexp">a</span><span class="keyword">&gt;</span> <span class="keyword">(</span>ws<span class="keyword">)</span>
+    <span class="keyword">val</span> fwork <span class="keyword">=</span> workshop_get_fwork <span class="keyword">(</span>ws<span class="keyword">)</span>
+    <span class="keyword">val</span> status <span class="keyword">=</span> fwork <span class="keyword">(</span>ws<span class="keyword">,</span> wk<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+    <span class="keyword">|</span> _ <span class="keyword">when</span> status <span class="keyword">&gt;</span> 0 <span class="keyword">=&gt;</span> worker <span class="keyword">(</span>ws<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">when</span> <span class="keyword">(</span>status <span class="keyword">=</span> 0<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// status = 0
+</span>        <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span> <span class="keyword">=</span> workshop_acquire <span class="keyword">(</span>ws<span class="keyword">)</span>
+        <span class="keyword">val</span> nworker1 <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>nworker - 1
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>nworker := nworker1
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">(</span>nworker1 <span class="keyword">=</span> 0<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> _err <span class="keyword">=</span> $PT<span class="keyword">.</span>pthread_cond_broadcast <span class="keyword">(</span>p_ws<span class="keyword">-&gt;</span>WSisz<span class="keyword">)</span> <span class="keyword">in</span> <span class="comment">(*none*)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">(</span>nworker1 <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>npaused<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> _err <span class="keyword">=</span> $PT<span class="keyword">.</span>pthread_cond_broadcast <span class="keyword">(</span>p_ws<span class="keyword">-&gt;</span>WSequ1<span class="keyword">)</span> <span class="keyword">in</span> <span class="comment">(*none*)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">(</span>nworker1 <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>nblocked<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> _err <span class="keyword">=</span> $PT<span class="keyword">.</span>pthread_cond_broadcast <span class="keyword">(</span>p_ws<span class="keyword">-&gt;</span>WSequ2<span class="keyword">)</span> <span class="keyword">in</span> <span class="comment">(*none*)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_release <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_unref <span class="keyword">(</span>ws<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        <span class="comment">// the pthread exits normally
+</span>      <span class="keyword">end</span> <span class="comment">// end of [_]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// for handling uncommon requests
+</span>        <span class="keyword">viewdef</span> <span class="staexp"><a name="10970"><span class="stacstdec">V_ws <span class="keyword">=</span> WORKSHOP a @ l</span></a></span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span> <span class="keyword">=</span> workshop_acquire <span class="keyword">(</span>ws<span class="keyword">)</span>
+        <span class="keyword">val</span> npaused1 <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>npaused + 1
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>npaused := npaused1
+        <span class="keyword">val</span> nworker <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>nworker
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">(</span>npaused1 <span class="keyword">=</span> nworker<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> _err <span class="keyword">=</span> $PT<span class="keyword">.</span>pthread_cond_broadcast <span class="keyword">(</span>p_ws<span class="keyword">-&gt;</span>WSequ1<span class="keyword">)</span> <span class="keyword">in</span> <span class="comment">(*none*)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>        <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">l_mut<span class="keyword">:</span>addr</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pf_mut</span><span class="keyword">,</span> <span class="prfexp">fpf_mut</span> <span class="keyword">|</span> p_mut<span class="keyword">)</span> <span class="keyword">=</span>
+          workshop_get_WSmut <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">l_pau<span class="keyword">:</span>addr</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pf_pau</span><span class="keyword">,</span> <span class="prfexp">fpf_pau</span> <span class="keyword">|</span> p_pau<span class="keyword">)</span> <span class="keyword">=</span> 
+          workshop_get_WSpaused <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+        <span class="keyword">val</span> _err <span class="keyword">=</span> $PT<span class="keyword">.</span>pthread_cond_wait <span class="staexp"><span class="keyword">{</span>V_ws<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> <span class="keyword">!</span>p_pau<span class="keyword">,</span> <span class="keyword">!</span>p_mut<span class="keyword">)</span>
+        <span class="keyword">val</span> p1_ws <span class="keyword">=</span> p_ws
+        <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> minus_addback <span class="keyword">(</span><span class="prfexp">fpf_mut</span><span class="keyword">,</span> <span class="prfexp">pf_mut</span> <span class="keyword">|</span> p1_ws<span class="keyword">)</span></span>
+        <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> minus_addback <span class="keyword">(</span><span class="prfexp">fpf_pau</span><span class="keyword">,</span> <span class="prfexp">pf_pau</span> <span class="keyword">|</span> p1_ws<span class="keyword">)</span></span>
+        <span class="keyword">val</span> npaused <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>npaused
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>npaused := npaused - 1
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_release <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        worker <span class="keyword">(</span>ws<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [status &lt; 0]
+</span>  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> ws_new <span class="keyword">=</span> workshop_ref <span class="keyword">(</span>ws<span class="keyword">)</span>
+  <span class="keyword">val</span> err <span class="keyword">=</span> $PT<span class="keyword">.</span>pthread_create_detached <span class="staexp"><span class="keyword">{</span>env<span class="keyword">}</span></span> <span class="keyword">(</span>worker<span class="keyword">,</span> ws_new<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> err <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="comment">// no new worker is added
+</span>    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> opt_unsome <span class="staexp"><span class="keyword">{</span>env<span class="keyword">}</span></span> <span class="keyword">(</span>ws_new<span class="keyword">)</span></span><span class="keyword">;</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_unref <span class="keyword">(</span>ws_new<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="comment">// (*nothing*)
+</span>  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="comment">// a new worker is added successully
+</span>    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_nworker_inc <span class="keyword">(</span>ws<span class="keyword">)</span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> opt_unnone <span class="staexp"><span class="keyword">{</span>env<span class="keyword">}</span></span> <span class="keyword">(</span>ws_new<span class="keyword">)</span></span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cleanup_top <span class="staexp"><span class="keyword">{</span>env<span class="keyword">}</span></span> <span class="keyword">(</span>ws_new<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="comment">// (*nothing*)
+</span>  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">}</span> <span class="comment">// end of [workshop_add_worker]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span>
+workshop_add_nworker
+  <span class="staexp"><span class="keyword">{</span>l<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">}</span></span> <span class="keyword">(</span>ws<span class="keyword">,</span> n<span class="keyword">)</span> <span class="keyword">=</span>
+  loop <span class="keyword">(</span>ws<span class="keyword">,</span> n<span class="keyword">,</span> 0<span class="keyword">,</span> 0<span class="comment">(*err*)</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> loop <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i &lt;= n<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n-i<span class="keyword">&gt;.</span></span> <span class="keyword">(</span>
+      ws<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>WORKSHOPptr <span class="keyword">(</span>a<span class="keyword">,</span> l<span class="keyword">)</span></span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int i</span><span class="keyword">,</span> err0<span class="keyword">:</span> <span class="staexp">int</span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span>
+    <span class="keyword">if</span> i <span class="keyword">&lt;</span> n <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> err <span class="keyword">=</span> workshop_add_worker <span class="keyword">(</span>ws<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      loop <span class="keyword">(</span>ws<span class="keyword">,</span> n<span class="keyword">,</span> i+1<span class="keyword">,</span> err0 + err<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> err0 <span class="comment">// end of [if]
+</span>  <span class="comment">// end of [loop]
+</span><span class="keyword">}</span> <span class="comment">// end of [workshop_add_nworker]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span>
+workshop_insert_work <span class="staexp"><span class="keyword">{</span>l<span class="keyword">}</span></span> <span class="keyword">(</span>ws<span class="keyword">,</span> wk<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "workshop_insert_work: start"; print_newline ()
+  end // end of [val]
+*)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span> <span class="keyword">=</span> workshop_acquire <span class="keyword">(</span>ws<span class="keyword">)</span>
+  <span class="keyword">viewdef</span> <span class="staexp"><a name="13126"><span class="stacstdec">V_ws <span class="keyword">=</span> WORKSHOP a @ l</span></a></span>
+  <span class="keyword">fun</span> loop
+    <span class="keyword">(</span><span class="prfexp">pf_ws<span class="keyword">:</span> <span class="staexp">V_ws</span></span> <span class="keyword">|</span> p_ws<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">,</span> wk<span class="keyword">:</span> <span class="staexp">a</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> p1_ws <span class="keyword">=</span> p_ws
+    <span class="keyword">val</span> isful <span class="keyword">=</span> $LQ<span class="keyword">.</span>queue_is_full <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="keyword">(</span>p_ws<span class="keyword">-&gt;</span>WQ<span class="keyword">)</span>
+  <span class="keyword">in</span>    
+    <span class="keyword">if</span> isful <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">l_mut<span class="keyword">:</span>addr</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pf_mut</span><span class="keyword">,</span> <span class="prfexp">fpf_mut</span> <span class="keyword">|</span> p_mut<span class="keyword">)</span> <span class="keyword">=</span>
+        workshop_get_WSmut <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">l_ful<span class="keyword">:</span>addr</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pf_ful</span><span class="keyword">,</span> <span class="prfexp">fpf_ful</span> <span class="keyword">|</span> p_ful<span class="keyword">)</span> <span class="keyword">=</span> 
+        workshop_get_WQful <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+      <span class="keyword">viewdef</span> <span class="staexp"><a name="13528"><span class="stacstdec">V_mut <span class="keyword">=</span> mutex <span class="keyword">(</span>WORKSHOP a @ l<span class="keyword">)</span> @ l_mut</span></a></span>
+      <span class="keyword">val</span> _err <span class="keyword">=</span> $PT<span class="keyword">.</span>pthread_cond_wait <span class="staexp"><span class="keyword">{</span>V_ws<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> <span class="keyword">!</span>p_ful<span class="keyword">,</span> <span class="keyword">!</span>p_mut<span class="keyword">)</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> minus_addback <span class="keyword">(</span><span class="prfexp">fpf_mut</span><span class="keyword">,</span> <span class="prfexp">pf_mut</span> <span class="keyword">|</span> p1_ws<span class="keyword">)</span></span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> minus_addback <span class="keyword">(</span><span class="prfexp">fpf_ful</span><span class="keyword">,</span> <span class="prfexp">pf_ful</span> <span class="keyword">|</span> p1_ws<span class="keyword">)</span></span>
+    <span class="keyword">in</span>
+      loop <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">,</span> wk<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> isemp <span class="keyword">=</span>
+        $LQ<span class="keyword">.</span>queue_is_empty <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="keyword">(</span>p_ws<span class="keyword">-&gt;</span>WQ<span class="keyword">)</span>
+      <span class="comment">// end of [val]
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $LQ<span class="keyword">.</span>queue_insert&lt;<span class="staexp">a</span><span class="keyword">&gt;</span> <span class="keyword">(</span>p_ws<span class="keyword">-&gt;</span>WQ<span class="keyword">,</span> wk<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> isemp <span class="keyword">then</span> <span class="keyword">let</span>
+<span class="comment">//
+</span>        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>nblocked := 0
+<span class="comment">//
+</span>        <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">l_emp<span class="keyword">:</span>addr</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pf_emp</span><span class="keyword">,</span> <span class="prfexp">fpf_emp</span> <span class="keyword">|</span> p_emp<span class="keyword">)</span> <span class="keyword">=</span> 
+          workshop_get_WQemp <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+        <span class="keyword">val</span> _err <span class="keyword">=</span> $PT<span class="keyword">.</span>pthread_cond_broadcast <span class="keyword">(</span><span class="keyword">!</span>p_emp<span class="keyword">)</span>
+        <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> minus_addback <span class="keyword">(</span><span class="prfexp">fpf_emp</span><span class="keyword">,</span> <span class="prfexp">pf_emp</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span></span>
+      <span class="keyword">in</span>
+        <span class="comment">// nothing
+</span>      <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_release <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="comment">// nothing
+</span>    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">end</span> <span class="comment">(* end of [loop] *)</span>
+<span class="keyword">in</span>
+  loop <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">,</span> wk<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [workshop_insert_work]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span>
+workshop_remove_work <span class="staexp"><span class="keyword">{</span>l<span class="keyword">}</span></span> <span class="keyword">(</span>ws<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span> <span class="keyword">=</span> workshop_acquire <span class="keyword">(</span>ws<span class="keyword">)</span>
+  <span class="keyword">viewdef</span> <span class="staexp"><a name="14599"><span class="stacstdec">V_ws <span class="keyword">=</span> WORKSHOP a @ l</span></a></span>
+  <span class="keyword">fun</span> loop
+    <span class="keyword">(</span><span class="prfexp">pf_ws<span class="keyword">:</span> <span class="staexp">V_ws</span></span> <span class="keyword">|</span> p_ws<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">a</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> p1_ws <span class="keyword">=</span> p_ws
+    <span class="keyword">val</span> isemp <span class="keyword">=</span> $LQ<span class="keyword">.</span>queue_is_empty <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="keyword">(</span>p_ws<span class="keyword">-&gt;</span>WQ<span class="keyword">)</span>
+  <span class="keyword">in</span>    
+    <span class="keyword">if</span> isemp <span class="keyword">then</span> <span class="keyword">let</span>
+<span class="comment">//
+</span>      <span class="keyword">val</span> nblock1 <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>nblocked + 1
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>nblocked := nblock1
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">(</span>nblock1 <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>nworker<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> _err <span class="keyword">=</span> $PT<span class="keyword">.</span>pthread_cond_broadcast <span class="keyword">(</span>p_ws<span class="keyword">-&gt;</span>WSequ2<span class="keyword">)</span> <span class="keyword">in</span> <span class="comment">(*none*)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="comment">//
+</span>      <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">l_mut<span class="keyword">:</span>addr</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pf_mut</span><span class="keyword">,</span> <span class="prfexp">fpf_mut</span> <span class="keyword">|</span> p_mut<span class="keyword">)</span> <span class="keyword">=</span>
+        workshop_get_WSmut <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">l_emp<span class="keyword">:</span>addr</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pf_emp</span><span class="keyword">,</span> <span class="prfexp">fpf_emp</span> <span class="keyword">|</span> p_emp<span class="keyword">)</span> <span class="keyword">=</span> 
+        workshop_get_WQemp <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+      <span class="keyword">viewdef</span> <span class="staexp"><a name="15230"><span class="stacstdec">V_mut <span class="keyword">=</span> mutex <span class="keyword">(</span>WORKSHOP a @ l<span class="keyword">)</span> @ l_mut</span></a></span>
+      <span class="keyword">val</span> _err <span class="keyword">=</span> $PT<span class="keyword">.</span>pthread_cond_wait <span class="staexp"><span class="keyword">{</span>V_ws<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> <span class="keyword">!</span>p_emp<span class="keyword">,</span> <span class="keyword">!</span>p_mut<span class="keyword">)</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> minus_addback <span class="keyword">(</span><span class="prfexp">fpf_mut</span><span class="keyword">,</span> <span class="prfexp">pf_mut</span> <span class="keyword">|</span> p1_ws<span class="keyword">)</span></span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> minus_addback <span class="keyword">(</span><span class="prfexp">fpf_emp</span><span class="keyword">,</span> <span class="prfexp">pf_emp</span> <span class="keyword">|</span> p1_ws<span class="keyword">)</span></span>
+    <span class="keyword">in</span>
+      loop <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> isful <span class="keyword">=</span>
+        $LQ<span class="keyword">.</span>queue_is_full <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="keyword">(</span>p_ws<span class="keyword">-&gt;</span>WQ<span class="keyword">)</span>
+      <span class="comment">// end of [val]
+</span>      <span class="keyword">val</span> wk <span class="keyword">=</span> $LQ<span class="keyword">.</span>queue_remove&lt;<span class="staexp">a</span><span class="keyword">&gt;</span> <span class="keyword">(</span>p_ws<span class="keyword">-&gt;</span>WQ<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> isful <span class="keyword">then</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">l_ful<span class="keyword">:</span>addr</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pf_ful</span><span class="keyword">,</span> <span class="prfexp">fpf_ful</span> <span class="keyword">|</span> p_ful<span class="keyword">)</span> <span class="keyword">=</span> 
+          workshop_get_WQful <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+        <span class="keyword">val</span> _err <span class="keyword">=</span> $PT<span class="keyword">.</span>pthread_cond_broadcast <span class="keyword">(</span><span class="keyword">!</span>p_ful<span class="keyword">)</span>
+        <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> minus_addback <span class="keyword">(</span><span class="prfexp">fpf_ful</span><span class="keyword">,</span> <span class="prfexp">pf_ful</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span></span>
+      <span class="keyword">in</span>
+        <span class="comment">// nothing
+</span>      <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_release <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      wk <span class="comment">(* return value *)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">end</span> <span class="comment">(* end of [loop] *)</span>
+<span class="keyword">in</span>
+  loop <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [workshop_remove_work]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+workshop_wait_quit_all
+  <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">}</span></span> <span class="keyword">(</span>ws<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">viewdef</span> <span class="staexp"><a name="16223"><span class="stacstdec">V_ws <span class="keyword">=</span> WORKSHOP a @ l</span></a></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span> <span class="keyword">=</span> workshop_acquire <span class="keyword">(</span>ws<span class="keyword">)</span>
+  <span class="keyword">fun</span> loop <span class="keyword">(</span>
+       <span class="prfexp">pf_ws<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>V_ws</span></span> <span class="keyword">|</span> p_ws<span class="keyword">:</span> <span class="staexp">ptr l</span>
+     <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> nworker <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>nworker
+  <span class="keyword">in</span>
+    <span class="keyword">if</span> nworker <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_mut</span><span class="keyword">,</span> <span class="prfexp">fpf_mut</span> <span class="keyword">|</span> p_mut<span class="keyword">)</span> <span class="keyword">=</span> workshop_get_WSmut <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_isz</span><span class="keyword">,</span> <span class="prfexp">fpf_isz</span> <span class="keyword">|</span> p_isz<span class="keyword">)</span> <span class="keyword">=</span> workshop_get_WSisz <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+      <span class="keyword">val</span> _err <span class="keyword">=</span> $PT<span class="keyword">.</span>pthread_cond_wait <span class="staexp"><span class="keyword">{</span>V_ws<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> <span class="keyword">!</span>p_isz<span class="keyword">,</span> <span class="keyword">!</span>p_mut<span class="keyword">)</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> minus_addback <span class="keyword">(</span><span class="prfexp">fpf_mut</span><span class="keyword">,</span> <span class="prfexp">pf_mut</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span></span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> minus_addback <span class="keyword">(</span><span class="prfexp">fpf_isz</span><span class="keyword">,</span> <span class="prfexp">pf_isz</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span></span>
+    <span class="keyword">in</span>
+      loop <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">end</span> <span class="comment">// end of [loop]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> loop <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_release <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [workshop_wait_quit_all]
+</span>
+<span class="keyword">implement</span>
+workshop_wait_paused_all
+  <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">}</span></span> <span class="keyword">(</span>ws<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">viewdef</span> <span class="staexp"><a name="17021"><span class="stacstdec">V_ws <span class="keyword">=</span> WORKSHOP a @ l</span></a></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span> <span class="keyword">=</span> workshop_acquire <span class="keyword">(</span>ws<span class="keyword">)</span>
+  <span class="keyword">fun</span> loop <span class="keyword">(</span>
+       <span class="prfexp">pf_ws<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>V_ws</span></span> <span class="keyword">|</span> p_ws<span class="keyword">:</span> <span class="staexp">ptr l</span>
+     <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> nworker <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>nworker
+    <span class="keyword">val</span> npaused <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>npaused
+  <span class="keyword">in</span>
+    <span class="keyword">if</span> nworker <span class="keyword">&gt;</span> npaused <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_mut</span><span class="keyword">,</span> <span class="prfexp">fpf_mut</span> <span class="keyword">|</span> p_mut<span class="keyword">)</span> <span class="keyword">=</span> workshop_get_WSmut <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_equ</span><span class="keyword">,</span> <span class="prfexp">fpf_equ</span> <span class="keyword">|</span> p_equ<span class="keyword">)</span> <span class="keyword">=</span> workshop_get_WSequ1 <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+      <span class="keyword">val</span> _err <span class="keyword">=</span> $PT<span class="keyword">.</span>pthread_cond_wait <span class="staexp"><span class="keyword">{</span>V_ws<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> <span class="keyword">!</span>p_equ<span class="keyword">,</span> <span class="keyword">!</span>p_mut<span class="keyword">)</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> minus_addback <span class="keyword">(</span><span class="prfexp">fpf_mut</span><span class="keyword">,</span> <span class="prfexp">pf_mut</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span></span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> minus_addback <span class="keyword">(</span><span class="prfexp">fpf_equ</span><span class="keyword">,</span> <span class="prfexp">pf_equ</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span></span>
+    <span class="keyword">in</span>
+      loop <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">end</span> <span class="comment">// end of [loop]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> loop <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_release <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [workshop_wait_paused_all]
+</span>
+<span class="keyword">implement</span>
+workshop_resume_paused_all
+  <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">}</span></span> <span class="keyword">(</span>ws<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">viewdef</span> <span class="staexp"><a name="17862"><span class="stacstdec">V_ws <span class="keyword">=</span> WORKSHOP a @ l</span></a></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span> <span class="keyword">=</span> workshop_acquire <span class="keyword">(</span>ws<span class="keyword">)</span>
+  <span class="keyword">val</span> _err <span class="keyword">=</span> $PT<span class="keyword">.</span>pthread_cond_broadcast <span class="keyword">(</span>p_ws<span class="keyword">-&gt;</span>WSpaused<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_release <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [workshop_wait_paused_all]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+workshop_wait_blocked_all
+  <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">}</span></span> <span class="keyword">(</span>ws<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">viewdef</span> <span class="staexp"><a name="18164"><span class="stacstdec">V_ws <span class="keyword">=</span> WORKSHOP a @ l</span></a></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span> <span class="keyword">=</span> workshop_acquire <span class="keyword">(</span>ws<span class="keyword">)</span>
+  <span class="keyword">fun</span> loop <span class="keyword">(</span>
+       <span class="prfexp">pf_ws<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>V_ws</span></span> <span class="keyword">|</span> p_ws<span class="keyword">:</span> <span class="staexp">ptr l</span>
+     <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> nworker <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>nworker
+    <span class="keyword">val</span> nblocked <span class="keyword">=</span> p_ws<span class="keyword">-&gt;</span>nblocked
+  <span class="keyword">in</span>
+    <span class="keyword">if</span> nworker <span class="keyword">&gt;</span> nblocked <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_mut</span><span class="keyword">,</span> <span class="prfexp">fpf_mut</span> <span class="keyword">|</span> p_mut<span class="keyword">)</span> <span class="keyword">=</span> workshop_get_WSmut <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_equ</span><span class="keyword">,</span> <span class="prfexp">fpf_equ</span> <span class="keyword">|</span> p_equ<span class="keyword">)</span> <span class="keyword">=</span> workshop_get_WSequ2 <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+      <span class="keyword">val</span> _err <span class="keyword">=</span> $PT<span class="keyword">.</span>pthread_cond_wait <span class="staexp"><span class="keyword">{</span>V_ws<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> <span class="keyword">!</span>p_equ<span class="keyword">,</span> <span class="keyword">!</span>p_mut<span class="keyword">)</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> minus_addback <span class="keyword">(</span><span class="prfexp">fpf_mut</span><span class="keyword">,</span> <span class="prfexp">pf_mut</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span></span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> minus_addback <span class="keyword">(</span><span class="prfexp">fpf_equ</span><span class="keyword">,</span> <span class="prfexp">pf_equ</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span></span>
+    <span class="keyword">in</span>
+      loop <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">end</span> <span class="comment">// end of [loop]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> loop <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_release <span class="keyword">(</span><span class="prfexp">pf_ws</span> <span class="keyword">|</span> p_ws<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [workshop_wait_blocked_all]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [parworkshop.dats] *)</span>
+</pre>
+</body>
+</html>

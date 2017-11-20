@@ -1,0 +1,92 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: September, 2010
+</span><span class="comment">//
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// book: AUP (2nd edition), pages 144 - 146
+</span><span class="comment">// section: 3.4: Pathnames
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/errno.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/unistd.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/unistd_pathconf.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> get_max_pathname
+  <span class="keyword">(</span>path<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">lint</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> maxlen<span class="keyword">:</span> <span class="staexp">lint</span> <span class="keyword">=</span> pathconf <span class="keyword">(</span>path<span class="keyword">,</span> _PC_PATH_MAX<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">(</span>maxlen <span class="keyword">&lt;</span> 0L<span class="keyword">)</span> <span class="keyword">then</span>
+    <span class="keyword">if</span> errno_get <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>errno_of_int<span class="keyword">)</span>0 <span class="keyword">then</span> maxlen := 4096L <span class="keyword">else</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="keyword">if</span> maxlen &gt;= 0L <span class="keyword">then</span> maxlen + 1L <span class="keyword">else</span> ~1L
+<span class="keyword">end</span> <span class="comment">// end of [get_max_pathname]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> mygetcwd <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">strptr0</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> maxlen <span class="keyword">=</span> get_max_pathname <span class="keyword">(</span>"."<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+  <span class="keyword">|</span> _ <span class="keyword">when</span> maxlen &gt;= 0L <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> maxlen <span class="keyword">=</span> ulint_of_lint <span class="keyword">(</span>maxlen<span class="keyword">)</span>
+      <span class="keyword">val</span> nsz <span class="keyword">=</span> size_of_ulint <span class="keyword">(</span>maxlen<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">n<span class="keyword">:</span>int</span><span class="keyword">]</span> nsz <span class="keyword">=</span> size1_of_size <span class="keyword">(</span>nsz<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">l<span class="keyword">:</span>addr</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pfgc</span><span class="keyword">,</span> <span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> malloc_gc <span class="keyword">(</span>nsz<span class="keyword">)</span>
+      <span class="keyword">val</span> p1 <span class="keyword">=</span> getcwd <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">,</span> nsz<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert_errmsg <span class="keyword">(</span>p1 <span class="keyword">&gt;</span> null<span class="keyword">,</span> <span class="keyword">#LOCATION</span><span class="keyword">)</span>
+      <span class="keyword">prval</span> <span class="prfexp">getcwd_v_succ <span class="keyword">(</span>pf<span class="keyword">)</span> <span class="keyword">=</span> pf</span>
+    <span class="keyword">in</span>
+      strptr_of_strbuf <span class="keyword">@(</span><span class="prfexp">pfgc</span><span class="keyword">,</span> <span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_ when ...]
+</span>  <span class="keyword">|</span> _ <span class="comment">(*maxlen = -1L*)</span> <span class="keyword">=&gt;</span> strptr_null <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [mygetcwd]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> main <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> path <span class="keyword">=</span> "/"
+  <span class="keyword">val</span> maxlen <span class="keyword">=</span> get_max_pathname <span class="keyword">(</span>path<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>printf <span class="keyword">(</span>"get_max_pathname (\"%s\") = "<span class="keyword">,</span> <span class="keyword">@(</span>path<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span> print maxlen<span class="keyword">;</span> print_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> cwd <span class="keyword">=</span> mygetcwd <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>print "cwd = "<span class="keyword">;</span> print cwd<span class="keyword">;</span> print_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> strptr_free <span class="keyword">(</span>cwd<span class="keyword">)</span>
+<span class="comment">//
+</span><span class="keyword">}</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [AUP_3_4.dats] *)</span>
+</pre>
+</body>
+</html>

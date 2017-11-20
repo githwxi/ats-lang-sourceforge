@@ -1,0 +1,426 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>Tail-Recursive Call Optimization</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+TITLE="A Tutorial on Programming Features in ATS"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Basic Tutorial Topics"
+HREF="p34.html"><LINK
+REL="PREVIOUS"
+TITLE="The Program Entry Point: mainats"
+HREF="c155.html"><LINK
+REL="NEXT"
+TITLE="Mutual Tail-Recursion"
+HREF="c245.html"></HEAD
+><BODY
+CLASS="chapter"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>A Tutorial on Programming Features in ATS: </TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="c155.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="c245.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="chapter"
+><H1
+><A
+NAME="tailrec"
+></A
+>Tail-Recursive Call Optimization</H1
+><P
+>&#13;Tail-recursion is of crucial importance in functional programming as loops
+in imperative programming are often implemented as tail-recursive functions.
+
+</P
+><P
+>&#13;Suppose that a function <I
+CLASS="emphasis"
+>foo</I
+> calls another function <I
+CLASS="emphasis"
+>bar</I
+>,
+that is, there is a call to <I
+CLASS="emphasis"
+>bar</I
+> appearing in the body of
+<I
+CLASS="emphasis"
+>foo</I
+>, where <I
+CLASS="emphasis"
+>foo</I
+> and <I
+CLASS="emphasis"
+>bar</I
+> may actually be the same
+function. If the return value of the call to <I
+CLASS="emphasis"
+>bar</I
+> also happens to be
+the return value of <I
+CLASS="emphasis"
+>foo</I
+>, then this call is often referred to as a
+<I
+CLASS="emphasis"
+>tail-call</I
+>. If <I
+CLASS="emphasis"
+>foo</I
+> and <I
+CLASS="emphasis"
+>bar</I
+> are the same, then
+this call is a (recursive) self tail-call. For instanace, there are two
+recursive calls in the body of the following defined function <FONT
+COLOR="RED"
+>f91</FONT
+>:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN215"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun f91 (n: int): int = if n &#62; 100 then n - 10 else f91 (f91 (n+11))
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;where the outer call to <FONT
+COLOR="RED"
+>f91</FONT
+> is a tail-call while the inner one is
+not. If each self call in the body of a function is a tail-call, then this
+function is tail-recursive.
+
+</P
+><P
+>&#13;It is arguably that the single most important optimization performed by the
+ATS compiler is the translation of every self tail-call into a direct
+(local) jump. This optimization effectively turns every tail-recursive
+function into the equivalent of a loop, guaranteeing that a fixed amount of
+stack space is adequate for executing each call to the function.
+
+</P
+><P
+>&#13;Let us now see some examples that can help further illustrate the notion of
+tail-recursive call optimization. The following recursive function
+<FONT
+COLOR="RED"
+>sum1</FONT
+> sums up all the natural numbers less than or equal to a given
+integer parameter <FONT
+COLOR="RED"
+>n</FONT
+>:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN223"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun sum1 (n: int): int = if n &#62; 0 then n + sum1 (n-1) else 0
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;Clearly, <FONT
+COLOR="RED"
+>sum1</FONT
+> is not tail-recursive as the only self call in its
+body is not a tail-call.  The counterpart of <FONT
+COLOR="RED"
+>sum1</FONT
+> in C can
+essentially be given as follows:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN228"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>int sum1 (int n) {
+  return (n &#62; 0) ? n + sum1 (n-1) : 1 ;
+} // end of [sum1]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+When applied to an integer <FONT
+COLOR="RED"
+>n</FONT
+>, the following defined function
+<FONT
+COLOR="RED"
+>sum2</FONT
+> also sums up all the natural numbers less than or equal to
+<FONT
+COLOR="RED"
+>n</FONT
+>:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN233"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fn sum2 (n: int): int = let
+  fun loop (n: int, res: int): int =
+    if n &#62; 0 then loop (n-1, res + n) else res
+  // end of [loop]
+in
+  loop (n, 0)
+end // end of [sum2]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+The inner function <FONT
+COLOR="RED"
+>loop</FONT
+> in the definition of <FONT
+COLOR="RED"
+>sum2</FONT
+> is
+tail-recursive.  The stack space consumed by <FONT
+COLOR="RED"
+>loop</FONT
+> is constant,
+that is, it is independent of the values of the arguments of <FONT
+COLOR="RED"
+>loop</FONT
+>.
+Essentially, the ATS compiler translates the definition of <FONT
+COLOR="RED"
+>sum2</FONT
+>
+into the following C code:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN240"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>int sum2_loop (int n, int res) {
+  loop:
+  if (n &#62; 0) {
+    res = res + n ; n = n - 1; goto loop; 
+  } else {
+    // do nothing
+  }
+  return res ;
+}
+
+int sum2 (int n) { return sum2_loop (n, 0) ; }
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+</P
+><P
+>&#13;Translating <FONT
+COLOR="RED"
+>sum1</FONT
+> into <FONT
+COLOR="RED"
+>sum2</FONT
+> is a fairly straightforward
+process. However, it can be highly involved, sometimes, to turn a
+non-tail-recursive implementation into an equivalent one that is
+tail-recursive.
+
+</P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="c155.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="c245.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>The Program Entry Point: mainats</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="p34.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Mutual Tail-Recursion</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

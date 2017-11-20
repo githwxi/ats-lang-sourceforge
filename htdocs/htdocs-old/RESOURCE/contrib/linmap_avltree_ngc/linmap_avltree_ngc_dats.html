@@ -1,0 +1,920 @@
+<HTML>
+<HEAD>
+<STYLE TYPE="text/css">
+span.comment {color:787878;font-style:italic}
+span.extern  {color:A52A2A}
+span.keyword {color:000000;font-weight:bold}
+span.neuexp  {color:800080}
+span.staexp  {color:0000FF}
+span.dynexp  {color:E80000}
+span.prfexp  {color:009000}
+span.stacstdec  {text-decoration:none}
+span.stacstuse  {color:0000CF;text-decoration:underline}
+span.dyncstdec  {text-decoration:none}
+span.dyncstimp  {color:B80000;text-decoration:underline}
+span.dyncstuse  {color:B80000;text-decoration:underline}
+</STYLE>
+</HEAD>
+
+<BODY BGCOLOR="#E0E0E0" TEXT="#E80000">
+<PRE>
+<span class="comment">(*
+**
+** An implementation of functional maps based on AVL trees.
+**
+** Contributed by Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+** Time: August, 2009
+**
+*)</span>
+
+<span class="comment">//
+</span><span class="comment">// License: LGPL 3.0 (available at http://www.gnu.org/licenses/lgpl.txt)
+</span><span class="comment">//
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+** An implementation of doubly-linked AVL trees
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">ATS_DYNLOADFLAG 0</span> <span class="comment">// no dynamic loading
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">sortdef</span> <span class="staexp">t0p <span class="keyword">=</span> t@ype <span class="keyword">and</span> vt0p <span class="keyword">=</span> viewt@ype</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">absviewtype</span> <span class="staexp"><A name="477"><span class="stacstdec">map_vt</span></span></A> <span class="keyword">(</span>key<span class="keyword">:</span>t@ype<span class="keyword">,</span>itm<span class="keyword">:</span>viewt@ype+<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><A name="541"><span class="stacstdec">cmp <span class="keyword">(</span>key<span class="keyword">:</span>t@ype<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>key<span class="keyword">,</span> key<span class="keyword">)</span> <span class="keyword">-&lt;</span>cloref<span class="keyword">&gt;</span> Sgn</span></span></A>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">key<span class="keyword">:</span>t0p</span><span class="keyword">}</span>
+  <A name="607"><span class="dyncstdec">compare_key_key <span class="keyword">(</span>x1<span class="keyword">:</span> <span class="staexp">key</span><span class="keyword">,</span> x2<span class="keyword">:</span> <span class="staexp">key</span><span class="keyword">,</span> cmp<span class="keyword">:</span> <span class="staexp">cmp key</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">Sgn</span></span></A>
+<span class="comment">// end of [compare_key_key]
+</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">key</span><span class="keyword">}</span> compare_key_key <span class="keyword">(</span>x1<span class="keyword">,</span> x2<span class="keyword">,</span> cmp<span class="keyword">)</span> <span class="keyword">=</span> cmp <span class="keyword">(</span>x1<span class="keyword">,</span> x2<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="keyword">}</span>
+<A name="787"><span class="dyncstdec">linmap_empty <span class="staexp"><span class="keyword">{</span>key<span class="keyword">:</span>t0p<span class="keyword">;</span>itm<span class="keyword">:</span>vt0p<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">map_vt <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">)</span></span></span></A>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="keyword">}</span>
+<A name="857"><span class="dyncstdec">linmap_empty_free <span class="staexp"><span class="keyword">{</span>key<span class="keyword">:</span>t0p<span class="keyword">;</span>itm<span class="keyword">:</span>vt0p<span class="keyword">}</span></span>
+  <span class="keyword">(</span>m<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>map_vt <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">)</span> &gt;&gt; opt <span class="keyword">(</span>map_vt <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">)</span><span class="keyword">,</span> tag<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>tag<span class="keyword">:</span>two<span class="keyword">]</span> int tag</span></span></A>
+<span class="comment">// end of [linmap_empty_free]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="keyword">}</span>
+<A name="1037"><span class="dyncstdec">linmap_is_empty <span class="staexp"><span class="keyword">{</span>key<span class="keyword">:</span>t0p<span class="keyword">;</span>itm<span class="keyword">:</span>vt0p<span class="keyword">}</span></span> <span class="keyword">(</span>m<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>map_vt <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></A>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="keyword">}</span>
+<A name="1118"><span class="dyncstdec">linmap_isnot_empty <span class="staexp"><span class="keyword">{</span>key<span class="keyword">:</span>t0p<span class="keyword">;</span>itm<span class="keyword">:</span>vt0p<span class="keyword">}</span></span> <span class="keyword">(</span>m<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>map_vt <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></A>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// this is O(1)-time
+</span><span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">key<span class="keyword">:</span>t0p</span><span class="keyword">;</span><span class="staexp">itm<span class="keyword">:</span>vt0p</span><span class="keyword">}</span> <A name="1260"><span class="dyncstdec">linmap_height <span class="keyword">(</span>m<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>map_vt <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">Nat</span></span></A>
+
+<span class="comment">// this is O(n)-time
+</span><span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">key<span class="keyword">:</span>t0p</span><span class="keyword">;</span><span class="staexp">itm<span class="keyword">:</span>vt0p</span><span class="keyword">}</span> <A name="1356"><span class="dyncstdec">linmap_size <span class="keyword">(</span>m<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>map_vt <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">Nat</span></span></A>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">viewtypedef</span> <span class="staexp"><A name="1433"><span class="stacstdec">avlnode <span class="keyword">(</span>
+  key<span class="keyword">:</span>t@ype<span class="keyword">,</span> itm<span class="keyword">:</span>viewt@ype<span class="keyword">,</span> height<span class="keyword">:</span>int<span class="keyword">,</span> left<span class="keyword">:</span>addr<span class="keyword">,</span> right<span class="keyword">:</span>addr<span class="keyword">,</span> parent<span class="keyword">:</span>addr
+<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">@{</span>
+  key<span class="keyword">=</span> key<span class="keyword">,</span> itm<span class="keyword">=</span> itm
+<span class="keyword">,</span> height<span class="keyword">=</span> int height
+<span class="keyword">,</span> left<span class="keyword">=</span> ptr left<span class="keyword">,</span> right<span class="keyword">=</span> ptr right
+<span class="keyword">,</span> parent<span class="keyword">=</span> ptr parent
+<span class="keyword">}</span></span></span></A> <span class="comment">// end of [avlnode]
+</span>
+<span class="keyword">viewtypedef</span> <span class="staexp"><A name="1658"><span class="stacstdec">avlnode <span class="keyword">(</span>
+  key<span class="keyword">:</span>t@ype<span class="keyword">,</span> itm<span class="keyword">:</span>viewt@ype
+<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">@{</span>
+  key<span class="keyword">=</span> key<span class="keyword">,</span> itm<span class="keyword">=</span> itm
+<span class="keyword">,</span> height<span class="keyword">=</span> int?
+<span class="keyword">,</span> left<span class="keyword">=</span> ptr?<span class="keyword">,</span> right<span class="keyword">=</span> ptr?
+<span class="keyword">,</span> parent<span class="keyword">=</span> ptr?
+<span class="keyword">}</span></span></span></A> <span class="comment">// end of [avlnode]
+</span>
+<span class="keyword">typedef</span>
+<span class="staexp"><A name="1810"><span class="stacstdec">avlnode0 <span class="keyword">(</span>key<span class="keyword">:</span>t@ype<span class="keyword">,</span>itm<span class="keyword">:</span>viewt@ype<span class="keyword">)</span> <span class="keyword">=</span> avlnode <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">)</span>?</span></span></A>
+<span class="comment">// end of [avlnode0]
+</span>
+<span class="keyword">dataview</span>
+<span class="prfexp"><span class="staexp"><A name="1898"><span class="stacstdec">avltree_v <span class="keyword">(</span>
+  key <span class="keyword">:</span> t@ype
+<span class="keyword">,</span> itm <span class="keyword">:</span> viewt@ype+
+<span class="keyword">,</span> int  <span class="comment">// height
+</span><span class="keyword">,</span> addr <span class="comment">// parent
+</span><span class="keyword">,</span> addr <span class="comment">// self
+</span><span class="keyword">)</span></span></span></A> <span class="keyword">=</span> <span class="comment">(* view for doubly-linked AVL trees *)</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">h<span class="keyword">,</span>hl<span class="keyword">,</span>hr<span class="keyword">:</span>nat</span> <span class="keyword">|</span>
+     <span class="staexp">hl &lt;= hr+1</span><span class="keyword">;</span> <span class="staexp">hr &lt;= hl+1</span><span class="keyword">;</span> <span class="staexp">h==max<span class="keyword">(</span>hl<span class="keyword">,</span>hr<span class="keyword">)</span>+1</span><span class="keyword">}</span>
+    <span class="keyword">{</span><span class="staexp">lft<span class="keyword">,</span>rgh<span class="keyword">,</span>pnt<span class="keyword">:</span>addr</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">slf<span class="keyword">:</span>addr</span> <span class="keyword">|</span> <span class="staexp">slf &lt;&gt; null</span><span class="keyword">}</span>
+    B <span class="staexp"><span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h<span class="keyword">,</span> pnt<span class="keyword">,</span> slf<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>
+      avlnode <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h<span class="keyword">,</span> lft<span class="keyword">,</span> rgh<span class="keyword">,</span> pnt<span class="keyword">)</span> @ slf
+    <span class="keyword">,</span> avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> hl<span class="keyword">,</span> slf<span class="keyword">,</span> lft<span class="keyword">)</span><span class="keyword">,</span> avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> hr<span class="keyword">,</span> slf<span class="keyword">,</span> rgh<span class="keyword">)</span>
+    <span class="keyword">)</span></span> <span class="comment">// end of [B]
+</span>  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">pnt<span class="keyword">:</span>addr</span><span class="keyword">}</span> E <span class="staexp"><span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> 0<span class="keyword">,</span> pnt<span class="keyword">,</span> null<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">)</span></span></span>
+<span class="comment">// end of [dataview avltree_v]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span><span class="keyword">{</span><span class="staexp">key<span class="keyword">:</span>t0p</span><span class="keyword">;</span><span class="staexp">itm<span class="keyword">:</span>vt0p</span><span class="keyword">}</span>
+  avltree_height_get <span class="staexp"><span class="keyword">{</span>h<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>pnt<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>slf<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h<span class="keyword">,</span> pnt<span class="keyword">,</span> slf<span class="keyword">)</span></span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr slf</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int h</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> p &lt;&gt; null <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">B <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span> <span class="keyword">=</span> pf</span>
+    <span class="keyword">val</span> h <span class="keyword">=</span> p<span class="keyword">-&gt;</span>height
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf := B <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    h
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf</span><span class="keyword">;</span> <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf := E <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>pnt<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    0
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="comment">// end of [avltree_height_get]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span><span class="keyword">{</span><span class="staexp">key<span class="keyword">:</span>t0p</span><span class="keyword">;</span><span class="staexp">itm<span class="keyword">:</span>vt0p</span><span class="keyword">}</span> avltree_parent_set
+  <span class="staexp"><span class="keyword">{</span>h<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>pnt0<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>slf<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>pnt1<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h<span class="keyword">,</span> pnt0<span class="keyword">,</span> slf<span class="keyword">)</span> &gt;&gt; avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h<span class="keyword">,</span> pnt1<span class="keyword">,</span> slf<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr slf</span><span class="keyword">,</span> pp1<span class="keyword">:</span> <span class="staexp">ptr pnt1</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> p &lt;&gt; null <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">B <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span> <span class="keyword">=</span> pf</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>parent := pp1
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf := B <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="comment">// nothing
+</span>  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf</span><span class="keyword">;</span> <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf := E <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>pnt1<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="comment">// nothing
+</span>  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="comment">// end of [avltree_parent_set]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+** left rotation for restoring height invariant
+*)</span>
+<span class="keyword">fn</span><span class="keyword">{</span><span class="staexp">key<span class="keyword">:</span>t0p</span><span class="keyword">;</span><span class="staexp">itm<span class="keyword">:</span>vt0p</span><span class="keyword">}</span> avltree_lrotate
+  <span class="staexp"><span class="keyword">{</span>h<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>hl<span class="keyword">,</span>hr<span class="keyword">:</span>nat <span class="keyword">|</span> hl+2 == hr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>slf<span class="keyword">:</span>anz<span class="keyword">;</span>lft<span class="keyword">,</span>rgh<span class="keyword">,</span>pnt<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf_at<span class="keyword">:</span> <span class="staexp">avlnode <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h<span class="keyword">,</span> lft<span class="keyword">,</span> rgh<span class="keyword">,</span> pnt<span class="keyword">)</span> @ slf</span></span>
+  <span class="keyword">,</span> <span class="prfexp">pf_l<span class="keyword">:</span> <span class="staexp">avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> hl<span class="keyword">,</span> slf<span class="keyword">,</span> lft<span class="keyword">)</span></span></span><span class="keyword">,</span> <span class="prfexp">pf_r<span class="keyword">:</span> <span class="staexp">avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> hr<span class="keyword">,</span> slf<span class="keyword">,</span> rgh<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr slf</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>h<span class="keyword">:</span>int <span class="keyword">|</span> hr &lt;= h<span class="keyword">;</span> h &lt;= hr+1<span class="keyword">]</span> <span class="keyword">[</span>slf<span class="keyword">:</span>anz<span class="keyword">]</span> <span class="keyword">(</span>avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h<span class="keyword">,</span> pnt<span class="keyword">,</span> slf<span class="keyword">)</span> <span class="keyword">|</span> ptr slf<span class="keyword">)</span></span>
+  <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> pp <span class="keyword">=</span> p<span class="keyword">-&gt;</span>parent
+  <span class="keyword">val</span> p_l <span class="keyword">=</span> p<span class="keyword">-&gt;</span>left <span class="keyword">and</span> p_r <span class="keyword">=</span> p<span class="keyword">-&gt;</span>right
+  <span class="keyword">prval</span> <span class="prfexp">B <span class="keyword">(</span>pf_r_at<span class="keyword">,</span> pf_r_l<span class="keyword">,</span> pf_r_r<span class="keyword">)</span> <span class="keyword">=</span> pf_r</span>
+  <span class="keyword">val</span> p_r_l <span class="keyword">=</span> p_r<span class="keyword">-&gt;</span>left <span class="keyword">and</span> p_r_r <span class="keyword">=</span> p_r<span class="keyword">-&gt;</span>right
+  <span class="keyword">val</span> hrl <span class="keyword">=</span> avltree_height_get <span class="keyword">(</span><span class="prfexp">pf_r_l</span> <span class="keyword">|</span> p_r_l<span class="keyword">)</span>
+  <span class="keyword">val</span> hrr <span class="keyword">=</span> avltree_height_get <span class="keyword">(</span><span class="prfexp">pf_r_r</span> <span class="keyword">|</span> p_r_r<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> hrl &lt;= hrr <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_r<span class="keyword">-&gt;</span>height := hrl+2
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_r<span class="keyword">-&gt;</span>parent := pp
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_r<span class="keyword">-&gt;</span>left := p
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>height := hrl+1
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>parent := p_r
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>right := p_r_l
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> avltree_parent_set&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf_r_l</span> <span class="keyword">|</span> p_r_l<span class="keyword">,</span> p<span class="keyword">)</span>
+    <span class="keyword">prval</span> <span class="prfexp">pf_l <span class="keyword">=</span> B <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r_l<span class="keyword">)</span> <span class="keyword">and</span> pf_r <span class="keyword">=</span> pf_r_r</span>
+  <span class="keyword">in</span>
+    <span class="keyword">(</span><span class="prfexp">B <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>pf_r_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span></span> <span class="keyword">|</span> p_r<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span> <span class="comment">// [hrl &gt; hrr]: deep rotation
+</span>    <span class="keyword">val</span> hr <span class="keyword">=</span> p_r<span class="keyword">-&gt;</span>height
+    <span class="keyword">prval</span> <span class="prfexp">B <span class="keyword">(</span>pf_r_l_at<span class="keyword">,</span> pf_r_l_l<span class="keyword">,</span> pf_r_l_r<span class="keyword">)</span> <span class="keyword">=</span> pf_r_l</span>
+    <span class="keyword">val</span> p_r_l_l <span class="keyword">=</span> p_r_l<span class="keyword">-&gt;</span>left <span class="keyword">and</span> p_r_l_r <span class="keyword">=</span> p_r_l<span class="keyword">-&gt;</span>right
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_r_l<span class="keyword">-&gt;</span>height := hr
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_r_l<span class="keyword">-&gt;</span>parent := pp
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_r_l<span class="keyword">-&gt;</span>left := p
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_r_l<span class="keyword">-&gt;</span>right := p_r
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>height := hrl
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>parent := p_r_l
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>right := p_r_l_l
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_r<span class="keyword">-&gt;</span>height := hrl
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_r<span class="keyword">-&gt;</span>parent := p_r_l
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_r<span class="keyword">-&gt;</span>left := p_r_l_r
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> avltree_parent_set&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf_r_l_l</span> <span class="keyword">|</span> p_r_l_l<span class="keyword">,</span> p<span class="keyword">)</span>
+    <span class="keyword">prval</span> <span class="prfexp">pf_l <span class="keyword">=</span> B <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r_l_l<span class="keyword">)</span></span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> avltree_parent_set&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf_r_l_r</span> <span class="keyword">|</span> p_r_l_r<span class="keyword">,</span> p_r<span class="keyword">)</span>
+    <span class="keyword">prval</span> <span class="prfexp">pf_r <span class="keyword">=</span> B <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>pf_r_at<span class="keyword">,</span> pf_r_l_r<span class="keyword">,</span> pf_r_r<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="keyword">(</span><span class="prfexp">B <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>pf_r_l_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span></span> <span class="keyword">|</span> p_r_l<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">(* end of [if] *)</span>
+<span class="keyword">end</span> <span class="comment">// end of [avltree_lrotate]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+** right rotation for restoring height invariant
+*)</span>
+<span class="keyword">fn</span><span class="keyword">{</span><span class="staexp">key<span class="keyword">:</span>t0p</span><span class="keyword">;</span><span class="staexp">itm<span class="keyword">:</span>vt0p</span><span class="keyword">}</span> avltree_rrotate
+  <span class="staexp"><span class="keyword">{</span>h<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>hl<span class="keyword">,</span>hr<span class="keyword">:</span>nat <span class="keyword">|</span> hl == hr+2<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>slf<span class="keyword">:</span>anz<span class="keyword">;</span>lft<span class="keyword">,</span>rgh<span class="keyword">,</span>pnt<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf_at<span class="keyword">:</span> <span class="staexp">avlnode <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h<span class="keyword">,</span> lft<span class="keyword">,</span> rgh<span class="keyword">,</span> pnt<span class="keyword">)</span> @ slf</span></span>
+  <span class="keyword">,</span> <span class="prfexp">pf_l<span class="keyword">:</span> <span class="staexp">avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> hl<span class="keyword">,</span> slf<span class="keyword">,</span> lft<span class="keyword">)</span></span></span><span class="keyword">,</span> <span class="prfexp">pf_r<span class="keyword">:</span> <span class="staexp">avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> hr<span class="keyword">,</span> slf<span class="keyword">,</span> rgh<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr slf</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>h<span class="keyword">:</span>int <span class="keyword">|</span> hl &lt;= h<span class="keyword">;</span> h &lt;= hl+1<span class="keyword">]</span> <span class="keyword">[</span>slf<span class="keyword">:</span>anz<span class="keyword">]</span> <span class="keyword">(</span>avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h<span class="keyword">,</span> pnt<span class="keyword">,</span> slf<span class="keyword">)</span> <span class="keyword">|</span> ptr slf<span class="keyword">)</span></span>
+  <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> pp <span class="keyword">=</span> p<span class="keyword">-&gt;</span>parent
+  <span class="keyword">val</span> p_l <span class="keyword">=</span> p<span class="keyword">-&gt;</span>left <span class="keyword">and</span> p_r <span class="keyword">=</span> p<span class="keyword">-&gt;</span>right
+  <span class="keyword">prval</span> <span class="prfexp">B <span class="keyword">(</span>pf_l_at<span class="keyword">,</span> pf_l_l<span class="keyword">,</span> pf_l_r<span class="keyword">)</span> <span class="keyword">=</span> pf_l</span>
+  <span class="keyword">val</span> p_l_l <span class="keyword">=</span> p_l<span class="keyword">-&gt;</span>left <span class="keyword">and</span> p_l_r <span class="keyword">=</span> p_l<span class="keyword">-&gt;</span>right
+  <span class="keyword">val</span> hll <span class="keyword">=</span> avltree_height_get <span class="keyword">(</span><span class="prfexp">pf_l_l</span> <span class="keyword">|</span> p_l_l<span class="keyword">)</span>
+  <span class="keyword">val</span> hlr <span class="keyword">=</span> avltree_height_get <span class="keyword">(</span><span class="prfexp">pf_l_r</span> <span class="keyword">|</span> p_l_r<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> hll &gt;= hlr <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_l<span class="keyword">-&gt;</span>height := hlr+2
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_l<span class="keyword">-&gt;</span>parent := pp
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_l<span class="keyword">-&gt;</span>right := p
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>height := hlr+1
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>parent := p_l
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>left := p_l_r
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> avltree_parent_set&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf_l_r</span> <span class="keyword">|</span> p_l_r<span class="keyword">,</span> p<span class="keyword">)</span>
+    <span class="keyword">prval</span> <span class="prfexp">pf_l <span class="keyword">=</span> pf_l_l <span class="keyword">and</span> pf_r <span class="keyword">=</span> B <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l_r<span class="keyword">,</span> pf_r<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="keyword">(</span><span class="prfexp">B <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>pf_l_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span></span> <span class="keyword">|</span> p_l<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span> <span class="comment">// [hll &lt; hlr]: deep rotation
+</span>    <span class="keyword">val</span> hl <span class="keyword">=</span> p_l<span class="keyword">-&gt;</span>height
+    <span class="keyword">prval</span> <span class="prfexp">B <span class="keyword">(</span>pf_l_r_at<span class="keyword">,</span> pf_l_r_l<span class="keyword">,</span> pf_l_r_r<span class="keyword">)</span> <span class="keyword">=</span> pf_l_r</span>
+    <span class="keyword">val</span> p_l_r_l <span class="keyword">=</span> p_l_r<span class="keyword">-&gt;</span>left <span class="keyword">and</span> p_l_r_r <span class="keyword">=</span> p_l_r<span class="keyword">-&gt;</span>right
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_l_r<span class="keyword">-&gt;</span>height := hl
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_l_r<span class="keyword">-&gt;</span>parent := pp
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_l_r<span class="keyword">-&gt;</span>left := p_l
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_l_r<span class="keyword">-&gt;</span>right := p
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_l<span class="keyword">-&gt;</span>height := hlr
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_l<span class="keyword">-&gt;</span>parent := p_l_r
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_l<span class="keyword">-&gt;</span>right := p_l_r_l
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>height := hlr
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>parent := p_l_r
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>left := p_l_r_r
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> avltree_parent_set&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf_l_r_l</span> <span class="keyword">|</span> p_l_r_l<span class="keyword">,</span> p_l<span class="keyword">)</span>
+    <span class="keyword">prval</span> <span class="prfexp">pf_l <span class="keyword">=</span> B <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>pf_l_at<span class="keyword">,</span> pf_l_l<span class="keyword">,</span> pf_l_r_l<span class="keyword">)</span></span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> avltree_parent_set&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf_l_r_r</span> <span class="keyword">|</span> p_l_r_r<span class="keyword">,</span> p<span class="keyword">)</span>
+    <span class="keyword">prval</span> <span class="prfexp">pf_r <span class="keyword">=</span> B <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l_r_r<span class="keyword">,</span> pf_r<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="keyword">(</span><span class="prfexp">B <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>pf_l_r_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span></span> <span class="keyword">|</span> p_l_r<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">(* end of [if] *)</span>
+<span class="keyword">end</span> <span class="comment">// end of [avltree_rrotate]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">dataview</span> <span class="prfexp"><span class="staexp"><A name="7276"><span class="stacstdec">avldiff_v <span class="keyword">(</span>
+  key <span class="keyword">:</span> t@ype
+<span class="keyword">,</span> itm <span class="keyword">:</span> viewt@ype+
+<span class="keyword">,</span> int  <span class="comment">// height: for termination metrics
+</span><span class="keyword">,</span> int  <span class="comment">// the height of the missing avltree
+</span><span class="keyword">,</span> addr <span class="comment">// child: the root of the missing avltree
+</span><span class="keyword">,</span> int  <span class="comment">// direction: left(0) or right(1)
+</span><span class="keyword">,</span> addr <span class="comment">// root
+</span><span class="keyword">,</span> addr <span class="comment">// root parent
+</span><span class="keyword">,</span> addr <span class="comment">// self
+</span><span class="keyword">)</span></span></span></A> <span class="keyword">=</span> <span class="comment">(* view for an avltree minus a sub avltree *)</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">n<span class="keyword">,</span>h<span class="keyword">:</span>nat</span> <span class="keyword">|</span> <span class="staexp">h &lt;= n</span><span class="keyword">}</span>
+    <span class="keyword">{</span><span class="staexp">hl<span class="keyword">,</span>hr<span class="keyword">:</span>nat</span> <span class="keyword">|</span> <span class="staexp">hl &lt;= hr+1</span><span class="keyword">;</span> <span class="staexp">hr &lt;= hl+1</span><span class="keyword">;</span> <span class="staexp">h==max<span class="keyword">(</span>hl<span class="keyword">,</span>hr<span class="keyword">)</span>+1</span><span class="keyword">}</span>
+    <span class="keyword">{</span><span class="staexp">lft<span class="keyword">,</span>rgh<span class="keyword">,</span>pnt<span class="keyword">:</span>addr</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">dir<span class="keyword">:</span>two</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">rt<span class="keyword">,</span>rtp<span class="keyword">:</span>addr</span><span class="keyword">}</span>
+    <span class="keyword">{</span><span class="staexp">slf<span class="keyword">:</span>addr</span> <span class="keyword">|</span> <span class="staexp">slf &lt;&gt; null</span><span class="keyword">}</span>
+    B1L <span class="staexp"><span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> n<span class="keyword">,</span> hl<span class="keyword">,</span> lft<span class="keyword">,</span> 0<span class="keyword">,</span> rt<span class="keyword">,</span> rtp<span class="keyword">,</span> slf<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>
+      avlnode <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h<span class="keyword">,</span> lft<span class="keyword">,</span> rgh<span class="keyword">,</span> pnt<span class="keyword">)</span> @ slf
+    <span class="keyword">,</span> avldiff_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> n<span class="keyword">,</span> h<span class="keyword">,</span> slf<span class="keyword">,</span> dir<span class="keyword">,</span> rt<span class="keyword">,</span> rtp<span class="keyword">,</span> pnt<span class="keyword">)</span><span class="keyword">,</span> avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> hr<span class="keyword">,</span> slf<span class="keyword">,</span> rgh<span class="keyword">)</span>
+    <span class="keyword">)</span></span> <span class="comment">// end of [B1L]
+</span>  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">n<span class="keyword">,</span>h<span class="keyword">:</span>nat</span> <span class="keyword">|</span> <span class="staexp">h &lt;= n</span><span class="keyword">}</span>
+    <span class="keyword">{</span><span class="staexp">hl<span class="keyword">,</span>hr<span class="keyword">:</span>nat</span> <span class="keyword">|</span> <span class="staexp">hl &lt;= hr+1</span><span class="keyword">;</span> <span class="staexp">hr &lt;= hl+1</span><span class="keyword">;</span> <span class="staexp">h==max<span class="keyword">(</span>hl<span class="keyword">,</span>hr<span class="keyword">)</span>+1</span><span class="keyword">}</span>
+    <span class="keyword">{</span><span class="staexp">lft<span class="keyword">,</span>rgh<span class="keyword">,</span>pnt<span class="keyword">:</span>addr</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">dir<span class="keyword">:</span>two</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">rt<span class="keyword">,</span>rtp<span class="keyword">:</span>addr</span><span class="keyword">}</span>
+    <span class="keyword">{</span><span class="staexp">slf<span class="keyword">:</span>addr</span> <span class="keyword">|</span> <span class="staexp">slf &lt;&gt; null</span><span class="keyword">}</span>
+    B1R <span class="staexp"><span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> n<span class="keyword">,</span> hr<span class="keyword">,</span> rgh<span class="keyword">,</span> 1<span class="keyword">,</span> rt<span class="keyword">,</span> rtp<span class="keyword">,</span> slf<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>
+      avlnode <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h<span class="keyword">,</span> lft<span class="keyword">,</span> rgh<span class="keyword">,</span> pnt<span class="keyword">)</span> @ slf
+    <span class="keyword">,</span> avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> hl<span class="keyword">,</span> slf<span class="keyword">,</span> lft<span class="keyword">)</span><span class="keyword">,</span> avldiff_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> n<span class="keyword">,</span> h<span class="keyword">,</span> slf<span class="keyword">,</span> dir<span class="keyword">,</span> rt<span class="keyword">,</span> rtp<span class="keyword">,</span> pnt<span class="keyword">)</span>
+    <span class="keyword">)</span></span> <span class="comment">// end of [B1R]
+</span>  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">h<span class="keyword">:</span>nat</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">chld<span class="keyword">:</span>addr</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">dir<span class="keyword">:</span>two</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">slf<span class="keyword">:</span>addr</span><span class="keyword">}</span>
+    E1 <span class="staexp"><span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h<span class="keyword">,</span> h<span class="keyword">,</span> chld<span class="keyword">,</span> dir<span class="keyword">,</span> chld<span class="keyword">,</span> slf<span class="keyword">,</span> slf<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">)</span></span></span>
+<span class="comment">// end of [avldiff_v]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">prfun</span> <span class="prfexp">avldiff_avltree_join <span class="staexp"><span class="keyword">{</span>key<span class="keyword">:</span>t0p<span class="keyword">;</span>itm<span class="keyword">:</span>vt0p<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>h<span class="keyword">:</span>nat <span class="keyword">|</span> h &lt;= n<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>chld<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>dir<span class="keyword">:</span>two<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>rt<span class="keyword">,</span>rtp<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>slf<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n-h<span class="keyword">&gt;.</span></span> <span class="keyword">(</span>
+    fpf<span class="keyword">:</span> <span class="staexp">avldiff_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> n<span class="keyword">,</span> h<span class="keyword">,</span> chld<span class="keyword">,</span> dir<span class="keyword">,</span> rt<span class="keyword">,</span> rtp<span class="keyword">,</span> slf<span class="keyword">)</span></span>
+  <span class="keyword">,</span> pf0<span class="keyword">:</span> <span class="staexp">avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h<span class="keyword">,</span> slf<span class="keyword">,</span> chld<span class="keyword">)</span></span> <span class="comment">// view for the missing avltree
+</span>  <span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">prf</span><span class="keyword">&gt;</span> <span class="staexp">avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> n<span class="keyword">,</span> rtp<span class="keyword">,</span> rt<span class="keyword">)</span></span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> fpf <span class="keyword">of</span>
+  <span class="keyword">|</span> B1L <span class="keyword">(</span>pf_at<span class="keyword">,</span> fpf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span> <span class="keyword">=&gt;</span> avldiff_avltree_join <span class="keyword">(</span>fpf_l<span class="keyword">,</span> B <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf0<span class="keyword">,</span> pf_r<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">|</span> B1R <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> fpf_r<span class="keyword">)</span> <span class="keyword">=&gt;</span> avldiff_avltree_join <span class="keyword">(</span>fpf_r<span class="keyword">,</span> B <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf0<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">|</span> E1 <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> pf0</span>
+<span class="comment">// end of [avldiff_avltree_join]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">prfun</span> <span class="prfexp">avldiff_takeout <span class="staexp"><span class="keyword">{</span>key<span class="keyword">:</span>t0p<span class="keyword">;</span>itm<span class="keyword">:</span>vt0p<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>h<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>chld<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>dir<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>rt<span class="keyword">,</span>rtp<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>slf<span class="keyword">:</span>addr <span class="keyword">|</span> slf &lt;&gt; rtp<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;&gt;.</span></span> <span class="keyword">(</span>
+    fpf<span class="keyword">:</span> <span class="staexp">avldiff_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> n<span class="keyword">,</span> h<span class="keyword">,</span> chld<span class="keyword">,</span> dir<span class="keyword">,</span> rt<span class="keyword">,</span> rtp<span class="keyword">,</span> slf<span class="keyword">)</span></span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">prf</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">[</span>h0<span class="keyword">:</span>int<span class="keyword">;</span>lft<span class="keyword">,</span>rgh<span class="keyword">,</span>pnt<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>
+    avlnode <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h0<span class="keyword">,</span> lft<span class="keyword">,</span> rgh<span class="keyword">,</span> pnt<span class="keyword">)</span> @ slf
+  <span class="keyword">,</span> avlnode <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h0<span class="keyword">,</span> lft<span class="keyword">,</span> rgh<span class="keyword">,</span> pnt<span class="keyword">)</span> @ slf
+      <span class="keyword">-&lt;</span>lin<span class="keyword">&gt;</span> avldiff_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> n<span class="keyword">,</span> h<span class="keyword">,</span> chld<span class="keyword">,</span> dir<span class="keyword">,</span> rt<span class="keyword">,</span> rtp<span class="keyword">,</span> slf<span class="keyword">)</span>
+  <span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">case+</span> fpf <span class="keyword">of</span>
+  <span class="keyword">|</span> B1L <span class="staexp"><span class="keyword">{</span><span class="keyword">..</span><span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>_<span class="keyword">,</span>h0<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span><span class="keyword">..</span><span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>lft<span class="keyword">,</span>rgh<span class="keyword">,</span>pnt<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span><span class="keyword">..</span><span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>rt<span class="keyword">,</span>rtp<span class="keyword">}</span></span> <span class="keyword">(</span>pf_at<span class="keyword">,</span> fpf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="staexp"><span class="keyword">#[</span>h0<span class="keyword">,</span>lft<span class="keyword">,</span>rgh<span class="keyword">,</span>pnt <span class="keyword">|</span></span> <span class="keyword">(</span>pf_at<span class="keyword">,</span> <span class="keyword">llam</span> <span class="keyword">(</span>pf_at<span class="keyword">)</span> <span class="keyword">=&gt;</span> B1L <span class="keyword">(</span>pf_at<span class="keyword">,</span> fpf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">]</span>
+    <span class="comment">// end of [B1L]
+</span>  <span class="keyword">|</span> B1R <span class="staexp"><span class="keyword">{</span><span class="keyword">..</span><span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>_<span class="keyword">,</span>h0<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span><span class="keyword">..</span><span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>lft<span class="keyword">,</span>rgh<span class="keyword">,</span>pnt<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span><span class="keyword">..</span><span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>rt<span class="keyword">,</span>rtp<span class="keyword">}</span></span> <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> fpf_r<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="staexp"><span class="keyword">#[</span>h0<span class="keyword">,</span>lft<span class="keyword">,</span>rgh<span class="keyword">,</span>pnt <span class="keyword">|</span></span> <span class="keyword">(</span>pf_at<span class="keyword">,</span> <span class="keyword">llam</span> <span class="keyword">(</span>pf_at<span class="keyword">)</span> <span class="keyword">=&gt;</span> B1R <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> fpf_r<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">]</span></span>
+    <span class="comment">// end of [B1R]
+</span><span class="comment">// end of [avldiff_takeout]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span><span class="keyword">{</span><span class="staexp">key<span class="keyword">:</span>t0p</span><span class="keyword">;</span><span class="staexp">itm<span class="keyword">:</span>vt0p</span><span class="keyword">}</span> avldiff_dir_get
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>h<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>chld<span class="keyword">:</span>addr <span class="keyword">|</span> chld &lt;&gt; null<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>dir<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>rt<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>slf<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">fpf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>avldiff_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> n<span class="keyword">,</span> h<span class="keyword">,</span> chld<span class="keyword">,</span> dir<span class="keyword">,</span> rt<span class="keyword">,</span> null<span class="keyword">,</span> slf<span class="keyword">)</span></span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr slf</span><span class="keyword">,</span> pc<span class="keyword">:</span> <span class="staexp">ptr chld</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp">int dir</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> dir <span class="keyword">=</span> <span class="keyword">if</span> p &lt;&gt; null <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span>pf_at<span class="keyword">,</span> ffpf<span class="keyword">)</span> <span class="keyword">=</span> avldiff_takeout <span class="keyword">(</span>fpf<span class="keyword">)</span></span>
+    <span class="keyword">val</span> dir <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">if</span> pc <span class="keyword">=</span> p<span class="keyword">-&gt;</span>left <span class="keyword">then</span> 0<span class="comment">(*left*)</span> <span class="keyword">else</span> 1<span class="comment">(*right*)</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fpf := ffpf <span class="keyword">(</span>pf_at<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    dir
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+    0 <span class="comment">// it is arbitrarily chosen (from {0,1})
+</span>  <span class="keyword">end</span> <span class="keyword">:</span> <span class="staexp">int</span>
+<span class="keyword">in</span>
+  __cast <span class="keyword">(</span>dir<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span> <span class="keyword">extern</span> <span class="keyword">castfn</span> <A name="10390"><span class="dyncstdec">__cast <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int dir</span></span></A> <span class="keyword">}</span>
+<span class="keyword">end</span> <span class="comment">// end of [avldiff_dir_get]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span><span class="keyword">{</span><span class="staexp">key<span class="keyword">:</span>t0p</span><span class="keyword">;</span><span class="staexp">itm<span class="keyword">:</span>vt0p</span><span class="keyword">}</span> avldiff_child_set
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>h<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>chld<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>dir<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>rt<span class="keyword">,</span>rtp<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>slf<span class="keyword">:</span>addr <span class="keyword">|</span> slf &lt;&gt; rtp<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>chld1<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">fpf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>avldiff_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> n<span class="keyword">,</span> h<span class="keyword">,</span> chld<span class="keyword">,</span> dir<span class="keyword">,</span> rt<span class="keyword">,</span> rtp<span class="keyword">,</span> slf<span class="keyword">)</span>
+           &gt;&gt; avldiff_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> n<span class="keyword">,</span> h<span class="keyword">,</span> chld1<span class="keyword">,</span> dir<span class="keyword">,</span> rt<span class="keyword">,</span> rtp<span class="keyword">,</span> slf<span class="keyword">)</span></span></span>
+    <span class="comment">// end of [fpf]
+</span>  <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr slf</span><span class="keyword">,</span> dir<span class="keyword">:</span> <span class="staexp">int dir</span><span class="keyword">,</span> pc1<span class="keyword">:</span> <span class="staexp">ptr chld1</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> dir <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">B1L <span class="keyword">(</span>pf_at<span class="keyword">,</span> fpf1<span class="keyword">,</span> pf2<span class="keyword">)</span> <span class="keyword">=</span> fpf</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>left := pc1
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fpf := B1L <span class="keyword">(</span>pf_at<span class="keyword">,</span> fpf1<span class="keyword">,</span> pf2<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="comment">// nothing
+</span>  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">B1R <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf1<span class="keyword">,</span> fpf2<span class="keyword">)</span> <span class="keyword">=</span> fpf</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>right := pc1
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fpf := B1R <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf1<span class="keyword">,</span> fpf2<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="comment">// nothing
+</span>  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="comment">// end of [avldiff_child_set]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span>
+<span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">key<span class="keyword">:</span>t0p</span><span class="keyword">;</span><span class="staexp">itm<span class="keyword">:</span>vt0p</span><span class="keyword">}</span>
+  <A name="11216"><span class="dyncstdec">avltree_split <span class="staexp"><span class="keyword">{</span>h0<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>rt<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h0<span class="keyword">,</span> null<span class="keyword">,</span> rt<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>ptr rt &gt;&gt; ptr slf</span><span class="keyword">,</span> k0<span class="keyword">:</span> <span class="staexp">key</span><span class="keyword">,</span> dir<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int 0 &gt;&gt; int dir</span><span class="keyword">,</span> cmp<span class="keyword">:</span> <span class="staexp">cmp key</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">#[</span>dir<span class="keyword">:</span>two<span class="keyword">;</span>slf<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">[</span>h1<span class="keyword">:</span>nat <span class="keyword">|</span> h1 &lt;= h0<span class="keyword">;</span>chld<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>
+    avldiff_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h0<span class="keyword">,</span> h1<span class="keyword">,</span> chld<span class="keyword">,</span> dir<span class="keyword">,</span> rt<span class="keyword">,</span> null<span class="keyword">,</span> slf<span class="keyword">)</span><span class="keyword">,</span> avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h1<span class="keyword">,</span> slf<span class="keyword">,</span> chld<span class="keyword">)</span>
+  <span class="keyword">|</span> ptr chld
+  <span class="keyword">)</span></span></span></A>
+<span class="comment">// end of [avltree_split]
+</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">}</span> avltree_split
+  <span class="staexp"><span class="keyword">{</span>h0<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>rt<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">,</span> k0<span class="keyword">,</span> dir<span class="keyword">,</span> cmp<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> loop <span class="staexp"><span class="keyword">{</span>h<span class="keyword">:</span>nat <span class="keyword">|</span> h &lt;= h0<span class="keyword">}</span></span>
+    <span class="staexp"><span class="keyword">{</span>chld<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>dir<span class="keyword">:</span>two<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>slf<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>h<span class="keyword">&gt;.</span></span> <span class="keyword">(</span>
+      <span class="prfexp">fpf<span class="keyword">:</span> <span class="staexp">avldiff_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h0<span class="keyword">,</span> h<span class="keyword">,</span> chld<span class="keyword">,</span> dir<span class="keyword">,</span> rt<span class="keyword">,</span> null<span class="keyword">,</span> slf<span class="keyword">)</span></span></span><span class="keyword">,</span>
+      <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h<span class="keyword">,</span> slf<span class="keyword">,</span> chld<span class="keyword">)</span></span></span>
+    <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>ptr slf &gt;&gt; ptr slf</span><span class="keyword">,</span> pc<span class="keyword">:</span> <span class="staexp">ptr chld</span><span class="keyword">,</span> dir<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int dir &gt;&gt; int dir</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">cloref</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">#[</span>dir<span class="keyword">:</span>two<span class="keyword">;</span>slf<span class="keyword">:</span>addr<span class="keyword">]</span>
+    <span class="keyword">[</span>h1<span class="keyword">:</span>nat <span class="keyword">|</span> h1 &lt;= h<span class="keyword">]</span> <span class="keyword">[</span>chld<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>
+    avldiff_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h0<span class="keyword">,</span> h1<span class="keyword">,</span> chld<span class="keyword">,</span> dir<span class="keyword">,</span> rt<span class="keyword">,</span> null<span class="keyword">,</span> slf<span class="keyword">)</span><span class="keyword">,</span> avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h1<span class="keyword">,</span> slf<span class="keyword">,</span> chld<span class="keyword">)</span>
+  <span class="keyword">|</span> ptr chld
+  <span class="keyword">)</span></span> <span class="keyword">=</span>
+  <span class="keyword">if</span> pc &lt;&gt; null <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">B <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span> <span class="keyword">=</span> pf</span>
+    <span class="keyword">val</span> sgn <span class="keyword">=</span> compare_key_key <span class="keyword">(</span>k0<span class="keyword">,</span> pc<span class="keyword">-&gt;</span>key<span class="keyword">,</span> cmp<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="keyword">if</span> sgn <span class="keyword">&lt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p := pc
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> dir := 0<span class="comment">(*left*)</span>
+      <span class="keyword">val</span> pc_l <span class="keyword">=</span> pc<span class="keyword">-&gt;</span>left
+    <span class="keyword">in</span>
+      loop <span class="keyword">(</span><span class="prfexp">B1L <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>pf_at<span class="keyword">,</span> fpf<span class="keyword">,</span> pf_r<span class="keyword">)</span></span><span class="keyword">,</span> <span class="prfexp">pf_l</span> <span class="keyword">|</span> p<span class="keyword">,</span> pc_l<span class="keyword">,</span> dir<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> sgn <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p := pc
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> dir := 1<span class="comment">(*right*)</span>
+      <span class="keyword">val</span> pc_r <span class="keyword">=</span> pc<span class="keyword">-&gt;</span>right
+    <span class="keyword">in</span>
+      loop <span class="keyword">(</span><span class="prfexp">B1R <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> fpf<span class="keyword">)</span></span><span class="keyword">,</span> <span class="prfexp">pf_r</span> <span class="keyword">|</span> p<span class="keyword">,</span> pc_r<span class="keyword">,</span> dir<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="comment">// sgn = 0
+</span>      <span class="keyword">(</span><span class="prfexp">fpf</span><span class="keyword">,</span> <span class="prfexp">B <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span></span> <span class="keyword">|</span> pc<span class="keyword">)</span>
+    <span class="comment">// end of [if]
+</span>  <span class="keyword">end</span> <span class="keyword">else</span>
+    <span class="keyword">(</span><span class="prfexp">fpf</span><span class="keyword">,</span> <span class="prfexp">pf</span> <span class="keyword">|</span> pc<span class="keyword">)</span>
+  <span class="comment">(* end of [if] *)</span>
+  <span class="keyword">val</span> pc <span class="keyword">=</span> p
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p := null
+  <span class="keyword">prval</span> <span class="prfexp">fpf <span class="keyword">=</span> E1 <span class="keyword">(</span><span class="keyword">)</span></span>
+<span class="keyword">in</span>
+  loop <span class="keyword">(</span><span class="prfexp">fpf</span><span class="keyword">,</span> <span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">,</span> pc<span class="keyword">,</span> dir<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [avltree_split]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">assume</span> <span class="staexp">map_vt <span class="keyword">(</span>key<span class="keyword">:</span>t0p<span class="keyword">,</span> itm<span class="keyword">:</span>vt0p<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">[</span>h<span class="keyword">:</span>nat<span class="keyword">;</span>slf<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h<span class="keyword">,</span> null<span class="keyword">,</span> slf<span class="keyword">)</span> <span class="keyword">|</span> ptr slf<span class="keyword">)</span></span>
+<span class="comment">// end of [map_vt]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="keyword">}</span> linmap_empty <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="prfexp">E <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>null<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span></span> <span class="keyword">|</span> null<span class="keyword">)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="keyword">}</span>
+  linmap_empty_free <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>m<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">viewtypedef</span> <span class="staexp"><A name="13119"><span class="stacstdec">map_vt <span class="keyword">=</span> map_vt <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">)</span></span></span></A> <span class="keyword">in</span>
+  <span class="keyword">if</span> m<span class="keyword">.</span>1 &lt;&gt; null <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> opt_some <span class="staexp"><span class="keyword">{</span>map_vt<span class="keyword">}</span></span> <span class="keyword">(</span>m<span class="keyword">)</span></span> <span class="keyword">in</span> 1
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> m<span class="keyword">.</span>0</span><span class="keyword">;</span> <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> opt_none <span class="staexp"><span class="keyword">{</span>map_vt<span class="keyword">}</span></span> <span class="keyword">(</span>m<span class="keyword">)</span></span> <span class="keyword">in</span> 0
+  <span class="keyword">end</span> <span class="comment">(* end of [if] *)</span>
+<span class="keyword">end</span> <span class="comment">(* end of [linmap_empty_free] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="keyword">}</span> linmap_is_empty <span class="keyword">(</span>m<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>m<span class="keyword">.</span>1 <span class="keyword">=</span> null<span class="keyword">)</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="keyword">}</span> linmap_isnot_empty <span class="keyword">(</span>m<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>m<span class="keyword">.</span>1 &lt;&gt; null<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">}</span>
+  linmap_height <span class="keyword">(</span>t<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span> <span class="keyword">val</span> p <span class="keyword">=</span> t<span class="keyword">.</span>1 <span class="keyword">in</span>
+  <span class="keyword">if</span> p &lt;&gt; null <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">B <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span> <span class="keyword">=</span> t<span class="keyword">.</span>0</span>
+    <span class="keyword">val</span> h <span class="keyword">=</span> p<span class="keyword">-&gt;</span>height
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> t<span class="keyword">.</span>0 := B <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    h
+  <span class="keyword">end</span> <span class="keyword">else</span> 0 <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">// end of [linmap_height]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">}</span>
+  linmap_size <span class="keyword">(</span>t<span class="keyword">)</span> <span class="keyword">=</span> aux <span class="keyword">(</span><span class="prfexp">t<span class="keyword">.</span>0</span> <span class="keyword">|</span> t<span class="keyword">.</span>1<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> aux <span class="staexp"><span class="keyword">{</span>h<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>pnt<span class="keyword">,</span>slf<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>h<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h<span class="keyword">,</span> pnt<span class="keyword">,</span> slf<span class="keyword">)</span></span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr slf</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">Nat</span> <span class="keyword">=</span>
+    <span class="keyword">if</span> p &lt;&gt; null <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">prval</span> <span class="prfexp">B <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span> <span class="keyword">=</span> pf</span>
+      <span class="keyword">val</span> res <span class="keyword">=</span> aux <span class="keyword">(</span><span class="prfexp">pf_l</span> <span class="keyword">|</span> p<span class="keyword">-&gt;</span>left<span class="keyword">)</span> + 1 + aux <span class="keyword">(</span><span class="prfexp">pf_r</span> <span class="keyword">|</span> p<span class="keyword">-&gt;</span>right<span class="keyword">)</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf := B <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span></span>
+    <span class="keyword">in</span>
+      res
+    <span class="keyword">end</span> <span class="keyword">else</span> 0 <span class="comment">// end of [if]
+</span>  <span class="comment">// end of [aux]
+</span><span class="keyword">}</span> <span class="comment">// end of [linmap_size]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">key<span class="keyword">,</span>itm<span class="keyword">:</span>t0p</span><span class="keyword">}</span>
+  <A name="14257"><span class="dyncstdec">linmap_search <span class="staexp"><span class="keyword">{</span>l_res<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf_res<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>itm? @ l_res &gt;&gt; disj_v <span class="keyword">(</span>itm? @ l_res<span class="keyword">,</span> itm @ l_res<span class="keyword">,</span> tag<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> m<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>map_vt <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">)</span></span>
+  <span class="keyword">,</span> k0<span class="keyword">:</span> <span class="staexp">key</span>
+  <span class="keyword">,</span> p_res<span class="keyword">:</span> <span class="staexp">ptr l_res</span>
+  <span class="keyword">,</span> cmp<span class="keyword">:</span> <span class="staexp">cmp key</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">#[</span>tag<span class="keyword">:</span>two<span class="keyword">]</span> int tag</span></span></A>
+<span class="comment">// end of [linmap_search]
+</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">}</span> linmap_search <span class="staexp"><span class="keyword">{</span>l_res<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf_res</span> <span class="keyword">|</span> m<span class="keyword">,</span> k0<span class="keyword">,</span> p_res<span class="keyword">,</span> cmp<span class="keyword">)</span> <span class="keyword">=</span> search <span class="keyword">(</span><span class="prfexp">m<span class="keyword">.</span>0</span><span class="keyword">,</span> <span class="prfexp">pf_res</span> <span class="keyword">|</span> m<span class="keyword">.</span>1<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">viewdef</span> <span class="staexp"><A name="14604"><span class="stacstdec">V0 <span class="keyword">=</span> itm? @ l_res</span></span></A> <span class="keyword">and</span> <span class="staexp"><A name="14626"><span class="stacstdec">V1 <span class="keyword">=</span> itm @ l_res</span></span></A>
+  <span class="keyword">fun</span> search <span class="staexp"><span class="keyword">{</span>h<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>pnt<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>slf<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>h<span class="keyword">&gt;.</span></span> <span class="keyword">(</span>
+      <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h<span class="keyword">,</span> pnt<span class="keyword">,</span> slf<span class="keyword">)</span></span></span><span class="keyword">,</span> <span class="prfexp">pf_res<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>V0 &gt;&gt; disj_v <span class="keyword">(</span>V0<span class="keyword">,</span> V1<span class="keyword">,</span> tag<span class="keyword">)</span></span></span>
+    <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr slf</span>
+    <span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">cloref</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">#[</span>tag<span class="keyword">:</span>two<span class="keyword">]</span> int tag</span> <span class="keyword">=</span>
+    <span class="keyword">if</span> p &lt;&gt; null <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">prval</span> <span class="prfexp">B <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span> <span class="keyword">=</span> pf</span>
+      <span class="keyword">val</span> sgn <span class="keyword">=</span> compare_key_key <span class="keyword">(</span>k0<span class="keyword">,</span> p<span class="keyword">-&gt;</span>key<span class="keyword">,</span> cmp<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> sgn <span class="keyword">&lt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> tag <span class="keyword">=</span> search <span class="keyword">(</span><span class="prfexp">pf_l</span><span class="keyword">,</span> <span class="prfexp">pf_res</span> <span class="keyword">|</span> p<span class="keyword">-&gt;</span>left<span class="keyword">)</span>
+        <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf := B <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span></span>
+      <span class="keyword">in</span>
+        tag
+      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> sgn <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> tag <span class="keyword">=</span> search <span class="keyword">(</span><span class="prfexp">pf_r</span><span class="keyword">,</span> <span class="prfexp">pf_res</span> <span class="keyword">|</span> p<span class="keyword">-&gt;</span>right<span class="keyword">)</span>
+        <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf := B <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span></span>
+      <span class="keyword">in</span>
+        tag
+      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>p_res := p<span class="keyword">-&gt;</span>itm
+        <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf := B <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span></span>
+        <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_res := InsRight_v <span class="staexp"><span class="keyword">{</span>V0<span class="keyword">,</span>V1<span class="keyword">}</span></span> <span class="keyword">(</span>pf_res<span class="keyword">)</span></span>
+      <span class="keyword">in</span>
+        1 <span class="comment">// item associated with the given key [k0] is found
+</span>      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_res := InsLeft_v <span class="staexp"><span class="keyword">{</span>V0<span class="keyword">,</span>V1<span class="keyword">}</span></span> <span class="keyword">(</span>pf_res<span class="keyword">)</span></span> <span class="keyword">in</span> 0
+    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">}</span> <span class="comment">// end of [linmap_search]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span>
+<span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">key<span class="keyword">:</span>t0p</span><span class="keyword">;</span><span class="staexp">itm<span class="keyword">:</span>vt0p</span><span class="keyword">}</span> <A name="15681"><span class="dyncstdec">balanceIns
+  <span class="staexp"><span class="keyword">{</span>n0<span class="keyword">,</span>h0<span class="keyword">:</span>nat <span class="keyword">|</span> h0 &lt;= n0<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>h1<span class="keyword">:</span>nat <span class="keyword">|</span> h0 &lt;= h1<span class="keyword">;</span> h1 &lt;= h0+1<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>chld0<span class="keyword">,</span>chld1<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>dir<span class="keyword">:</span>two<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>rt<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>slf<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">fpf<span class="keyword">:</span> <span class="staexp">avldiff_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> n0<span class="keyword">,</span> h0<span class="keyword">,</span> chld0<span class="keyword">,</span> dir<span class="keyword">,</span> rt<span class="keyword">,</span> null<span class="keyword">,</span> slf<span class="keyword">)</span></span></span>
+  <span class="keyword">,</span> <span class="prfexp">pf0<span class="keyword">:</span> <span class="staexp">avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h1<span class="keyword">,</span> slf<span class="keyword">,</span> chld1<span class="keyword">)</span></span></span> <span class="comment">// view for the missing avltree
+</span>  <span class="keyword">|</span> h0<span class="keyword">:</span> <span class="staexp">int h0</span><span class="keyword">,</span> pc0<span class="keyword">:</span> <span class="staexp">ptr chld0</span><span class="keyword">,</span> dir<span class="keyword">:</span> <span class="staexp">int dir</span><span class="keyword">,</span> pt<span class="keyword">:</span> <span class="staexp">ptr rt</span><span class="keyword">,</span> p<span class="keyword">:</span> <span class="staexp">ptr slf</span>
+  <span class="keyword">,</span> pc1<span class="keyword">:</span> <span class="staexp">ptr chld1</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>n1<span class="keyword">:</span>nat<span class="keyword">;</span>slf<span class="keyword">:</span>addr <span class="keyword">|</span> n0 &lt;= n1<span class="keyword">;</span> n1 &lt;= n0+1<span class="keyword">]</span> 
+    <span class="keyword">(</span>avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> n1<span class="keyword">,</span> null<span class="keyword">,</span> slf<span class="keyword">)</span> <span class="keyword">|</span> ptr slf<span class="keyword">)</span></span></span></A>
+<span class="comment">// end of [balanceIns]
+</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">}</span> balanceIns
+  <span class="keyword">(</span><span class="prfexp">fpf</span><span class="keyword">,</span> <span class="prfexp">pf0</span> <span class="keyword">|</span> h0<span class="keyword">,</span> pc0<span class="keyword">,</span> dir<span class="keyword">,</span> pt<span class="keyword">,</span> p<span class="keyword">,</span> pc1<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> p &lt;&gt; null <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> h1 <span class="keyword">=</span> avltree_height_get <span class="keyword">(</span><span class="prfexp">pf0</span> <span class="keyword">|</span> pc1<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+    <span class="keyword">|</span> _ <span class="keyword">when</span> h0 <span class="keyword">=</span> h1 <span class="keyword">=&gt;</span> <span class="keyword">(</span>
+        <span class="prfexp">avldiff_avltree_join <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>fpf<span class="keyword">,</span> pf0<span class="keyword">)</span></span> <span class="keyword">|</span> pt
+      <span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> avldiff_child_set&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">fpf</span> <span class="keyword">|</span> p<span class="keyword">,</span> dir<span class="keyword">,</span> pc1<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">(* end of [_ when ...] *)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+<span class="comment">(*
+        h1 = h0 + 1
+*)</span>
+      <span class="keyword">in</span>
+        <span class="keyword">if</span> dir <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+          <span class="keyword">prval</span> <span class="prfexp">B1L <span class="keyword">(</span>pf_at<span class="keyword">,</span> fpf1<span class="keyword">,</span> pf2<span class="keyword">)</span> <span class="keyword">=</span> fpf</span>
+          <span class="keyword">val</span> pp <span class="keyword">=</span> p<span class="keyword">-&gt;</span>parent
+          <span class="keyword">val</span> h0p <span class="keyword">=</span> p<span class="keyword">-&gt;</span>height
+          <span class="keyword">val</span> dirp <span class="keyword">=</span> avldiff_dir_get <span class="keyword">(</span><span class="prfexp">fpf1</span> <span class="keyword">|</span> pp<span class="keyword">,</span> p<span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>left := pc1
+          <span class="keyword">val</span> h0r <span class="keyword">=</span> avltree_height_get&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf2</span> <span class="keyword">|</span> p<span class="keyword">-&gt;</span>right<span class="keyword">)</span>
+        <span class="keyword">in</span>
+          <span class="keyword">if</span> h1 <span class="keyword">=</span> h0r + 2 <span class="keyword">then</span> <span class="keyword">let</span>
+            <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf0_new</span> <span class="keyword">|</span> p_new<span class="keyword">)</span> <span class="keyword">=</span>
+              avltree_rrotate&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf_at</span><span class="keyword">,</span> <span class="prfexp">pf0</span><span class="keyword">,</span> <span class="prfexp">pf2</span> <span class="keyword">|</span> p<span class="keyword">)</span>
+            <span class="comment">// end of [val]
+</span>          <span class="keyword">in</span>
+            balanceIns&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">fpf1</span><span class="keyword">,</span> <span class="prfexp">pf0_new</span> <span class="keyword">|</span> h0p<span class="keyword">,</span> p<span class="keyword">,</span> dirp<span class="keyword">,</span> pt<span class="keyword">,</span> pp<span class="keyword">,</span> p_new<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+            <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>height := max <span class="keyword">(</span>h1<span class="keyword">,</span> h0r<span class="keyword">)</span> + 1
+            <span class="keyword">prval</span> <span class="prfexp">pf0_new <span class="keyword">=</span> B <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf0<span class="keyword">,</span> pf2<span class="keyword">)</span></span>
+          <span class="keyword">in</span>
+            balanceIns&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">fpf1</span><span class="keyword">,</span> <span class="prfexp">pf0_new</span> <span class="keyword">|</span> h0p<span class="keyword">,</span> p<span class="keyword">,</span> dirp<span class="keyword">,</span> pt<span class="keyword">,</span> pp<span class="keyword">,</span> p<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>        <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+          <span class="keyword">prval</span> <span class="prfexp">B1R <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf1<span class="keyword">,</span> fpf2<span class="keyword">)</span> <span class="keyword">=</span> fpf</span>
+          <span class="keyword">val</span> pp <span class="keyword">=</span> p<span class="keyword">-&gt;</span>parent
+          <span class="keyword">val</span> h0p <span class="keyword">=</span> p<span class="keyword">-&gt;</span>height
+          <span class="keyword">val</span> dirp <span class="keyword">=</span> avldiff_dir_get <span class="keyword">(</span><span class="prfexp">fpf2</span> <span class="keyword">|</span> pp<span class="keyword">,</span> p<span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>right := pc1
+          <span class="keyword">val</span> h0l <span class="keyword">=</span> avltree_height_get&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf1</span> <span class="keyword">|</span> p<span class="keyword">-&gt;</span>left<span class="keyword">)</span>
+        <span class="keyword">in</span>
+          <span class="keyword">if</span> h1 <span class="keyword">=</span> h0l + 2 <span class="keyword">then</span> <span class="keyword">let</span>
+            <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf0_new</span> <span class="keyword">|</span> p_new<span class="keyword">)</span> <span class="keyword">=</span>
+              avltree_lrotate&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf_at</span><span class="keyword">,</span> <span class="prfexp">pf1</span><span class="keyword">,</span> <span class="prfexp">pf0</span> <span class="keyword">|</span> p<span class="keyword">)</span>
+            <span class="comment">// end of [val]
+</span>          <span class="keyword">in</span>
+            balanceIns&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">fpf2</span><span class="keyword">,</span> <span class="prfexp">pf0_new</span> <span class="keyword">|</span> h0p<span class="keyword">,</span> p<span class="keyword">,</span> dirp<span class="keyword">,</span> pt<span class="keyword">,</span> pp<span class="keyword">,</span> p_new<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+            <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>height := max <span class="keyword">(</span>h0l<span class="keyword">,</span> h1<span class="keyword">)</span> + 1
+            <span class="keyword">prval</span> <span class="prfexp">pf0_new <span class="keyword">=</span> B <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf1<span class="keyword">,</span> pf0<span class="keyword">)</span></span>
+          <span class="keyword">in</span>
+            balanceIns&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">fpf2</span><span class="keyword">,</span> <span class="prfexp">pf0_new</span> <span class="keyword">|</span> h0p<span class="keyword">,</span> p<span class="keyword">,</span> dirp<span class="keyword">,</span> pt<span class="keyword">,</span> pp<span class="keyword">,</span> p<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>        <span class="keyword">end</span> <span class="comment">(* end of [if] *)</span>
+      <span class="keyword">end</span> <span class="comment">(* end of [_] *)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">E1 <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fpf</span> <span class="keyword">in</span> <span class="keyword">(</span><span class="prfexp">pf0</span> <span class="keyword">|</span> pc1<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="comment">// end of [balanceIns]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span>
+<span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">key<span class="keyword">:</span>t0p</span><span class="keyword">;</span><span class="staexp">itm<span class="keyword">:</span>vt0p</span><span class="keyword">}</span>
+<A name="18354"><span class="dyncstdec">linmap_insert <span class="staexp"><span class="keyword">{</span>l_at<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf_at<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>avlnode <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">)</span> @ l_at &gt;&gt; option_v <span class="keyword">(</span>avlnode <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">)</span> @ l_at<span class="keyword">,</span> tag <span class="keyword">&gt;</span> 0<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> m<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>map_vt <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">)</span></span><span class="keyword">,</span> p_at<span class="keyword">:</span> <span class="staexp">ptr l_at</span><span class="keyword">,</span> cmp<span class="keyword">:</span> <span class="staexp">cmp key</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">#[</span>tag<span class="keyword">:</span>two<span class="keyword">]</span> int tag</span></span></A>
+<span class="comment">// end of [linmap_insert]
+</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">}</span>
+  linmap_insert <span class="staexp"><span class="keyword">{</span>l_at<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf_at</span> <span class="keyword">|</span> m<span class="keyword">,</span> p_at<span class="keyword">,</span> cmp<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">//
+</span>  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> lemma <span class="keyword">(</span>pf_at<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">extern</span> <span class="keyword">prfun</span> <span class="prfexp"><A name="18705"><span class="dyncstdec">lemma <span class="keyword">(</span>pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>avlnode <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">)</span> @ l_at</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">prf</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">[</span>l_at &lt;&gt; null<span class="keyword">]</span> void</span></span></span></A>
+  <span class="keyword">}</span></span> <span class="comment">// end of [prval]
+</span><span class="comment">//
+</span>  <span class="keyword">val</span> pt <span class="keyword">=</span> m<span class="keyword">.</span>1
+  <span class="keyword">var</span> p <span class="keyword">=</span> pt
+  <span class="keyword">val</span> k0 <span class="keyword">=</span> p_at<span class="keyword">-&gt;</span>key
+  <span class="keyword">var</span> dir<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> 0
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">fpf</span><span class="keyword">,</span> <span class="prfexp">pf0</span> <span class="keyword">|</span> pc0<span class="keyword">)</span> <span class="keyword">=</span> avltree_split <span class="keyword">(</span><span class="prfexp">m<span class="keyword">.</span>0</span> <span class="keyword">|</span> p<span class="keyword">,</span> k0<span class="keyword">,</span> dir<span class="keyword">,</span> cmp<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> pc0 &lt;&gt; null <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">pf <span class="keyword">=</span> avldiff_avltree_join <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>fpf<span class="keyword">,</span> pf0<span class="keyword">)</span></span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_at := Some_v <span class="keyword">(</span>pf_at<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    m<span class="keyword">.</span>0 := pf<span class="keyword">;</span> 1 <span class="comment">(*tag*)</span> <span class="comment">// no insertion is performed
+</span>  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf0</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_at<span class="keyword">-&gt;</span>height := 1
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_at<span class="keyword">-&gt;</span>parent := p
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_at<span class="keyword">-&gt;</span>left := null
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_at<span class="keyword">-&gt;</span>right := null
+    <span class="keyword">prval</span> <span class="prfexp">pf0 <span class="keyword">=</span> B <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>pf_at<span class="keyword">,</span> E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span></span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_at := None_v <span class="keyword">(</span><span class="keyword">)</span></span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> p_new<span class="keyword">)</span> <span class="keyword">=</span> balanceIns&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">fpf</span><span class="keyword">,</span> <span class="prfexp">pf0</span> <span class="keyword">|</span> 0<span class="keyword">,</span> pc0<span class="keyword">,</span> dir<span class="keyword">,</span> pt<span class="keyword">,</span> p<span class="keyword">,</span> p_at<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    m<span class="keyword">.</span>0 := pf<span class="keyword">;</span> m<span class="keyword">.</span>1 := p_new<span class="keyword">;</span> 0 <span class="comment">(*tag*)</span> <span class="comment">// insertion is performed
+</span>  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">(* end of [linmap_insert] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span>
+<span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">key<span class="keyword">:</span>t0p</span><span class="keyword">;</span><span class="staexp">itm<span class="keyword">:</span>vt0p</span><span class="keyword">}</span> <A name="19611"><span class="dyncstdec">balanceRem
+  <span class="staexp"><span class="keyword">{</span>n0<span class="keyword">,</span>h0<span class="keyword">:</span>nat <span class="keyword">|</span> h0 &lt;= n0<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>h1<span class="keyword">:</span>nat <span class="keyword">|</span> h1 &lt;= h0<span class="keyword">;</span> h0 &lt;= h1+1<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>chld0<span class="keyword">,</span>chld1<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>dir<span class="keyword">:</span>two<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>rt<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>slf<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">fpf<span class="keyword">:</span> <span class="staexp">avldiff_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> n0<span class="keyword">,</span> h0<span class="keyword">,</span> chld0<span class="keyword">,</span> dir<span class="keyword">,</span> rt<span class="keyword">,</span> null<span class="keyword">,</span> slf<span class="keyword">)</span></span></span>
+  <span class="keyword">,</span> <span class="prfexp">pf0<span class="keyword">:</span> <span class="staexp">avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h1<span class="keyword">,</span> slf<span class="keyword">,</span> chld1<span class="keyword">)</span></span></span> <span class="comment">// view for the missing avltree
+</span>  <span class="keyword">|</span> h0<span class="keyword">:</span> <span class="staexp">int h0</span><span class="keyword">,</span> pc0<span class="keyword">:</span> <span class="staexp">ptr chld0</span><span class="keyword">,</span> dir<span class="keyword">:</span> <span class="staexp">int dir</span><span class="keyword">,</span> pt<span class="keyword">:</span> <span class="staexp">ptr rt</span><span class="keyword">,</span> p<span class="keyword">:</span> <span class="staexp">ptr slf</span>
+  <span class="keyword">,</span> pc1<span class="keyword">:</span> <span class="staexp">ptr chld1</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>n1<span class="keyword">:</span>nat<span class="keyword">;</span>slf<span class="keyword">:</span>addr <span class="keyword">|</span> n1 &lt;= n0<span class="keyword">;</span> n0 &lt;= n1+1<span class="keyword">]</span>
+    <span class="keyword">(</span>avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> n1<span class="keyword">,</span> null<span class="keyword">,</span> slf<span class="keyword">)</span> <span class="keyword">|</span> ptr slf<span class="keyword">)</span></span></span></A>
+<span class="comment">// end of [balanceRem]
+</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">}</span> balanceRem
+  <span class="keyword">(</span><span class="prfexp">fpf</span><span class="keyword">,</span> <span class="prfexp">pf0</span> <span class="keyword">|</span> h0<span class="keyword">,</span> pc0<span class="keyword">,</span> dir<span class="keyword">,</span> pt<span class="keyword">,</span> p<span class="keyword">,</span> pc1<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> p &lt;&gt; null <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> h1 <span class="keyword">=</span> avltree_height_get <span class="keyword">(</span><span class="prfexp">pf0</span> <span class="keyword">|</span> pc1<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+    <span class="keyword">|</span> _ <span class="keyword">when</span> h0 <span class="keyword">=</span> h1 <span class="keyword">=&gt;</span> <span class="keyword">(</span>
+        <span class="prfexp">avldiff_avltree_join <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>fpf<span class="keyword">,</span> pf0<span class="keyword">)</span></span> <span class="keyword">|</span> pt
+      <span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> avldiff_child_set&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">fpf</span> <span class="keyword">|</span> p<span class="keyword">,</span> dir<span class="keyword">,</span> pc1<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">(* end of [_ when ...] *)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+<span class="comment">(*
+        h0 = h1 + 1
+*)</span>
+      <span class="keyword">in</span>
+        <span class="keyword">if</span> dir <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+          <span class="keyword">prval</span> <span class="prfexp">B1L <span class="keyword">(</span>pf_at<span class="keyword">,</span> fpf1<span class="keyword">,</span> pf2<span class="keyword">)</span> <span class="keyword">=</span> fpf</span>
+          <span class="keyword">val</span> pp <span class="keyword">=</span> p<span class="keyword">-&gt;</span>parent
+          <span class="keyword">val</span> h0p <span class="keyword">=</span> p<span class="keyword">-&gt;</span>height
+          <span class="keyword">val</span> dirp <span class="keyword">=</span> avldiff_dir_get <span class="keyword">(</span><span class="prfexp">fpf1</span> <span class="keyword">|</span> pp<span class="keyword">,</span> p<span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>left := pc1
+          <span class="keyword">val</span> h0r <span class="keyword">=</span> avltree_height_get&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf2</span> <span class="keyword">|</span> p<span class="keyword">-&gt;</span>right<span class="keyword">)</span>
+        <span class="keyword">in</span>
+          <span class="keyword">if</span> h0r <span class="keyword">=</span> h1 + 2 <span class="keyword">then</span> <span class="keyword">let</span>
+            <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf0_new</span> <span class="keyword">|</span> p_new<span class="keyword">)</span> <span class="keyword">=</span>
+              avltree_lrotate&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf_at</span><span class="keyword">,</span> <span class="prfexp">pf0</span><span class="keyword">,</span> <span class="prfexp">pf2</span> <span class="keyword">|</span> p<span class="keyword">)</span>
+            <span class="comment">// end of [val]
+</span>          <span class="keyword">in</span>
+            balanceRem&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">fpf1</span><span class="keyword">,</span> <span class="prfexp">pf0_new</span> <span class="keyword">|</span> h0p<span class="keyword">,</span> p<span class="keyword">,</span> dirp<span class="keyword">,</span> pt<span class="keyword">,</span> pp<span class="keyword">,</span> p_new<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+            <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>height := max <span class="keyword">(</span>h1<span class="keyword">,</span> h0r<span class="keyword">)</span> + 1
+            <span class="keyword">prval</span> <span class="prfexp">pf0_new <span class="keyword">=</span> B <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf0<span class="keyword">,</span> pf2<span class="keyword">)</span></span>
+          <span class="keyword">in</span>
+            balanceRem&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">fpf1</span><span class="keyword">,</span> <span class="prfexp">pf0_new</span> <span class="keyword">|</span> h0p<span class="keyword">,</span> p<span class="keyword">,</span> dirp<span class="keyword">,</span> pt<span class="keyword">,</span> pp<span class="keyword">,</span> p<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>        <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+          <span class="keyword">prval</span> <span class="prfexp">B1R <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf1<span class="keyword">,</span> fpf2<span class="keyword">)</span> <span class="keyword">=</span> fpf</span>
+          <span class="keyword">val</span> pp <span class="keyword">=</span> p<span class="keyword">-&gt;</span>parent
+          <span class="keyword">val</span> h0p <span class="keyword">=</span> p<span class="keyword">-&gt;</span>height
+          <span class="keyword">val</span> dirp <span class="keyword">=</span> avldiff_dir_get <span class="keyword">(</span><span class="prfexp">fpf2</span> <span class="keyword">|</span> pp<span class="keyword">,</span> p<span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>right := pc1
+          <span class="keyword">val</span> h0l <span class="keyword">=</span> avltree_height_get&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf1</span> <span class="keyword">|</span> p<span class="keyword">-&gt;</span>left<span class="keyword">)</span>
+        <span class="keyword">in</span>
+          <span class="keyword">if</span> h0l <span class="keyword">=</span> h1 + 2 <span class="keyword">then</span> <span class="keyword">let</span>
+            <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf0_new</span> <span class="keyword">|</span> p_new<span class="keyword">)</span> <span class="keyword">=</span>
+              avltree_rrotate&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf_at</span><span class="keyword">,</span> <span class="prfexp">pf1</span><span class="keyword">,</span> <span class="prfexp">pf0</span> <span class="keyword">|</span> p<span class="keyword">)</span>
+            <span class="comment">// end of [val]
+</span>          <span class="keyword">in</span>
+            balanceRem&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">fpf2</span><span class="keyword">,</span> <span class="prfexp">pf0_new</span> <span class="keyword">|</span> h0p<span class="keyword">,</span> p<span class="keyword">,</span> dirp<span class="keyword">,</span> pt<span class="keyword">,</span> pp<span class="keyword">,</span> p_new<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+            <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>height := max <span class="keyword">(</span>h0l<span class="keyword">,</span> h1<span class="keyword">)</span> + 1
+            <span class="keyword">prval</span> <span class="prfexp">pf0_new <span class="keyword">=</span> B <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf1<span class="keyword">,</span> pf0<span class="keyword">)</span></span>
+          <span class="keyword">in</span>
+            balanceRem&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">fpf2</span><span class="keyword">,</span> <span class="prfexp">pf0_new</span> <span class="keyword">|</span> h0p<span class="keyword">,</span> p<span class="keyword">,</span> dirp<span class="keyword">,</span> pt<span class="keyword">,</span> pp<span class="keyword">,</span> p<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>        <span class="keyword">end</span> <span class="comment">(* end of [if] *)</span>
+      <span class="keyword">end</span> <span class="comment">(* end of [_] *)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">E1 <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fpf</span> <span class="keyword">in</span> <span class="keyword">(</span><span class="prfexp">pf0</span> <span class="keyword">|</span> pc1<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="comment">// end of [balanceRem]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span>
+<span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">key<span class="keyword">:</span>t0p</span><span class="keyword">;</span><span class="staexp">itm<span class="keyword">:</span>vt0p</span><span class="keyword">}</span> <A name="22283"><span class="dyncstdec">avltree_avltree_join
+  <span class="staexp"><span class="keyword">{</span>hl<span class="keyword">,</span>hr<span class="keyword">:</span>nat <span class="keyword">|</span> hl &lt;= hr+1<span class="keyword">;</span> hr &lt;= hl+1<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>lft<span class="keyword">,</span>rgh<span class="keyword">,</span>pnt1<span class="keyword">,</span>pnt2<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf_l<span class="keyword">:</span> <span class="staexp">avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> hl<span class="keyword">,</span> pnt1<span class="keyword">,</span> lft<span class="keyword">)</span></span></span><span class="keyword">,</span> <span class="prfexp">pf_r<span class="keyword">:</span> <span class="staexp">avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> hr<span class="keyword">,</span> pnt2<span class="keyword">,</span> rgh<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> p_l<span class="keyword">:</span> <span class="staexp">ptr lft</span><span class="keyword">,</span> p_r<span class="keyword">:</span> <span class="staexp">ptr rgh</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>h<span class="keyword">:</span>int <span class="keyword">|</span> max<span class="keyword">(</span>hl<span class="keyword">,</span>hr<span class="keyword">)</span> &lt;= h<span class="keyword">;</span> h &lt;= max<span class="keyword">(</span>hl<span class="keyword">,</span>hr<span class="keyword">)</span>+1<span class="keyword">]</span>
+    <span class="keyword">[</span>pnt<span class="keyword">,</span>slf<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h<span class="keyword">,</span> pnt<span class="keyword">,</span> slf<span class="keyword">)</span> <span class="keyword">|</span> ptr slf<span class="keyword">)</span></span></span></A>
+<span class="comment">// end of [avltree_avltree_join]
+</span>
+<span class="keyword">viewtypedef</span> <span class="staexp"><A name="22654"><span class="stacstdec">avlnode
+  <span class="keyword">(</span>key<span class="keyword">:</span>t@ype<span class="keyword">,</span> itm<span class="keyword">:</span>viewt@ype<span class="keyword">,</span> lft<span class="keyword">:</span> addr<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">[</span>h<span class="keyword">:</span>nat<span class="keyword">]</span> <span class="keyword">[</span>rgh<span class="keyword">,</span>pnt<span class="keyword">:</span>addr<span class="keyword">]</span> avlnode <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h<span class="keyword">,</span> lft<span class="keyword">,</span> rgh<span class="keyword">,</span> pnt<span class="keyword">)</span></span></span></A>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">}</span> avltree_avltree_join
+  <span class="staexp"><span class="keyword">{</span>hl<span class="keyword">,</span>hr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>lft<span class="keyword">,</span>rgh<span class="keyword">,</span>pnt1<span class="keyword">,</span>pnt2<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf_l</span><span class="keyword">,</span> <span class="prfexp">pf_r</span> <span class="keyword">|</span> p_l<span class="keyword">,</span> p_r<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> loop <span class="staexp"><span class="keyword">{</span>h0<span class="keyword">:</span>nat <span class="keyword">|</span> h0 &lt;= hl<span class="keyword">}</span></span>
+    <span class="staexp"><span class="keyword">{</span>chld<span class="keyword">:</span>addr <span class="keyword">|</span> chld &lt;&gt; null<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>rt<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>slf<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>h0<span class="keyword">&gt;.</span></span> <span class="keyword">(</span>
+      <span class="prfexp">fpf<span class="keyword">:</span> <span class="staexp">avldiff_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> hl<span class="keyword">,</span> h0<span class="keyword">,</span> chld<span class="keyword">,</span> 1<span class="comment">(*right*)</span><span class="keyword">,</span> rt<span class="keyword">,</span> null<span class="keyword">,</span> slf<span class="keyword">)</span></span></span>
+    <span class="keyword">,</span> <span class="prfexp">pf0<span class="keyword">:</span> <span class="staexp">avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> h0<span class="keyword">,</span> slf<span class="keyword">,</span> chld<span class="keyword">)</span></span></span> <span class="comment">// view for the missing avltree
+</span>    <span class="keyword">|</span> pc<span class="keyword">:</span> <span class="staexp">ptr <span class="keyword">(</span>chld<span class="keyword">)</span></span><span class="keyword">,</span> pt<span class="keyword">:</span> <span class="staexp">ptr rt</span><span class="keyword">,</span> p<span class="keyword">:</span> <span class="staexp">ptr slf</span>
+    <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>slf<span class="keyword">:</span>addr <span class="keyword">|</span> slf &lt;&gt; null<span class="keyword">]</span>
+      <span class="keyword">[</span>hl1<span class="keyword">:</span>nat <span class="keyword">|</span> hl1 &lt;= hl<span class="keyword">;</span> hl &lt;= hl1+1<span class="keyword">]</span> <span class="keyword">[</span>lft<span class="keyword">:</span>addr<span class="keyword">]</span>  <span class="keyword">(</span>
+      avlnode <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> lft<span class="keyword">)</span> @ slf<span class="keyword">,</span> avltree_v <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">,</span> hl1<span class="keyword">,</span> slf<span class="keyword">,</span> lft<span class="keyword">)</span> <span class="keyword">|</span> ptr slf
+    <span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">B <span class="keyword">(</span>pf0_at<span class="keyword">,</span> pf0_l<span class="keyword">,</span> pf0_r<span class="keyword">)</span> <span class="keyword">=</span> pf0</span>
+    <span class="keyword">val</span> pc_r <span class="keyword">=</span> pc<span class="keyword">-&gt;</span>right
+  <span class="keyword">in</span>
+    <span class="keyword">if</span> pc_r &lt;&gt; null <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">prval</span> <span class="prfexp">fpf <span class="keyword">=</span> B1R <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>pf0_at<span class="keyword">,</span> pf0_l<span class="keyword">,</span> fpf<span class="keyword">)</span></span>
+    <span class="keyword">in</span>
+      loop <span class="keyword">(</span><span class="prfexp">fpf</span><span class="keyword">,</span> <span class="prfexp">pf0_r</span> <span class="keyword">|</span> pc_r<span class="keyword">,</span> pt<span class="keyword">,</span> pc<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+      <span class="keyword">prval</span> <span class="prfexp">E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf0_r</span>
+      <span class="keyword">val</span> pc_l <span class="keyword">=</span> pc<span class="keyword">-&gt;</span>left
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> avltree_parent_set&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf0_l</span> <span class="keyword">|</span> pc_l<span class="keyword">,</span> p<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> pt<span class="keyword">)</span> <span class="keyword">=</span> balanceRem&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span>
+        <span class="keyword">(</span><span class="prfexp">fpf</span><span class="keyword">,</span> <span class="prfexp">pf0_l</span> <span class="keyword">|</span> pc<span class="keyword">-&gt;</span>height<span class="keyword">,</span> pc<span class="keyword">,</span> 1<span class="comment">(*right*)</span><span class="keyword">,</span> pt<span class="keyword">,</span> p<span class="keyword">,</span> pc_l<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pc<span class="keyword">-&gt;</span>left := pt
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> avltree_parent_set&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> pt<span class="keyword">,</span> pc<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="keyword">(</span><span class="prfexp">pf0_at</span><span class="keyword">,</span> <span class="prfexp">pf</span> <span class="keyword">|</span> pc<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">(* end of [if] *)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [loop]
+</span><span class="keyword">in</span>
+  <span class="keyword">if</span> p_l &lt;&gt; null <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">fpf <span class="keyword">=</span> E1 <span class="keyword">(</span><span class="keyword">)</span></span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> avltree_parent_set <span class="keyword">(</span><span class="prfexp">pf_l</span> <span class="keyword">|</span> p_l<span class="keyword">,</span> null<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_at</span><span class="keyword">,</span> <span class="prfexp">pf_l</span> <span class="keyword">|</span> p_at<span class="keyword">)</span> <span class="keyword">=</span> loop <span class="keyword">(</span><span class="prfexp">fpf</span><span class="keyword">,</span> <span class="prfexp">pf_l</span> <span class="keyword">|</span> p_l<span class="keyword">,</span> p_l<span class="keyword">,</span> null<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_at<span class="keyword">-&gt;</span>right := p_r
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> avltree_parent_set&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf_r</span> <span class="keyword">|</span> p_r<span class="keyword">,</span> p_at<span class="keyword">)</span>
+    <span class="keyword">val</span> p_l <span class="keyword">=</span> p_at<span class="keyword">-&gt;</span>left
+    <span class="keyword">val</span> hl <span class="keyword">=</span> avltree_height_get&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf_l</span> <span class="keyword">|</span> p_l<span class="keyword">)</span>
+    <span class="keyword">val</span> hr <span class="keyword">=</span> avltree_height_get&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf_r</span> <span class="keyword">|</span> p_r<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="keyword">if</span> hl+2 <span class="keyword">=</span> hr <span class="keyword">then</span>
+      avltree_lrotate&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf_at</span><span class="keyword">,</span> <span class="prfexp">pf_l</span><span class="keyword">,</span> <span class="prfexp">pf_r</span> <span class="keyword">|</span> p_at<span class="keyword">)</span>
+    <span class="keyword">else</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_at<span class="keyword">-&gt;</span>height := max<span class="keyword">(</span>hl<span class="keyword">,</span>hr<span class="keyword">)</span> + 1
+    <span class="keyword">in</span>
+      <span class="keyword">(</span><span class="prfexp">B <span class="keyword">(</span>pf_at<span class="keyword">,</span> pf_l<span class="keyword">,</span> pf_r<span class="keyword">)</span></span> <span class="keyword">|</span> p_at<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">(* end of [if] *)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_l</span> <span class="keyword">in</span> <span class="keyword">(</span><span class="prfexp">pf_r</span> <span class="keyword">|</span> p_r<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">(* end of [avltree_avltree_join] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span>
+<span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">key<span class="keyword">:</span>t0p</span><span class="keyword">;</span><span class="staexp">itm<span class="keyword">:</span>vt0p</span><span class="keyword">}</span>
+<A name="24712"><span class="dyncstdec">linmap_remove <span class="staexp"><span class="keyword">{</span>l_at<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    m<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>map_vt <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">)</span></span><span class="keyword">,</span> k0<span class="keyword">:</span> <span class="staexp">key</span><span class="keyword">,</span> cmp<span class="keyword">:</span> <span class="staexp">cmp key</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l_at<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>
+    option_v <span class="keyword">(</span>avlnode <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">)</span> @ l_at<span class="keyword">,</span> l_at &lt;&gt; null<span class="keyword">)</span> <span class="keyword">|</span> ptr l_at
+  <span class="keyword">)</span></span></span></A>
+<span class="comment">// end of [linmap_remove]
+</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">}</span>
+  linmap_remove <span class="staexp"><span class="keyword">{</span>l_at<span class="keyword">}</span></span> <span class="keyword">(</span>m<span class="keyword">,</span> k0<span class="keyword">,</span> cmp<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> pt <span class="keyword">=</span> m<span class="keyword">.</span>1
+  <span class="keyword">var</span> p <span class="keyword">=</span> pt
+  <span class="keyword">var</span> dir<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> 0
+  <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">h1<span class="keyword">:</span>int</span><span class="keyword">,</span><span class="staexp">chld<span class="keyword">:</span>addr</span><span class="keyword">]</span>
+    <span class="keyword">(</span><span class="prfexp">fpf</span><span class="keyword">,</span> <span class="prfexp">pf0</span> <span class="keyword">|</span> pc0<span class="keyword">)</span> <span class="keyword">=</span> avltree_split <span class="keyword">(</span><span class="prfexp">m<span class="keyword">.</span>0</span> <span class="keyword">|</span> p<span class="keyword">,</span> k0<span class="keyword">,</span> dir<span class="keyword">,</span> cmp<span class="keyword">)</span>
+  <span class="comment">// end of [val]
+</span>  <span class="keyword">viewdef</span> <span class="staexp"><A name="25130"><span class="stacstdec">V <span class="keyword">=</span> avlnode <span class="keyword">(</span>key<span class="keyword">,</span>itm<span class="keyword">)</span> @ chld</span></span></A>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> pc0 &lt;&gt; null <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">B <span class="keyword">(</span>pf0_at<span class="keyword">,</span> pf0_l<span class="keyword">,</span> pf0_r<span class="keyword">)</span> <span class="keyword">=</span> pf0</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf0</span> <span class="keyword">|</span> pc0_new<span class="keyword">)</span> <span class="keyword">=</span>
+      avltree_avltree_join&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">pf0_l</span><span class="keyword">,</span> <span class="prfexp">pf0_r</span> <span class="keyword">|</span> pc0<span class="keyword">-&gt;</span>left<span class="keyword">,</span> pc0<span class="keyword">-&gt;</span>right<span class="keyword">)</span>
+    <span class="comment">// end of [val]
+</span>    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> avltree_parent_set <span class="keyword">(</span><span class="prfexp">pf0</span> <span class="keyword">|</span> pc0_new<span class="keyword">,</span> p<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">n1<span class="keyword">:</span>int</span><span class="keyword">,</span><span class="staexp">_<span class="keyword">:</span>addr</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pf_new</span> <span class="keyword">|</span> pt_new<span class="keyword">)</span> <span class="keyword">=</span>
+      balanceRem&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="prfexp">fpf</span><span class="keyword">,</span> <span class="prfexp">pf0</span> <span class="keyword">|</span> pc0<span class="keyword">-&gt;</span>height<span class="keyword">,</span> pc0<span class="keyword">,</span> dir<span class="keyword">,</span> pt<span class="keyword">,</span> p<span class="keyword">,</span> pc0_new<span class="keyword">)</span>
+    <span class="comment">// end of [val]
+</span>  <span class="keyword">in</span>
+    m<span class="keyword">.</span>0 := pf_new<span class="keyword">;</span> m<span class="keyword">.</span>1 := pt_new<span class="keyword">;</span> <span class="keyword">(</span><span class="prfexp">Some_v <span class="staexp"><span class="keyword">{</span>V<span class="keyword">}</span></span> <span class="keyword">(</span>pf0_at<span class="keyword">)</span></span> <span class="keyword">|</span> pc0<span class="keyword">)</span> <span class="comment">// removal
+</span>  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">pf <span class="keyword">=</span> avldiff_avltree_join <span class="staexp"><span class="keyword">{</span>key<span class="keyword">,</span>itm<span class="keyword">}</span></span> <span class="keyword">(</span>fpf<span class="keyword">,</span> pf0<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    m<span class="keyword">.</span>0 := pf<span class="keyword">;</span> <span class="keyword">(</span><span class="prfexp">None_v <span class="staexp"><span class="keyword">{</span>V<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span></span> <span class="keyword">|</span> null<span class="keyword">)</span> <span class="comment">// no removal is performed
+</span>  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">(* end of [linmap_remove] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// infix order foreach
+</span><span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">key<span class="keyword">:</span>t0p</span><span class="keyword">;</span><span class="staexp">itm<span class="keyword">:</span>vt0p</span><span class="keyword">}</span> avltree_foreach_inf
+  <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>vt<span class="keyword">:</span>viewtype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>h<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>pnt<span class="keyword">,</span>slf<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>f<span class="keyword">:</span>eff<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>h<span class="keyword">&gt;.</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf1<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>avltree_v <span class="keyword">(</span>key<span class="keyword">,</span>itm<span class="keyword">,</span>h<span class="keyword">,</span>pnt<span class="keyword">,</span>slf<span class="keyword">)</span></span></span>
+  <span class="keyword">,</span> <span class="prfexp">pf2<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v</span></span>
+  <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr slf</span>
+  <span class="keyword">,</span> f<span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">!</span>v <span class="keyword">|</span> key<span class="keyword">,</span> <span class="keyword">&amp;</span>itm<span class="keyword">,</span> <span class="keyword">!</span>vt<span class="keyword">)</span> <span class="keyword">-&lt;</span>f<span class="keyword">&gt;</span> void</span>
+  <span class="keyword">,</span> env<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>vt</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">f</span><span class="keyword">&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> p &lt;&gt; null <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">B <span class="keyword">(</span>pf1_at<span class="keyword">,</span> pf1_l<span class="keyword">,</span> pf1_r<span class="keyword">)</span> <span class="keyword">=</span> pf1</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> avltree_foreach_inf <span class="keyword">(</span><span class="prfexp">pf1_l</span><span class="keyword">,</span> <span class="prfexp">pf2</span> <span class="keyword">|</span> p<span class="keyword">-&gt;</span>left<span class="keyword">,</span> f<span class="keyword">,</span> env<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> f <span class="keyword">(</span><span class="prfexp">pf2</span> <span class="keyword">|</span> p<span class="keyword">-&gt;</span>key<span class="keyword">,</span> p<span class="keyword">-&gt;</span>itm<span class="keyword">,</span> env<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> avltree_foreach_inf <span class="keyword">(</span><span class="prfexp">pf1_r</span><span class="keyword">,</span> <span class="prfexp">pf2</span> <span class="keyword">|</span> p<span class="keyword">-&gt;</span>right<span class="keyword">,</span> f<span class="keyword">,</span> env<span class="keyword">)</span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf1 := B <span class="keyword">(</span>pf1_at<span class="keyword">,</span> pf1_l<span class="keyword">,</span> pf1_r<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="comment">// nothing
+</span>  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">// end of [bst_foreach_inf]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">key<span class="keyword">:</span>t0p</span><span class="keyword">;</span><span class="staexp">itm<span class="keyword">:</span>vt0p</span><span class="keyword">}</span> <A name="26517"><span class="dyncstdec">linmap_foreach_clo <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v</span></span> <span class="keyword">|</span> xs<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>map_vt <span class="keyword">(</span>key<span class="keyword">,</span> itm<span class="keyword">)</span></span><span class="keyword">,</span> f<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><span class="keyword">(</span><span class="keyword">!</span>v <span class="keyword">|</span> key<span class="keyword">,</span> <span class="keyword">&amp;</span>itm<span class="keyword">)</span> <span class="keyword">-&lt;</span>clo<span class="keyword">&gt;</span> void</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></A>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">}</span>
+  linmap_foreach_clo <span class="staexp"><span class="keyword">{</span>v<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf1</span> <span class="keyword">|</span> m<span class="keyword">,</span> f<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">viewtypedef</span> <span class="staexp"><A name="26701"><span class="stacstdec">clo_t <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">!</span>v <span class="keyword">|</span> key<span class="keyword">,</span> <span class="keyword">&amp;</span>itm<span class="keyword">)</span> <span class="keyword">-&lt;</span>clo<span class="keyword">&gt;</span> void</span></span></A>
+  <span class="keyword">stavar</span> <span class="staexp">l_f<span class="keyword">:</span> addr</span><span class="keyword">;</span> <span class="keyword">val</span> p_f<span class="keyword">:</span> <span class="staexp">ptr l_f</span> <span class="keyword">=</span> <span class="keyword">&amp;</span>f
+  <span class="keyword">viewdef</span> <span class="staexp"><A name="26790"><span class="stacstdec">V <span class="keyword">=</span> <span class="keyword">(</span>v<span class="keyword">,</span> clo_t @ l_f<span class="keyword">)</span></span></span></A>
+  <span class="keyword">fn</span> app <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>V</span></span> <span class="keyword">|</span> k<span class="keyword">:</span> <span class="staexp">key</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>itm</span><span class="keyword">,</span> p_f<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>ptr l_f</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span>pf1<span class="keyword">,</span> pf2<span class="keyword">)</span> <span class="keyword">=</span> pf</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>p_f <span class="keyword">(</span><span class="prfexp">pf1</span> <span class="keyword">|</span> k<span class="keyword">,</span> i<span class="keyword">)</span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf := <span class="keyword">(</span>pf1<span class="keyword">,</span> pf2<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="comment">// empty
+</span>  <span class="keyword">end</span> <span class="comment">// end of [app]
+</span>  <span class="keyword">prval</span> <span class="prfexp">pf2 <span class="keyword">=</span> view@ f</span><span class="keyword">;</span> <span class="keyword">prval</span> <span class="prfexp">pf <span class="keyword">=</span> <span class="keyword">(</span>pf1<span class="keyword">,</span> pf2<span class="keyword">)</span></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> avltree_foreach_inf&lt;<span class="staexp">key</span><span class="keyword">,</span><span class="staexp">itm</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">{</span>V<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>ptr l_f<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">m<span class="keyword">.</span>0</span><span class="keyword">,</span> <span class="prfexp">pf</span> <span class="keyword">|</span> m<span class="keyword">.</span>1<span class="keyword">,</span> app<span class="keyword">,</span> p_f<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>pf1 := pf<span class="keyword">.</span>0<span class="keyword">;</span> view@ f := pf<span class="keyword">.</span>1<span class="keyword">)</span></span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [linmap_foreach_clo]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+
+// for the purpose of debugging
+
+extern
+fun{key:t0p;itm:vt0p}
+print_avltree {h:nat} {pnt,slf:addr}
+  (pf: !avltree_v (key,itm,h,pnt,slf) | p: ptr slf): void
+  = "print_avltree"
+
+extern
+fun{key:t0p;itm:vt0p}
+print_avltree_dummy {slf:addr} (p: ptr slf): void
+  = "print_avltree"
+
+extern fun{key:t0p;itm:vt0p} print_linmap (map: !map_vt (key,itm)): void
+
+implement{key,itm} print_linmap (map) = print_avltree (map.0 | map.1)
+
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [linmap_avltree_ngc.dats] *)</span>
+</PRE>
+</BODY>
+</HTML>

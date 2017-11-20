@@ -1,0 +1,534 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// Time: August 2007
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Eff <span class="keyword">=</span> "ats_effect.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Lab <span class="keyword">=</span> "ats_label.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Loc <span class="keyword">=</span> "ats_location.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Sym <span class="keyword">=</span> "ats_symbol.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Syn <span class="keyword">=</span> "ats_syntax.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="1707"><span class="stacstdec">efc <span class="keyword">=</span> $Eff<span class="keyword">.</span>effcst</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1733"><span class="stacstdec">efcopt <span class="keyword">=</span> Option efc</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1761"><span class="stacstdec">lab_t <span class="keyword">=</span> $Lab<span class="keyword">.</span>label_t</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1790"><span class="stacstdec">loc_t <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_t</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1822"><span class="stacstdec">sym_t <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_t</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1852"><span class="stacstdec">funclo <span class="keyword">=</span> $Syn<span class="keyword">.</span>funclo</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1881"><span class="stacstdec">s0rtq <span class="keyword">=</span> $Syn<span class="keyword">.</span>s0rtq</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1908"><span class="stacstdec">s0taq <span class="keyword">=</span> $Syn<span class="keyword">.</span>s0taq</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1935"><span class="stacstdec">i0delst <span class="keyword">=</span> $Syn<span class="keyword">.</span>i0delst</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="1989"><span class="stacstdec">e1xp_node</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> E1XPapp <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>e1xp<span class="keyword">,</span> loc_t<span class="comment">(*arg*)</span><span class="keyword">,</span> e1xplst<span class="keyword">)</span></span>
+  <span class="keyword">|</span> E1XPchar <span class="keyword">of</span> <span class="staexp">char</span>
+  <span class="keyword">|</span> E1XPfloat <span class="keyword">of</span> <span class="staexp">string</span>
+  <span class="keyword">|</span> E1XPide <span class="keyword">of</span> <span class="staexp">sym_t</span>
+  <span class="keyword">|</span> E1XPint <span class="keyword">of</span> <span class="staexp">string</span>
+  <span class="keyword">|</span> E1XPlist <span class="keyword">of</span> <span class="staexp">e1xplst</span>
+  <span class="keyword">|</span> E1XPnone <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> E1XPstring <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>string<span class="keyword">,</span> int<span class="comment">(*length*)</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> E1XPundef <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">)</span></span> <span class="comment">// a special value for marking undefinition
+</span><span class="comment">// end of [e1xp_node]
+</span>
+<span class="keyword">where</span> <span class="staexp"><a name="2312"><span class="stacstdec">e1xp<span class="keyword">:</span> type <span class="keyword">=</span> <span class="keyword">'{</span>
+  e1xp_loc<span class="keyword">=</span> loc_t<span class="keyword">,</span> e1xp_node<span class="keyword">=</span> e1xp_node
+<span class="keyword">}</span></span></a></span>
+<span class="keyword">and</span> <span class="staexp"><a name="2374"><span class="stacstdec">e1xplst<span class="keyword">:</span> type <span class="keyword">=</span> List e1xp</span></a></span>
+
+<span class="keyword">fun</span> <a name="2405"><span class="dyncstdec">fprint_e1xp <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_e1xp</span>
+
+<span class="keyword">fun</span> <a name="2528"><span class="dyncstdec">fprint_e1xplst <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">e1xplst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_e1xplst</span>
+
+<span class="keyword">fun</span> <a name="2660"><span class="dyncstdec">print_e1xp <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="2691"><span class="dyncstdec">prerr_e1xp <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> print <span class="keyword">with</span> print_e1xp</span>
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> prerr_e1xp</span>
+
+<span class="keyword">fun</span> <a name="2785"><span class="dyncstdec">print_e1xplst <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">e1xplst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="2822"><span class="dyncstdec">prerr_e1xplst <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">e1xplst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> print <span class="keyword">with</span> print_e1xplst</span>
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> prerr_e1xplst</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="2949"><span class="dyncstdec">e1xp_app
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _fun<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">,</span> loc_arg<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _arg<span class="keyword">:</span> <span class="staexp">e1xplst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">e1xp</span></span></a>
+<span class="comment">// end of [e1xp_app]
+</span>
+<span class="keyword">fun</span> <a name="3048"><span class="dyncstdec">e1xp_char <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span><span class="staexp">char</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">e1xp</span></span></a>
+<span class="keyword">fun</span> <a name="3087"><span class="dyncstdec">e1xp_float <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span><span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">e1xp</span></span></a>
+<span class="keyword">fun</span> <a name="3129"><span class="dyncstdec">e1xp_ide <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">e1xp</span></span></a>
+<span class="keyword">fun</span> <a name="3169"><span class="dyncstdec">e1xp_int <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">e1xp</span></span></a>
+<span class="keyword">fun</span> <a name="3210"><span class="dyncstdec">e1xp_list <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">e1xplst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">e1xp</span></span></a>
+<span class="keyword">fun</span> <a name="3253"><span class="dyncstdec">e1xp_none <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">e1xp</span></span></a>
+<span class="keyword">fun</span> <a name="3284"><span class="dyncstdec">e1xp_string <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">e1xp</span></span></a>
+<span class="keyword">fun</span> <a name="3336"><span class="dyncstdec">e1xp_undef <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">e1xp</span></span></a>
+<span class="comment">//
+</span><span class="keyword">fun</span> <a name="3371"><span class="dyncstdec">e1xp_true <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">e1xp</span></span></a> <span class="keyword">and</span> <a name="3394"><span class="dyncstdec">e1xp_false <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">e1xp</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="3445"><span class="stacstdec">v1al</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> V1ALchar <span class="keyword">of</span> <span class="staexp">char</span>
+  <span class="keyword">|</span> V1ALfloat <span class="keyword">of</span> <span class="staexp">double</span>
+  <span class="keyword">|</span> V1ALint <span class="keyword">of</span> <span class="staexp">int</span>
+  <span class="keyword">|</span> V1ALstring <span class="keyword">of</span> <span class="staexp">string</span>
+<span class="comment">// end of [v1al]
+</span>
+<span class="keyword">val</span> <a name="3563"><span class="dyncstdec">v1al_true <span class="keyword">:</span> <span class="staexp">v1al</span></span></a> <span class="keyword">and</span> <a name="3584"><span class="dyncstdec">v1al_false <span class="keyword">:</span> <span class="staexp">v1al</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="3633"><span class="stacstdec">s1rt_node</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> S1RTapp <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>s1rt<span class="keyword">,</span> s1rtlst<span class="keyword">)</span></span>
+  <span class="keyword">|</span> S1RTlist <span class="keyword">of</span> <span class="staexp">s1rtlst</span>
+  <span class="keyword">|</span> S1RTqid <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>s0rtq<span class="keyword">,</span> sym_t<span class="keyword">)</span></span>
+  <span class="keyword">|</span> S1RTtup <span class="keyword">of</span> <span class="staexp">s1rtlst</span>
+<span class="comment">// end of [s1rt_node]
+</span>
+<span class="keyword">where</span> <span class="staexp"><a name="3782"><span class="stacstdec">s1rt<span class="keyword">:</span> type <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1rt_loc<span class="keyword">=</span> loc_t<span class="keyword">,</span> s1rt_node<span class="keyword">=</span> s1rt_node
+<span class="keyword">}</span></span></a></span>
+
+<span class="keyword">and</span> <span class="staexp"><a name="3845"><span class="stacstdec">s1rtlst<span class="keyword">:</span> type <span class="keyword">=</span> List s1rt</span></a></span>
+<span class="keyword">and</span> <span class="staexp"><a name="3875"><span class="stacstdec">s1rtopt<span class="keyword">:</span> type <span class="keyword">=</span> Option s1rt</span></a></span>
+<span class="keyword">and</span> <span class="staexp"><a name="3907"><span class="stacstdec">s1rtlstlst<span class="keyword">:</span> type <span class="keyword">=</span> List s1rtlst</span></a></span>
+<span class="keyword">and</span> <span class="staexp"><a name="3943"><span class="stacstdec">s1rtlstopt<span class="keyword">:</span> type <span class="keyword">=</span> Option s1rtlst</span></a></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="3986"><span class="stacstdec">s1rtpol <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1rtpol_loc<span class="keyword">=</span> loc_t<span class="keyword">,</span> s1rtpol_srt<span class="keyword">=</span> s1rt<span class="keyword">,</span> s1rtpol_pol<span class="keyword">=</span> int
+<span class="keyword">}</span></span></a></span> <span class="comment">// end of [s1rtpol]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="4105"><span class="dyncstdec">fprint_s1rt <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1rt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_s1rt</span>
+
+<span class="keyword">fun</span> <a name="4228"><span class="dyncstdec">fprint_s1rtlst <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1rtlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_s1rtlst</span>
+
+<span class="keyword">fun</span> <a name="4360"><span class="dyncstdec">fprint_s1rtopt <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1rtopt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_s1rtopt</span>
+
+<span class="keyword">fun</span> <a name="4492"><span class="dyncstdec">print_s1rt <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">s1rt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="4523"><span class="dyncstdec">prerr_s1rt <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">s1rt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="neuexp"><span class="keyword">overload</span> print <span class="keyword">with</span> print_s1rt</span>
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> prerr_s1rt</span>
+
+<span class="keyword">fun</span> <a name="4618"><span class="dyncstdec">print_s1rtlst <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">s1rtlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="4655"><span class="dyncstdec">prerr_s1rtlst <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">s1rtlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="neuexp"><span class="keyword">overload</span> print <span class="keyword">with</span> print_s1rtlst</span>
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> prerr_s1rtlst</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* functions for constructing sorts *)</span>
+
+<span class="keyword">fun</span> <a name="4823"><span class="dyncstdec">s1rt_arrow <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1rt</span></span></a>
+
+<span class="comment">(* '-&gt;' is a special sort constructor *)</span>
+<span class="keyword">fun</span> <a name="4897"><span class="dyncstdec">s1rt_is_arrow <span class="keyword">(</span>s1t<span class="keyword">:</span> <span class="staexp">s1rt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span></span></a>
+
+<span class="keyword">fun</span> <a name="4934"><span class="dyncstdec">s1rt_app <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _fun<span class="keyword">:</span> <span class="staexp">s1rt</span><span class="keyword">,</span> _arg<span class="keyword">:</span> <span class="staexp">s1rtlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1rt</span></span></a>
+<span class="keyword">fun</span> <a name="4991"><span class="dyncstdec">s1rt_fun <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> arg<span class="keyword">:</span> <span class="staexp">s1rt</span><span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp">s1rt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1rt</span></span></a>
+<span class="keyword">fun</span> <a name="5043"><span class="dyncstdec">s1rt_ide <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1rt</span></span></a>
+<span class="keyword">fun</span> <a name="5083"><span class="dyncstdec">s1rt_list <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1rtlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1rt</span></span></a>
+<span class="keyword">fun</span> <a name="5126"><span class="dyncstdec">s1rt_qid <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> q<span class="keyword">:</span> <span class="staexp">s0rtq</span><span class="keyword">,</span> id<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1rt</span></span></a>
+<span class="keyword">fun</span> <a name="5177"><span class="dyncstdec">s1rt_tup <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1rtlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1rt</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="5241"><span class="dyncstdec">s1rtpol_make <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1rt</span><span class="keyword">,</span> pol<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1rtpol</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="5324"><span class="stacstdec">d1atarg_node</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> D1ATARGsrt <span class="keyword">of</span> <span class="staexp">s1rtpol</span> <span class="keyword">|</span> D1ATARGidsrt <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>sym_t<span class="keyword">,</span> s1rtpol<span class="keyword">)</span></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="5409"><span class="stacstdec">d1atarg <span class="keyword">=</span> <span class="keyword">'{</span>
+  d1atarg_loc<span class="keyword">=</span> loc_t<span class="keyword">,</span> d1atarg_node<span class="keyword">=</span> d1atarg_node
+<span class="keyword">}</span></span></a></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="5482"><span class="stacstdec">d1atarglst <span class="keyword">=</span> List d1atarg</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="5516"><span class="stacstdec">d1atarglstopt <span class="keyword">=</span> Option d1atarglst</span></a></span>
+
+<span class="keyword">fun</span> <a name="5555"><span class="dyncstdec">d1atarg_srt <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1rtpol</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">d1atarg</span></span></a>
+<span class="keyword">fun</span> <a name="5603"><span class="dyncstdec">d1atarg_idsrt <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1rtpol</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">d1atarg</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="5689"><span class="stacstdec">s1arg <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1arg_loc<span class="keyword">=</span> loc_t<span class="keyword">,</span> s1arg_sym<span class="keyword">=</span> sym_t<span class="keyword">,</span> s1arg_srt<span class="keyword">=</span> s1rtopt
+<span class="keyword">}</span></span></a></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="5768"><span class="stacstdec">s1arglst <span class="keyword">=</span> List s1arg</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="5798"><span class="stacstdec">s1arglstlst <span class="keyword">=</span> List s1arglst</span></a></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="5835"><span class="stacstdec">s1var <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1var_loc<span class="keyword">=</span> loc_t<span class="keyword">,</span> s1var_sym<span class="keyword">=</span> sym_t<span class="keyword">,</span> s1var_srt<span class="keyword">=</span> s1rt
+<span class="keyword">}</span></span></a></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="5911"><span class="stacstdec">s1varlst <span class="keyword">=</span> List s1var</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="5964"><span class="stacstdec">sp1at_node</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> SP1Tcon <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>s0taq<span class="keyword">,</span> sym_t<span class="keyword">,</span> s1arglst<span class="keyword">)</span></span>
+
+<span class="keyword">where</span> <span class="staexp"><a name="6024"><span class="stacstdec">sp1at <span class="keyword">=</span> <span class="keyword">'{</span>
+  sp1at_loc<span class="keyword">=</span> loc_t<span class="keyword">,</span> sp1at_node<span class="keyword">=</span> sp1at_node
+<span class="keyword">}</span></span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="6111"><span class="stacstdec">s1exp_node</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> S1Eann <span class="keyword">of</span> <span class="comment">// sort-ascribed expression
+</span>      <span class="staexp"><span class="keyword">(</span>s1exp<span class="keyword">,</span> s1rt<span class="keyword">)</span></span>
+  <span class="keyword">|</span> S1Eany <span class="keyword">of</span> <span class="comment">(* omitted static expression *)</span>
+      <span class="staexp"><span class="keyword">(</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> S1Eapp <span class="keyword">of</span> <span class="comment">(* static application *)</span>
+      <span class="staexp"><span class="keyword">(</span>s1exp<span class="keyword">,</span> loc_t<span class="comment">(*arg*)</span><span class="keyword">,</span> s1explst<span class="keyword">)</span></span>
+  <span class="keyword">|</span> S1Echar <span class="keyword">of</span> <span class="comment">(* static character *)</span>
+      <span class="staexp">char</span>
+  <span class="keyword">|</span> S1Eexi <span class="keyword">of</span> <span class="comment">(* existentially quantifed expression *)</span>
+      <span class="staexp"><span class="keyword">(</span>int<span class="comment">(*funres*)</span><span class="keyword">,</span> s1qualst<span class="keyword">,</span> s1exp<span class="keyword">)</span></span>
+  <span class="keyword">|</span> S1Eextype <span class="keyword">of</span> <span class="comment">(* external type *)</span>
+      <span class="staexp"><span class="keyword">(</span>string<span class="comment">(*extname*)</span><span class="keyword">,</span> s1explstlst<span class="comment">(*arglst*)</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> S1Eimp <span class="keyword">of</span> <span class="comment">(* annotated implication *)</span>
+      <span class="staexp"><span class="keyword">(</span>funclo<span class="keyword">,</span> int <span class="comment">(*lin*)</span><span class="keyword">,</span> int <span class="comment">(*prf*)</span><span class="keyword">,</span> efcopt<span class="keyword">)</span></span>
+  <span class="keyword">|</span> S1Eint <span class="keyword">of</span> <span class="comment">(* static integer *)</span>
+      <span class="staexp">string</span>
+  <span class="keyword">|</span> S1Einvar <span class="keyword">of</span> <span class="comment">(* invariant view or viewtype *)</span>
+      <span class="staexp"><span class="keyword">(</span>int<span class="comment">(*1:ref/0:val*)</span><span class="keyword">,</span> s1exp<span class="keyword">)</span></span> <span class="comment">(* &amp;/!: call-by-ref/val *)</span>
+  <span class="keyword">|</span> S1Elam <span class="keyword">of</span> <span class="comment">(* static abstraction *)</span>
+      <span class="staexp"><span class="keyword">(</span>s1arglst<span class="keyword">,</span> s1rtopt<span class="keyword">,</span> s1exp<span class="keyword">)</span></span>
+<span class="comment">(*
+// HX-2010-12-04: simplification
+  | S1Emod of (s0taq, sym_t, labs1explst) // module types
+*)</span>
+<span class="comment">(*
+// HX-2010-12-04: inadequate design
+  | S1Enamed of (* named type (for template instantiation) *)
+      (sym_t, s1exp)
+*)</span>
+  <span class="keyword">|</span> S1Elist <span class="keyword">of</span> <span class="comment">(* static expression list: temoprary *)</span>
+      <span class="staexp"><span class="keyword">(</span>int <span class="comment">(*pfarity*)</span><span class="keyword">,</span> s1explst<span class="keyword">)</span></span>
+  <span class="keyword">|</span> S1Eqid <span class="keyword">of</span> <span class="comment">(* (qualified) static identifier *)</span>
+      <span class="staexp"><span class="keyword">(</span>s0taq<span class="keyword">,</span> sym_t<span class="keyword">)</span></span>
+  <span class="keyword">|</span> S1Eread <span class="keyword">of</span> <span class="comment">(* read-only type *)</span>
+      <span class="staexp"><span class="keyword">(</span>s1exp<span class="comment">(*view*)</span><span class="keyword">,</span> s1exp<span class="comment">(*viewtype*)</span><span class="keyword">)</span></span>
+<span class="comment">(*
+// HX-2010-11-01: simplification
+  | S1Estruct of (* struct type *)
+      labs1explst
+*)</span>
+  <span class="keyword">|</span> S1Etop <span class="keyword">of</span> <span class="comment">(*0/1: topization/typization *)</span>
+      <span class="staexp"><span class="keyword">(</span>int<span class="comment">(*knd*)</span><span class="keyword">,</span> s1exp<span class="keyword">)</span></span>
+  <span class="keyword">|</span> S1Etrans <span class="keyword">of</span> <span class="comment">(* view or viewtype transform *)</span>
+      <span class="staexp"><span class="keyword">(</span>s1exp<span class="keyword">,</span> s1exp<span class="keyword">)</span></span>
+  <span class="keyword">|</span> S1Etyarr <span class="keyword">of</span> <span class="comment">(* array type *)</span>
+      <span class="staexp"><span class="keyword">(</span>s1exp <span class="comment">(*element*)</span><span class="keyword">,</span> s1explstlst <span class="comment">(*dimension*)</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> S1Etyrec <span class="keyword">of</span> <span class="comment">(* record type *)</span>
+      <span class="staexp"><span class="keyword">(</span>int <span class="comment">(*recknd*)</span><span class="keyword">,</span> labs1explst<span class="keyword">)</span></span>
+  <span class="keyword">|</span> S1Etyrec_ext <span class="keyword">of</span> <span class="comment">(* external record type *)</span>
+      <span class="staexp"><span class="keyword">(</span>string <span class="comment">(*name*)</span><span class="keyword">,</span> labs1explst<span class="keyword">)</span></span> <span class="comment">// it is assumed to be flat
+</span>  <span class="keyword">|</span> S1Etytup <span class="keyword">of</span> <span class="comment">(* tuple type *)</span>
+      <span class="staexp"><span class="keyword">(</span>int <span class="comment">(*tupknd*)</span><span class="keyword">,</span> s1explst<span class="keyword">)</span></span>
+  <span class="keyword">|</span> S1Etytup2 <span class="keyword">of</span> <span class="comment">(* tuple type *)</span>
+      <span class="staexp"><span class="keyword">(</span>int <span class="comment">(*tupknd*)</span><span class="keyword">,</span> s1explst<span class="keyword">,</span> s1explst<span class="keyword">)</span></span>
+  <span class="keyword">|</span> S1Euni <span class="keyword">of</span> <span class="comment">(* universal quantified expression *)</span>
+      <span class="staexp"><span class="keyword">(</span>s1qualst<span class="keyword">,</span> s1exp<span class="keyword">)</span></span>
+  <span class="keyword">|</span> S1Eunion <span class="keyword">of</span> <span class="comment">(* union type *)</span>
+      <span class="staexp"><span class="keyword">(</span>s1exp <span class="comment">(*index*)</span><span class="keyword">,</span> labs1explst<span class="keyword">)</span></span>
+<span class="comment">// end of [s1exp_node]
+</span>
+<span class="keyword">and</span> <span class="staexp"><a name="8146"><span class="stacstdec">labs1explst</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> LABS1EXPLSTnil <span class="keyword">|</span> LABS1EXPLSTcons <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>lab_t<span class="keyword">,</span> s1exp<span class="keyword">,</span> labs1explst<span class="keyword">)</span></span>
+<span class="comment">// end of [labs1explst]
+</span>
+<span class="keyword">and</span> <span class="staexp"><a name="8257"><span class="stacstdec">tmps1explstlst</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> TMPS1EXPLSTLSTnil
+  <span class="keyword">|</span> TMPS1EXPLSTLSTcons <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>loc_t<span class="keyword">,</span> s1explst<span class="keyword">,</span> tmps1explstlst<span class="keyword">)</span></span>
+<span class="comment">// end of [tmps1explstlst]
+</span>
+<span class="keyword">and</span> <span class="staexp"><a name="8388"><span class="stacstdec">wths1explst</span></a></span> <span class="keyword">=</span> <span class="comment">// needed in [ats_trans2_sta.dats]
+</span>  <span class="keyword">|</span> WTHS1EXPLSTnil
+  <span class="keyword">|</span> WTHS1EXPLSTcons_some <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>int<span class="comment">(*refval*)</span><span class="keyword">,</span> s1exp<span class="keyword">,</span> wths1explst<span class="keyword">)</span></span>
+  <span class="keyword">|</span> WTHS1EXPLSTcons_none <span class="keyword">of</span> <span class="staexp">wths1explst</span>
+<span class="comment">// end of [wths1explst]
+</span>
+<span class="keyword">and</span> <span class="staexp"><a name="8589"><span class="stacstdec">s1rtext_node</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> S1TEsrt <span class="keyword">of</span> <span class="staexp">s1rt</span>
+  <span class="keyword">|</span> S1TEsub <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>sym_t<span class="keyword">,</span> s1rtext<span class="keyword">,</span> s1explst<span class="keyword">)</span></span>
+<span class="comment">(*
+  | S1TElam of (s1arglst, s1rtext)
+  | S1TEapp of (s1rtext, s1explst)
+*)</span>
+<span class="comment">// end of [s1rtext_node]
+</span>
+<span class="keyword">and</span> <span class="staexp"><a name="8772"><span class="stacstdec">s1qua_node</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> S1Qprop <span class="keyword">of</span> <span class="staexp">s1exp</span> <span class="keyword">|</span> S1Qvars <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>i0delst<span class="keyword">,</span> s1rtext<span class="keyword">)</span></span>
+<span class="comment">// end of [s1qua_node]
+</span>
+<span class="keyword">where</span> <span class="staexp"><a name="8868"><span class="stacstdec">s1exp <span class="keyword">:</span> type <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exp_loc<span class="keyword">=</span> loc_t<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> s1exp_node
+<span class="keyword">}</span></span></a></span> <span class="comment">// end of [s1exp]
+</span>
+<span class="keyword">and</span> <span class="staexp"><a name="8954"><span class="stacstdec">s1explst <span class="keyword">=</span> List s1exp</span></a></span>
+<span class="keyword">and</span> <span class="staexp"><a name="8980"><span class="stacstdec">s1expopt <span class="keyword">=</span> Option s1exp</span></a></span>
+<span class="keyword">and</span> <span class="staexp"><a name="9008"><span class="stacstdec">s1explstlst <span class="keyword">=</span> List s1explst</span></a></span>
+<span class="keyword">and</span> <span class="staexp"><a name="9040"><span class="stacstdec">s1explstopt <span class="keyword">=</span> Option s1explst</span></a></span>
+
+<span class="keyword">and</span> <span class="staexp"><a name="9075"><span class="stacstdec">s1rtext <span class="keyword">=</span> <span class="keyword">'{</span> <span class="comment">(* type for extended sorts *)</span>
+  s1rtext_loc<span class="keyword">=</span> loc_t<span class="keyword">,</span> s1rtext_node<span class="keyword">=</span> s1rtext_node
+<span class="keyword">}</span></span></a></span> <span class="comment">// end of [s1rtext]
+</span>
+<span class="keyword">and</span> <span class="staexp"><a name="9194"><span class="stacstdec">s1qua <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1qua_loc<span class="keyword">=</span> loc_t<span class="keyword">,</span> s1qua_node<span class="keyword">=</span> s1qua_node
+<span class="keyword">}</span></span></a></span> <span class="comment">// end of [s1qua]
+</span>
+<span class="keyword">and</span> <span class="staexp"><a name="9273"><span class="stacstdec">s1qualst <span class="keyword">=</span> List s1qua</span></a></span>
+<span class="keyword">and</span> <span class="staexp"><a name="9299"><span class="stacstdec">s1qualstlst <span class="keyword">=</span> List s1qualst</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="9353"><span class="dyncstdec">fprint_s1exp <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="keyword">and</span> <a name="9445"><span class="dyncstdec">fprint_s1explst <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="keyword">and</span> <a name="9543"><span class="dyncstdec">fprint_s1expopt <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1expopt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="keyword">and</span> <a name="9641"><span class="dyncstdec">fprint_s1explstlst <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1explstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_s1exp</span>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_s1explst</span>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_s1expopt</span>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_s1explstlst</span>
+
+<span class="keyword">fun</span> <a name="9894"><span class="dyncstdec">fprint_labs1explst <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">labs1explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_labs1explst</span>
+
+<span class="keyword">fun</span> <a name="10038"><span class="dyncstdec">fprint_tmps1explstlst <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">tmps1explstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_tmps1explstlst</span>
+
+<span class="keyword">fun</span> <a name="10191"><span class="dyncstdec">fprint_s1rtext <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1rtext</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_s1rtext</span>
+
+<span class="keyword">fun</span> <a name="10323"><span class="dyncstdec">print_s1exp <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">s1exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="10356"><span class="dyncstdec">prerr_s1exp <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">s1exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="neuexp"><span class="keyword">overload</span> print <span class="keyword">with</span> print_s1exp</span>
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> prerr_s1exp</span>
+
+<span class="keyword">fun</span> <a name="10455"><span class="dyncstdec">print_s1explst <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">s1explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="10494"><span class="dyncstdec">prerr_s1explst <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">s1explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="neuexp"><span class="keyword">overload</span> print <span class="keyword">with</span> print_s1explst</span>
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> prerr_s1explst</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="10631"><span class="stacstdec">s1vararg</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> S1VARARGone <span class="comment">(* {..} *)</span>
+  <span class="keyword">|</span> S1VARARGall <span class="comment">(* {...} *)</span>
+  <span class="keyword">|</span> S1VARARGseq <span class="keyword">of</span> <span class="staexp">s1arglst</span>
+<span class="comment">// end of [s1vararg]
+</span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="10755"><span class="stacstdec">s1vararglst <span class="keyword">=</span> List s1vararg</span></a></span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="10793"><span class="stacstdec">s1exparg_node</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> S1EXPARGone <span class="comment">(* {..} *)</span>
+  <span class="keyword">|</span> S1EXPARGall <span class="comment">(* {...} *)</span>
+  <span class="keyword">|</span> S1EXPARGseq <span class="keyword">of</span> <span class="staexp">s1explst</span>
+<span class="comment">// end of [s1exparg_node]
+</span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="10927"><span class="stacstdec">s1exparg <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exparg_loc<span class="keyword">=</span> loc_t<span class="keyword">,</span> s1exparg_node<span class="keyword">=</span> s1exparg_node
+<span class="keyword">}</span></span></a></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="11004"><span class="stacstdec">s1exparglst <span class="keyword">=</span> List s1exparg</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="11058"><span class="dyncstdec">s1arg_make <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1rtopt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1arg</span></span></a>
+
+<span class="keyword">fun</span> <a name="11114"><span class="dyncstdec">sp1at_arg <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> arg<span class="keyword">:</span> <span class="staexp">s1arg</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">sp1at</span></span></a>
+<span class="keyword">fun</span> <a name="11158"><span class="dyncstdec">sp1at_con <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> q<span class="keyword">:</span> <span class="staexp">s0taq</span><span class="keyword">,</span> id<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">,</span> args<span class="keyword">:</span> <span class="staexp">s1arglst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">sp1at</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="11249"><span class="dyncstdec">s1exp_ann <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1exp</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1rt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+<span class="keyword">fun</span> <a name="11300"><span class="dyncstdec">s1exp_any <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+
+<span class="keyword">fun</span> <a name="11333"><span class="dyncstdec">s1exp_app
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _fun<span class="keyword">:</span> <span class="staexp">s1exp</span><span class="keyword">,</span> loc_arg<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _arg<span class="keyword">:</span> <span class="staexp">s1explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+<span class="comment">// end of [s1exp_app]
+</span>
+<span class="keyword">fun</span> <a name="11437"><span class="dyncstdec">s1exp_char <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">char</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+<span class="keyword">fun</span> <a name="11479"><span class="dyncstdec">s1exp_exi <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> knd<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> qua<span class="keyword">:</span> <span class="staexp">s1qualst</span><span class="keyword">,</span> body<span class="keyword">:</span> <span class="staexp">s1exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+
+<span class="keyword">fun</span> <a name="11550"><span class="dyncstdec">s1exp_extype <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> name<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> arg<span class="keyword">:</span> <span class="staexp">s1explstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+
+<span class="keyword">fun</span> <a name="11618"><span class="dyncstdec">s1exp_ide <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+<span class="keyword">fun</span> <a name="11660"><span class="dyncstdec">s1exp_imp
+  <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> fc<span class="keyword">:</span> <span class="staexp">funclo</span><span class="keyword">,</span> lin<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> prf<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">efcopt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+<span class="keyword">fun</span> <a name="11737"><span class="dyncstdec">s1exp_int <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> int<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+<span class="keyword">fun</span> <a name="11782"><span class="dyncstdec">s1exp_invar <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> refval<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> arg<span class="keyword">:</span> <span class="staexp">s1exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+
+<span class="keyword">fun</span> <a name="11842"><span class="dyncstdec">s1exp_lam
+  <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> arg<span class="keyword">:</span> <span class="staexp">s1arglst</span><span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp">s1rtopt</span><span class="keyword">,</span> body<span class="keyword">:</span> <span class="staexp">s1exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+<span class="comment">// end of [s1exp_lam]
+</span>
+<span class="keyword">fun</span> <a name="11941"><span class="dyncstdec">s1exp_list <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+<span class="keyword">fun</span> <a name="11987"><span class="dyncstdec">s1exp_list2 <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _1<span class="keyword">:</span> <span class="staexp">s1explst</span><span class="keyword">,</span> _2<span class="keyword">:</span> <span class="staexp">s1explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+
+<span class="comment">(*
+// HX-2010-12-04: simplification
+fun s1exp_mod (_: loc_t, q: s0taq, id: sym_t, _: labs1explst): s1exp
+*)</span>
+
+<span class="comment">(*
+// HX-2010-12-04: inadequate design
+fun s1exp_named (_: loc_t, name: sym_t, s1e: s1exp): s1exp
+*)</span>
+
+<span class="keyword">fun</span> <a name="12261"><span class="dyncstdec">s1exp_qid <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> q<span class="keyword">:</span> <span class="staexp">s0taq</span><span class="keyword">,</span> id<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+<span class="keyword">fun</span> <a name="12314"><span class="dyncstdec">s1exp_read <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s1e<span class="keyword">:</span> <span class="staexp">s1exp</span><span class="comment">(*list*)</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+
+<span class="comment">(*
+// HX-2010-11-01: simplification
+fun s1exp_struct (_: loc_t, _: labs1explst): s1exp
+*)</span>
+
+<span class="keyword">fun</span> <a name="12459"><span class="dyncstdec">s1exp_top <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> knd<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> arg<span class="keyword">:</span> <span class="staexp">s1exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+<span class="keyword">fun</span> <a name="12513"><span class="dyncstdec">s1exp_trans <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> arg1<span class="keyword">:</span> <span class="staexp">s1exp</span><span class="keyword">,</span> arg2<span class="keyword">:</span> <span class="staexp">s1exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+<span class="keyword">fun</span> <a name="12573"><span class="dyncstdec">s1exp_tyarr <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> elt<span class="keyword">:</span> <span class="staexp">s1exp</span><span class="keyword">,</span> dim<span class="keyword">:</span> <span class="staexp">s1explstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+<span class="keyword">fun</span> <a name="12637"><span class="dyncstdec">s1exp_tyrec <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> kind<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">labs1explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+<span class="keyword">fun</span> <a name="12698"><span class="dyncstdec">s1exp_tyrec_ext <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> name<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">labs1explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+<span class="keyword">fun</span> <a name="12766"><span class="dyncstdec">s1exp_tytup <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> kind<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+<span class="keyword">fun</span> <a name="12824"><span class="dyncstdec">s1exp_tytup2
+  <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> kind<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> _1<span class="keyword">:</span> <span class="staexp">s1explst</span><span class="keyword">,</span> _2<span class="keyword">:</span> <span class="staexp">s1explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+<span class="keyword">fun</span> <a name="12900"><span class="dyncstdec">s1exp_uni <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> qua<span class="keyword">:</span> <span class="staexp">s1qualst</span><span class="keyword">,</span> body<span class="keyword">:</span> <span class="staexp">s1exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+<span class="keyword">fun</span> <a name="12960"><span class="dyncstdec">s1exp_union <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> ind<span class="keyword">:</span> <span class="staexp">s1exp</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">labs1explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+
+<span class="comment">//
+</span>
+<span class="keyword">fun</span> <a name="13027"><span class="dyncstdec">s1exparg_one <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exparg</span></span></a>
+<span class="keyword">fun</span> <a name="13065"><span class="dyncstdec">s1exparg_all <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exparg</span></span></a>
+<span class="keyword">fun</span> <a name="13103"><span class="dyncstdec">s1exparg_seq <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> seq<span class="keyword">:</span> <span class="staexp">s1explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exparg</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="13178"><span class="dyncstdec">s1rtext_srt <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1rt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1rtext</span></span></a>
+<span class="keyword">fun</span> <a name="13223"><span class="dyncstdec">s1rtext_sub
+  <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1rtext</span><span class="keyword">,</span> s1ps<span class="keyword">:</span> <span class="staexp">s1explst</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">s1rtext</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="13324"><span class="dyncstdec">s1qua_prop <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1qua</span></span></a>
+<span class="keyword">fun</span> <a name="13367"><span class="dyncstdec">s1qua_vars <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">i0delst</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s1rtext</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1qua</span></span></a>
+
+<span class="comment">//
+</span>
+<span class="keyword">fun</span> <a name="13429"><span class="dyncstdec">s1exp_make_e1xp <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s1exp</span></span></a>
+
+<span class="comment">//
+</span>
+<span class="keyword">fun</span> <a name="13481"><span class="dyncstdec">wths1explst_is_none <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">wths1explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span></span></a>
+<span class="keyword">fun</span> <a name="13528"><span class="dyncstdec">wths1explst_reverse <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">wths1explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">wths1explst</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="13609"><span class="stacstdec">witht1ype</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> WITHT1YPEnone
+  <span class="keyword">|</span> WITHT1YPEprop <span class="keyword">of</span> <span class="staexp">s1exp</span>
+  <span class="keyword">|</span> WITHT1YPEtype <span class="keyword">of</span> <span class="staexp">s1exp</span>
+  <span class="keyword">|</span> WITHT1YPEview <span class="keyword">of</span> <span class="staexp">s1exp</span>
+  <span class="keyword">|</span> WITHT1YPEviewtype <span class="keyword">of</span> <span class="staexp">s1exp</span>
+<span class="comment">// end of [witht1ype]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_staexp1.sats] *)</span>
+</pre>
+</body>
+</html>

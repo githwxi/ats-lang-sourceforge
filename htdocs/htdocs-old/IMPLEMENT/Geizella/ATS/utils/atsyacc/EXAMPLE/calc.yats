@@ -1,0 +1,133 @@
+/*******************************************************************/
+/*                                                                 */
+/*                        Applied Type System                      */
+/*                                                                 */
+/*                          (c) Hongwei Xi                         */
+/*                                                                 */
+/*                            2002 - 2007                          */
+/*                                                                 */
+/*                         Boston University                       */
+/*                                                                 */
+/*                   Distributed by permission only.               */
+/*                                                                 */
+/*******************************************************************/
+
+// July 2007
+// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+
+/*
+ *
+ * A simple calculator for evaluating arithmetic expressions.
+ *
+ */
+
+/*
+
+The formats of supported commands:
+
+[var] = [exp]
+print [exp]
+quit
+
+Here is a session:
+
+./calc
+<< x = 1 + 2
+<< y = x + x
+<< print x
+>> 3
+<< print y
+>> 6
+<< quit
+
+*/
+
+%{
+
+#include "ats_types.h"
+
+
+typedef union {
+  ats_ptr_type exp ;
+  ats_ptr_type cmd ;
+  ats_ptr_type ide ;
+  ats_int_type itg ;
+} YYSTYPE_union ;
+
+#define YYSTYPE YYSTYPE_union
+
+%}
+
+%token LPAREN RPAREN
+%token IDE INT
+%token ADD SUB MUL DIV
+%token EQ PRINT QUIT
+
+%left ADD SUB
+%left MUL DIV
+
+%type <ide> ide
+%type <itg> itg
+%type <exp> exp
+%type <cmd> cmd
+
+%start cmd
+
+%%
+
+ide : IDE { $$ = yylval.ide ; }
+itg : INT { $$ = yylval.itg ; }
+
+exp : LPAREN exp RPAREN { $$ = $2 ; }
+    | ide { $$ = exp_ide ($1) ; }
+    | itg { $$ = exp_int ($1) ; }
+    | exp ADD exp { $$ = exp_add ($1, $3) ; }
+    | exp SUB exp { $$ = exp_sub ($1, $3) ; }
+    | exp MUL exp { $$ = exp_mul ($1, $3) ; }
+    | exp DIV exp { $$ = exp_div ($1, $3) ; }
+    ;
+
+cmd : ide EQ exp { $$ = cmd_assgn ($1, $3) ; }
+    | QUIT { $$ = cmd_quit () ; }
+    | PRINT exp { $$ = cmd_print ($2) ; }
+    | error { $$ = cmd_error () ; }
+    ;
+
+%%
+
+#include "calc_dats.c"
+
+int yylex () {
+  int tok = TOKEN () ;
+/*
+  fprintf (stderr, "tok = %i\n", tok) ;
+*/
+  return tok ;
+}
+
+
+void yyerror (char *s) {
+  fprintf (stderr, "%s\n", s) ; return ;
+}
+
+ats_void_type token_ide_set (ats_ptr_type name) {
+  yylval.ide = name ; return ;
+}
+
+ats_void_type token_int_set (ats_int_type i) {
+  yylval.itg = i ; return ;
+}
+
+int parse_cmd_flag = 0 ;
+
+ats_ptr_type parse_cmd () {
+
+  if (!parse_cmd_flag) {
+    parse_cmd_flag = 1 ;
+    // must take care of garbage collection
+    ats_gc_markroot (&yyval, sizeof(YYSTYPE)) ;
+    ats_gc_markroot (&yylval, sizeof(YYSTYPE)) ;
+  }
+
+  yyparse () ; return yyval.cmd ;
+}

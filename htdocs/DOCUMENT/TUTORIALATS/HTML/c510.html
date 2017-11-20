@@ -1,0 +1,451 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>Functional Lists</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+TITLE="A Tutorial on Programming Features in ATS"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Basic Tutorial Topics"
+HREF="p34.html"><LINK
+REL="PREVIOUS"
+TITLE="Printf-like Functions"
+HREF="c480.html"><LINK
+REL="NEXT"
+TITLE="Persistent Arrays"
+HREF="c545.html"></HEAD
+><BODY
+CLASS="chapter"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>A Tutorial on Programming Features in ATS: </TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="c480.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="c545.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="chapter"
+><H1
+><A
+NAME="funlist"
+></A
+>Functional Lists</H1
+><P
+>&#13;Lists are by far the most commonly used data structure in functional
+programming. We say that a data structure is <FONT
+COLOR="RED"
+>functional</FONT
+> if it is
+heap-allocated and immutable and can only be freed through garbage collection
+(GC). In contrast, a data structure is said to be linear if it is either
+stack-allocated or heap-allocated and can be freed by the user as well as
+by the GC.
+
+</P
+><P
+>&#13;The datatype for functional lists in ATS is (essentially) declared as follows:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN515"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>datatype list (a:t@ype, int) =
+  | {n:nat} list_cons (a, n+1) of (a, list (a, n))
+  | list_nil (a, 0) of ()
+// end of [list]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+There are two data constructors associated with <FONT
+COLOR="RED"
+>list</FONT
+>:
+<FONT
+COLOR="RED"
+>list_nil</FONT
+> forms an empty list and <FONT
+COLOR="RED"
+>list_cons</FONT
+> for a list of
+a given head and tail.  Given a type T and an integer I, the type
+<FONT
+COLOR="RED"
+>list</FONT
+>(T, I) is for lists of length I in which each element is of
+type T. Note that the sort <FONT
+COLOR="RED"
+>t@ype</FONT
+> indicates that the element type
+of a list can be unboxed (i.e., flat).
+
+</P
+><P
+>&#13;Often the following abbreviations are introduced for the list constructors
+so as to make the code involving list-processing less verbose:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN523"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>#define nil list_nil
+#define cons list_cons
+#define :: list_cons // [::] is an infix operator
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+As an example of list creation, the following expression evaluates to a
+list consisting of integers 1, 2 and 3:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN525"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>cons (1, cons (2, cons (3, nil ()))) // [nil ()] can be replaced with [nil]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+Clearly, this kind of syntax is a bit unwieldy if longer lists need to be
+constructed. The following alternatives can also be used to create lists:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN527"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>val xs = '[1, 2, 3] // the first character is quote (')
+val xs = $lst (1, 2, 3) // this is equivalent to '[1, 2, 3]
+val xs = $lst {Nat} (1, 2, 3) // [Nat] is given as the type for the list elements
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+The interfaces for various functions on lists can be found in
+<A
+HREF="http://www.ats-lang.org/DOCUMENT/ANAIRIATS/prelude/SATS/list.sats"
+TARGET="_top"
+>prelude/SATS/list.sats</A
+>.
+</P
+><P
+>&#13;Let us now see some list-processing code in ATS.  The following program
+implements a function template that computes the length of a given list:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN531"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun{a:t@ype}
+length {n:nat} .&#60;n&#62;.
+  (xs: list (a, n)): int n =
+  case+ xs of _ :: xs =&#62; 1 + length xs | nil () =&#62; 0
+// end of [length]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+As this is not a tail-recursive implementation, the function
+<FONT
+COLOR="RED"
+>length</FONT
+> may have difficulty handling long lists (e.g., (e.g., those
+containing more than 1 million elements).  A tail-recursive implementation
+of <FONT
+COLOR="RED"
+>length</FONT
+> that can handle lists of any length is given as follows:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN535"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun{a:t@ype}
+length {n:nat} .&#60;&#62;.
+  (xs: list (a, n)): int n = let
+  fun loop {i,j:nat} .&#60;i&#62;.
+    (xs: list (a, i), j: int j): int (i+j) =
+    case+ xs of _ :: xs =&#62; loop (xs, j+1) | nil () =&#62; j
+  // end of [loop]
+in
+  loop (xs, 0)
+end // end of [length]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+</P
+><P
+>&#13;Let us see another example. The following function <FONT
+COLOR="RED"
+>append</FONT
+> returns
+the concatenation of two given lists:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN539"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun{a:t@ype}
+append {m,n:nat} .&#60;m&#62;. (
+  xs: list (a, m), ys: list (a, n)
+) : list (a, m+n) =
+  case+ xs of
+  | cons (x, xs) =&#62; cons (x, append (xs, ys)) | nil () =&#62; ys
+// end of [append]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+This is not a tail-recursive implementation. As a consequence,
+<FONT
+COLOR="RED"
+>append</FONT
+> may have difficulty handling a case where its first
+argument is of a large length (e.g., 1 million). Can <FONT
+COLOR="RED"
+>append</FONT
+> be
+given a tail-recursive implementation in ATS? The answer is affirmative.
+For instance, a tail-recursive implementation of <FONT
+COLOR="RED"
+>append</FONT
+> is
+available in <A
+HREF="http://www.ats-lang.org/DOCUMENT/ANAIRIATS/prelude/DATS/list.dats"
+TARGET="_top"
+>prelude/DATS/list.dats</A
+>.  As the implementation makes use of linear types,
+it is to be explained elsewhere.
+
+</P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="c480.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="c545.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Printf-like Functions</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="p34.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Persistent Arrays</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

@@ -1,0 +1,507 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2010 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the  terms of the  GNU General Public License as published by the Free
+** Software Foundation; either version 2.1, or (at your option) any later
+** version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* author: Hongwei Xi (hwxi AT cs DOT bu DOT edu) *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{#
+#include "libc/CATS/unistd.cats"
+%}</span> <span class="comment">// end of [%{#]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="keyword">staload</span> <span class="staexp">TYPES <span class="keyword">=</span> "libc/sys/SATS/types.sats"</span>
+<span class="comment">//
+</span><span class="keyword">typedef</span> <span class="staexp"><a name="1616"><span class="stacstdec">off_t <span class="keyword">=</span> $TYPES<span class="keyword">.</span>off_t</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1645"><span class="stacstdec">pid_t <span class="keyword">=</span> $TYPES<span class="keyword">.</span>pid_t</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1674"><span class="stacstdec">uid_t <span class="keyword">=</span> $TYPES<span class="keyword">.</span>uid_t</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1703"><span class="stacstdec">gid_t <span class="keyword">=</span> $TYPES<span class="keyword">.</span>gid_t</span></a></span>
+<span class="comment">//
+</span><span class="keyword">typedef</span> <span class="staexp"><a name="1735"><span class="stacstdec">mode_t <span class="keyword">=</span> $TYPES<span class="keyword">.</span>mode_t</span></a></span>
+<span class="comment">//
+</span><span class="keyword">typedef</span> <span class="staexp"><a name="1769"><span class="stacstdec">whence_t <span class="keyword">=</span> $TYPES<span class="keyword">.</span>whence_t</span></a></span>
+<span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">FCNTL <span class="keyword">=</span> "libc/SATS/fcntl.sats"</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="1866"><span class="stacstdec">fildes_v <span class="keyword">=</span> $FCNTL<span class="keyword">.</span>fildes_v</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">sta</span> <span class="staexp">STDIN_FILENO <span class="keyword">:</span> int</span>
+<span class="keyword">sta</span> <span class="staexp">STDOUT_FILENO <span class="keyword">:</span> int</span>
+<span class="keyword">sta</span> <span class="staexp">STDERR_FILENO <span class="keyword">:</span> int</span>
+<span class="comment">//
+</span><span class="keyword">praxi</span> <a name="1995"><span class="dyncstdec"><span class="prfexp">STDIN_FILENO_gtez <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>STDIN_FILENO &gt;= 0<span class="keyword">]</span> void</span></span></span></a>
+<span class="keyword">praxi</span> <a name="2048"><span class="dyncstdec"><span class="prfexp">STDOUT_FILENO_gtez <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>STDOUT_FILENO &gt;= 0<span class="keyword">]</span> void</span></span></span></a>
+<span class="keyword">praxi</span> <a name="2103"><span class="dyncstdec"><span class="prfexp">STDERR_FILENO_gtez <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>STDERR_FILENO &gt;= 0<span class="keyword">]</span> void</span></span></span></a>
+<span class="comment">//
+</span><span class="keyword">macdef</span> <span class="neuexp">STDIN_FILENO <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>int STDIN_FILENO<span class="keyword">,</span> "STDIN_FILENO"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">STDOUT_FILENO <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>int STDOUT_FILENO<span class="keyword">,</span> "STDOUT_FILENO"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">STDERR_FILENO <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>int STDERR_FILENO<span class="keyword">,</span> "STDERR_FILENO"<span class="keyword">)</span></span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: implemented in [$ATSHOME/prelude/CATS/basics.cats]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="2445"><span class="dyncstdec">stdin_fildes_view_get
+  <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>fildes_v <span class="keyword">(</span>STDIN_FILENO<span class="keyword">)</span> <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atspre_stdin_view_get"
+<span class="keyword">fun</span> <a name="2536"><span class="dyncstdec">stdin_fildes_view_set
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">fildes_v <span class="keyword">(</span>STDIN_FILENO<span class="keyword">)</span></span></span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atspre_stdin_view_set"
+<span class="comment">// end of [stdin_fildes_view_set]
+</span>
+<span class="keyword">fun</span> <a name="2672"><span class="dyncstdec">stdout_fildes_view_get
+  <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>fildes_v <span class="keyword">(</span>STDOUT_FILENO<span class="keyword">)</span> <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atspre_stdout_view_get"
+<span class="keyword">fun</span> <a name="2766"><span class="dyncstdec">stdout_fildes_view_set
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">fildes_v <span class="keyword">(</span>STDOUT_FILENO<span class="keyword">)</span></span></span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atspre_stdout_view_set"
+<span class="comment">// end of [stdout_fildes_view_set]
+</span>
+<span class="keyword">fun</span> <a name="2906"><span class="dyncstdec">stderr_fildes_view_get
+  <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>fildes_v <span class="keyword">(</span>STDERR_FILENO<span class="keyword">)</span> <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atspre_stderr_view_get"
+<span class="keyword">fun</span> <a name="3000"><span class="dyncstdec">stderr_fildes_view_set
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">fildes_v <span class="keyword">(</span>STDERR_FILENO<span class="keyword">)</span></span></span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atspre_stderr_view_set"
+<span class="comment">// end of [stderr_fildes_view_get]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="3161"><span class="dyncstdec">dup <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>fildes_v fd</span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>fd1<span class="keyword">:</span> int<span class="keyword">]</span> <span class="keyword">(</span>option_v <span class="keyword">(</span>fildes_v fd1<span class="keyword">,</span> fd1 &gt;= 0<span class="keyword">)</span> <span class="keyword">|</span> int fd1<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_dup"
+<span class="comment">// end of [dup]
+</span>
+<span class="neuexp"><span class="keyword">symintr</span></span> dup2
+
+<span class="keyword">fun</span> <a name="3320"><span class="dyncstdec">dup2_exi <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">;</span>fd2<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf1<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>fildes_v fd</span></span><span class="keyword">,</span> <span class="prfexp">pf2<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>fildes_v <span class="keyword">(</span>fd2<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> fd2<span class="keyword">:</span> <span class="staexp">int fd2</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &lt;= 0<span class="keyword">]</span> int i</span></span></a> <span class="keyword">=</span> "#atslib_dup2"
+<span class="neuexp"><span class="keyword">overload</span> dup2 <span class="keyword">with</span> dup2_exi</span>
+
+<span class="keyword">fun</span> <a name="3494"><span class="dyncstdec">dup2_noexi <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">;</span>fd2<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>fildes_v fd</span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> fd2<span class="keyword">:</span> <span class="staexp">int fd2</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &lt;= 0<span class="keyword">]</span> <span class="keyword">(</span>option_v <span class="keyword">(</span>fildes_v fd2<span class="keyword">,</span> i == 0<span class="keyword">)</span> <span class="keyword">|</span> int i<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_dup2"
+<span class="neuexp"><span class="keyword">overload</span> dup2 <span class="keyword">with</span> dup2_noexi</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="3706"><span class="dyncstdec">_exit <span class="keyword">(</span>status<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "#atslib__exit" <span class="comment">// !macro
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="3786"><span class="dyncstdec">execv <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>pos<span class="keyword">}</span></span>
+  <span class="keyword">(</span>path<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> argv<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>ptrarr<span class="keyword">(</span>n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_execv"
+<span class="keyword">fun</span> <a name="3862"><span class="dyncstdec">execvp <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>pos<span class="keyword">}</span></span>
+  <span class="keyword">(</span>path<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> argv<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>ptrarr<span class="keyword">(</span>n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_execvp"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="3962"><span class="dyncstdec">fork_err <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">pid_t</span></span></a> <span class="keyword">=</span> "atslib_fork_err" <span class="comment">// = fork
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">//
+</span><span class="comment">// HX-2010-10-08:
+</span><span class="comment">// these functions, which are implemented in [$ATSHOME/libc/DATS/unistd.dats],
+</span><span class="comment">// are now kept for historic reasons.
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="4178"><span class="dyncstdec">fork_exn <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">pid_t</span></span></a> <span class="keyword">=</span> "atslib_fork_exn" <span class="comment">// function!
+</span>
+<span class="comment">//
+</span><span class="comment">// HX: the parent returns immediately
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="4279"><span class="dyncstdec">fork_exec_cloptr_exn
+  <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v</span></span> <span class="keyword">|</span> f<span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>v <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">-&lt;</span>cloptr1<span class="keyword">&gt;</span> void</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+ <span class="keyword">=</span> "atslib_fork_exec_cloptr_exn"
+<span class="comment">// end of [fork_exec_cloptr_exn]
+</span>
+<span class="comment">//
+</span><span class="comment">// HX: the parent waits until the (only) child finishes
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="4495"><span class="dyncstdec">fork_exec_and_wait_cloptr_exn
+  <span class="keyword">(</span>proc<span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">-&lt;</span>cloptr1<span class="keyword">&gt;</span> void</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "atslib_fork_exec_and_wait_cloptr_exn"
+<span class="comment">// end of [fork_exec_and_wait_cloptr_exn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">dataview</span> <span class="prfexp"><span class="staexp"><a name="4673"><span class="stacstdec">getcwd_v <span class="keyword">(</span>m<span class="keyword">:</span>int<span class="keyword">,</span> l<span class="keyword">:</span>addr<span class="keyword">,</span> addr<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">l<span class="keyword">&gt;</span>null</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">n<span class="keyword">:</span>nat</span><span class="keyword">}</span> getcwd_v_succ <span class="staexp"><span class="keyword">(</span>m<span class="keyword">,</span> l<span class="keyword">,</span> l<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">strbuf_v <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span></span>
+  <span class="keyword">|</span> getcwd_v_fail <span class="staexp"><span class="keyword">(</span>m<span class="keyword">,</span> l<span class="keyword">,</span> null<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">b0ytes <span class="keyword">(</span>m<span class="keyword">)</span> @ l</span></span>
+<span class="comment">// end of [getcwd_v]
+</span>
+<span class="keyword">fun</span> <a name="4848"><span class="dyncstdec">getcwd <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>b0ytes <span class="keyword">(</span>m<span class="keyword">)</span> @ l &gt;&gt; getcwd_v <span class="keyword">(</span>m<span class="keyword">,</span> l<span class="keyword">,</span> l1<span class="keyword">)</span></span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">,</span> m<span class="keyword">:</span> <span class="staexp">size_t m</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>l1<span class="keyword">:</span>addr<span class="keyword">]</span> ptr l1</span></span></a> <span class="keyword">=</span> "#atslib_getcwd"
+<span class="comment">// end of [getcwd]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: implemented in [$ATSHOME/libc/DATS/unistd.dats]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="5089"><span class="dyncstdec">getcwd0 <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">strptr1</span></span></a> <span class="keyword">=</span> "atslib_getcwd0"
+<span class="comment">//
+</span><span class="comment">// HX:
+</span><span class="comment">// [get_current_dir_name] is available if _GNU_SOURCE is on
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">absview</span> <span class="staexp"><a name="5230"><span class="stacstdec">alarm_v</span></a></span> <span class="keyword">(</span>int<span class="keyword">)</span>
+<span class="keyword">praxi</span> <a name="5250"><span class="dyncstdec"><span class="prfexp">alarm_v_elim <span class="keyword">(</span>pf<span class="keyword">:</span> <span class="staexp">alarm_v <span class="keyword">(</span>0<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></span></a>
+<span class="keyword">fun</span> <a name="5291"><span class="dyncstdec">alarm_set <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">uint i</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>alarm_v <span class="keyword">(</span>i<span class="keyword">)</span> <span class="keyword">|</span> uInt<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_alarm_set"
+<span class="comment">// end of [alarm_set]
+</span><span class="keyword">fun</span> <a name="5393"><span class="dyncstdec">alarm_cancel <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">alarm_v <span class="keyword">(</span>i<span class="keyword">)</span></span></span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">uInt</span></span></a> <span class="keyword">=</span> "#atslib_alarm_cancel"
+<span class="comment">// end of [alarm_cancel]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// [sleep] may be implemented using SIGARM
+</span><span class="keyword">fun</span> <a name="5570"><span class="dyncstdec">sleep <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">int i</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>j<span class="keyword">:</span>nat <span class="keyword">|</span> j &lt;= i<span class="keyword">]</span> int j</span></span></a> <span class="keyword">=</span> "#atslib_sleep"
+<span class="comment">// end of [sleep]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">MILLION 1000000</span>
+<span class="comment">// some systems require that the argument of usleep &lt;= 1 million
+</span><span class="keyword">fun</span> <a name="5772"><span class="dyncstdec">usleep
+  <span class="keyword">(</span>n<span class="keyword">:</span> <span class="staexp">natLte MILLION</span> <span class="comment">(*microseconds*)</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atslib_usleep" <span class="comment">// !fun
+</span><span class="comment">// end of [usleep]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="5895"><span class="dyncstdec">getpagesize <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_getpagesize" <span class="comment">// macro
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="5976"><span class="dyncstdec">getuid <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">uid_t</span></span></a> <span class="keyword">=</span> "#atslib_getuid" <span class="comment">// !macro // user
+</span><span class="keyword">fun</span> <a name="6036"><span class="dyncstdec">geteuid <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">uid_t</span></span></a> <span class="keyword">=</span> "#atslib_geteuid" <span class="comment">// !macro // effective user
+</span><span class="comment">// 
+</span><span class="comment">// HX: for superuser // 0/-1 : succ/fail
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="6156"><span class="dyncstdec">setuid <span class="keyword">(</span>uid<span class="keyword">:</span> <span class="staexp">uid_t</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_setuid" <span class="comment">// !macro
+</span><span class="keyword">fun</span> <a name="6216"><span class="dyncstdec">seteuid <span class="keyword">(</span>uid<span class="keyword">:</span> <span class="staexp">uid_t</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_seteuid" <span class="comment">// 0/-1 : succ/fail
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="6310"><span class="dyncstdec">getgid <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">gid_t</span></span></a> <span class="keyword">=</span> "#atslib_getgid" <span class="comment">// !macro // group
+</span><span class="keyword">fun</span> <a name="6371"><span class="dyncstdec">getegid <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">gid_t</span></span></a> <span class="keyword">=</span> "#atslib_getegid" <span class="comment">// !macro // effective group
+</span><span class="comment">// 
+</span><span class="comment">// HX: for superuser // 0/-1 : succ/fail
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="6492"><span class="dyncstdec">setgid <span class="keyword">(</span>gid<span class="keyword">:</span> <span class="staexp">gid_t</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_setgid" <span class="comment">// !macro
+</span><span class="keyword">fun</span> <a name="6552"><span class="dyncstdec">setegid <span class="keyword">(</span>gid<span class="keyword">:</span> <span class="staexp">gid_t</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_setegid" <span class="comment">// 0/-1 : succ/fail
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="6646"><span class="dyncstdec">getpid <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">pid_t</span></span></a> <span class="keyword">=</span> "#atslib_getpid" <span class="comment">// !macro // process ID
+</span><span class="keyword">fun</span> <a name="6710"><span class="dyncstdec">getppid <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">pid_t</span></span></a> <span class="keyword">=</span> "#atslib_getppid" <span class="comment">// !macro // parent process ID
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: session IDs
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="6829"><span class="dyncstdec">setsid <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">pid_t</span></span></a> <span class="keyword">=</span> "#atslib_setsid" <span class="comment">// -1 is returned on error
+</span><span class="keyword">fun</span> <a name="6896"><span class="dyncstdec">getsid <span class="keyword">(</span>pid<span class="keyword">:</span> <span class="staexp">pid_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">pid_t</span></span></a> <span class="keyword">=</span> "#atslib_getsid" <span class="comment">// -1 is returned on error
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: process group IDs
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="7025"><span class="dyncstdec">setpgid <span class="keyword">(</span>
+  pid<span class="keyword">:</span> <span class="staexp">pid_t</span><span class="keyword">,</span> pgid<span class="keyword">:</span> <span class="staexp">pid_t</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_setpgid" <span class="comment">// 0/-1 : succ/fail
+</span><span class="keyword">fun</span> <a name="7113"><span class="dyncstdec">getpgid <span class="keyword">(</span>pid<span class="keyword">:</span> <span class="staexp">pid_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">pid_t</span></span></a> <span class="keyword">=</span> "#atslib_getpgid" <span class="comment">// -1 is returned on error
+</span>
+<span class="keyword">fun</span> <a name="7193"><span class="dyncstdec">getpgrp
+  <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">pid_t</span></span></a> <span class="keyword">=</span> "#atslib_getpgrp" <span class="comment">// = getpgid (0) // no error
+</span><span class="keyword">fun</span> <a name="7266"><span class="dyncstdec">setpgrp <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_setpgrp" <span class="comment">// = setpgid (0, 0)
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: non-reentrant version
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="7382"><span class="dyncstdec">getlogin <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>strptr l <span class="keyword">-&lt;</span>lin<span class="keyword">,</span>prf<span class="keyword">&gt;</span> void <span class="keyword">|</span> strptr l<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "#atslib_getlogin" <span class="comment">// macro
+</span><span class="comment">// end of [getlogin]
+</span>
+<span class="keyword">dataview</span> <span class="prfexp"><span class="staexp"><a name="7514"><span class="stacstdec">getlogin_v <span class="keyword">(</span>m<span class="keyword">:</span>int<span class="keyword">,</span> l<span class="keyword">:</span>addr<span class="keyword">,</span> int<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">n<span class="keyword">:</span>nat</span><span class="keyword">}</span> getlogin_v_succ <span class="staexp"><span class="keyword">(</span>m<span class="keyword">,</span> l<span class="keyword">,</span> 0<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">strbuf_v <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">i<span class="keyword">:</span>int</span> <span class="keyword">|</span> <span class="staexp">i &lt;&gt; 0</span><span class="keyword">}</span> getlogin_v_fail <span class="staexp"><span class="keyword">(</span>m<span class="keyword">,</span> l<span class="keyword">,</span> i<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">b0ytes <span class="keyword">(</span>m<span class="keyword">)</span> @ l</span></span>
+<span class="keyword">fun</span> <a name="7677"><span class="dyncstdec">getlogin_r <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>b0ytes <span class="keyword">(</span>m<span class="keyword">)</span> @ l &gt;&gt; getlogin_v <span class="keyword">(</span>m<span class="keyword">,</span> l<span class="keyword">,</span> i<span class="keyword">)</span></span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">size_t</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>int<span class="keyword">]</span> int i</span></span></a> <span class="comment">// 0/!0: succ/fail
+</span><span class="comment">// end of [getlogin_r]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="keyword">macdef</span> <span class="neuexp">R_OK <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>uint<span class="keyword">,</span> "R_OK"<span class="keyword">)</span></span> <span class="comment">// test for read permission
+</span><span class="keyword">macdef</span> <span class="neuexp">W_OK <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>uint<span class="keyword">,</span> "W_OK"<span class="keyword">)</span></span> <span class="comment">// test for write permission
+</span><span class="keyword">macdef</span> <span class="neuexp">X_OK <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>uint<span class="keyword">,</span> "X_OK"<span class="keyword">)</span></span> <span class="comment">// test for execute permission
+</span><span class="keyword">macdef</span> <span class="neuexp">F_OK <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>uint<span class="keyword">,</span> "F_OK"<span class="keyword">)</span></span> <span class="comment">// test for existence
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="8125"><span class="dyncstdec">access <span class="keyword">(</span>path<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> mode<span class="keyword">:</span> <span class="staexp">uint</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_access"
+<span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="8211"><span class="dyncstdec">chroot
+  <span class="keyword">(</span>path<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_chroot" <span class="comment">// 0/-1 : succ/fail
+</span><span class="comment">// end of [chroot]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="8324"><span class="dyncstdec">chdir <span class="keyword">(</span>path<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a><span class="comment">(*err*)</span> <span class="keyword">=</span> "#atslib_chdir"
+<span class="keyword">fun</span> <a name="8379"><span class="dyncstdec">fchdir <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>fildes_v <span class="keyword">(</span>fd<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a><span class="comment">(*err*)</span> <span class="keyword">=</span> "#atslib_fchdir"
+<span class="comment">// end of [fchdir]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="8504"><span class="dyncstdec">nice
+  <span class="keyword">(</span>incr<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_nice" <span class="comment">// NZERO/-1 : succ/fail // errno set
+</span><span class="comment">// end of [nice]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="8625"><span class="dyncstdec">link <span class="keyword">(</span>src<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> dst<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_link"
+<span class="keyword">fun</span> <a name="8683"><span class="dyncstdec">unlink <span class="keyword">(</span>path<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_unlink" <span class="comment">// macro!
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="8765"><span class="dyncstdec">lseek_err <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>fildes_v <span class="keyword">(</span>fd<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> ofs<span class="keyword">:</span> <span class="staexp">off_t</span><span class="keyword">,</span> whence<span class="keyword">:</span> <span class="staexp">whence_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">off_t</span></span></a>
+  <span class="keyword">=</span> "atslib_fildes_lseek_err"
+<span class="comment">// end of [lseek_err]
+</span><span class="keyword">fun</span> <a name="8913"><span class="dyncstdec">lseek_exn <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>fildes_v <span class="keyword">(</span>fd<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> ofs<span class="keyword">:</span> <span class="staexp">off_t</span><span class="keyword">,</span> whence<span class="keyword">:</span> <span class="staexp">whence_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">off_t</span></span></a>
+  <span class="keyword">=</span> "atslib_fildes_lseek_exn"
+<span class="comment">// end of [lseek_exn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="9083"><span class="dyncstdec">pread
+  <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>sz<span class="keyword">:</span>nat <span class="keyword">|</span> n &lt;= sz<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>fildes_v <span class="keyword">(</span>fd<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bytes sz</span><span class="keyword">,</span> ntotal<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">,</span> ofs<span class="keyword">:</span> <span class="staexp">off_t</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">ssizeBtw<span class="keyword">(</span>~1<span class="keyword">,</span> n+1<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atslib_fildes_pread"
+<span class="comment">// end of [fildes_pread]
+</span>
+<span class="keyword">fun</span> <a name="9287"><span class="dyncstdec">pwrite
+  <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>sz<span class="keyword">:</span>nat <span class="keyword">|</span> n &lt;= sz<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>fildes_v <span class="keyword">(</span>fd<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bytes sz</span><span class="keyword">,</span> ntotal<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">,</span> ofs<span class="keyword">:</span> <span class="staexp">off_t</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">ssizeBtw<span class="keyword">(</span>~1<span class="keyword">,</span> n+1<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atslib_fildes_pwrite"
+<span class="comment">// end of [fildes_pwrite]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="9515"><span class="dyncstdec">sync <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "#atslib_sync"
+
+<span class="comment">// [fsync] returns 0 on success or -1 on error
+</span><span class="keyword">fun</span> <a name="9598"><span class="dyncstdec">fsync <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="comment">// (sets errno)
+</span>  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>fildes_v <span class="keyword">(</span>fd<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_fsync"
+<span class="comment">// end of [fsync]
+</span>
+<span class="comment">// [fdatasync] returns 0 on success or -1 on error
+</span><span class="keyword">fun</span> <a name="9762"><span class="dyncstdec">fdatasync <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="comment">// (sets errno)
+</span>  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>fildes_v <span class="keyword">(</span>fd<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_fdatasync"
+<span class="comment">// end of [fdatasync]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="9913"><span class="stacstdec">pathconfname_t <span class="keyword">=</span> int</span></a></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_LINK_MAX <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_LINK_MAX"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_MAX_CANON <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_MAX_CANON"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_MAX_INPUT <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_MAX_INPUT"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_NAME_MAX <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_NAME_MAX"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_PATH_MAX <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_PATH_MAX"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_PIPE_BUF <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_PIPE_BUF"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_CHOWN_RESTRICTED <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_CHOWN_RESTRICTED"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_NO_TRUNC <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_NO_TRUNC"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_VDISABLE <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_VDISABLE"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_SYNC_IO <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_SYNC_IO"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_ASYNC_IO <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_ASYNC_IO"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_PRIO_IO <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_PRIO_IO"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_SOCK_MAXBUF <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_SOCK_MAXBUF"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_FILESIZEBITS <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_FILESIZEBITS"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_REC_INCR_XFER_SIZE <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_REC_INCR_XFER_SIZE"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_REC_MAX_XFER_SIZE <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_REC_MAX_XFER_SIZE"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_REC_MIN_XFER_SIZE <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_REC_MIN_XFER_SIZE"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_REC_XFER_ALIGN <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_REC_XFER_ALIGN"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_ALLOC_SIZE_MIN <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_ALLOC_SIZE_MIN"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_SYMLINK_MAX <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_SYMLINK_MAX"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">_PC_2_SYMLINK <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>pathconfname_t<span class="keyword">,</span> "_PC_2_SYMLINK"<span class="keyword">)</span></span>
+
+<span class="keyword">fun</span> <a name="11380"><span class="dyncstdec">pathconf
+  <span class="keyword">(</span>path<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> name<span class="keyword">:</span> <span class="staexp">pathconfname_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">lint</span></span></a> <span class="keyword">=</span> "#atslib_pathconf"
+<span class="comment">// end of [pathconf]
+</span>
+<span class="comment">//
+</span><span class="comment">// HX-2010-09-21: for simplicity, [fd] is assumed to be valid
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="11549"><span class="dyncstdec">fpathconf <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> name<span class="keyword">:</span> <span class="staexp">pathconfname_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">lint</span></span></a> <span class="keyword">=</span> "#atslib_fpathconf"
+<span class="comment">// end of [fpathconf]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="11681"><span class="dyncstdec">readlink <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+  <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>b0ytes<span class="keyword">(</span>n<span class="keyword">)</span> @ l &gt;&gt; bytes<span class="keyword">(</span>n<span class="keyword">)</span> @ l</span></span> <span class="keyword">|</span> path<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">size_t n</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>n1<span class="keyword">:</span>int <span class="keyword">|</span> n1 &lt;= n<span class="keyword">]</span> ssize_t <span class="keyword">(</span>n1<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_readlink"
+<span class="comment">// end of [readlink]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="11888"><span class="dyncstdec">pipe <span class="keyword">(</span>
+  fd1<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int? &gt;&gt; int fd1</span><span class="keyword">,</span> fd2<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int? &gt;&gt; int fd2</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>fd1<span class="keyword">,</span>fd2<span class="keyword">:</span>int<span class="keyword">]</span> <span class="keyword">[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &lt;= 0<span class="keyword">]</span>
+  <span class="keyword">(</span>option_v <span class="keyword">(</span><span class="keyword">(</span>fildes_v fd1<span class="keyword">,</span> fildes_v fd2<span class="keyword">)</span><span class="keyword">,</span> i==0<span class="keyword">)</span> <span class="keyword">|</span> int i<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atslib_pipe" <span class="comment">// function!
+</span><span class="comment">// end of [pipe]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="12110"><span class="dyncstdec">tcsetpgrp <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> pgid<span class="keyword">:</span> <span class="staexp">pid_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_tcsetpgrp" <span class="comment">// 0/-1 : succ/fail
+</span><span class="comment">// end of [tcsetpgrp]
+</span><span class="keyword">fun</span> <a name="12230"><span class="dyncstdec">tcgetpgrp <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">pid_t</span></span></a> <span class="keyword">=</span> "#atslib_tcgetpgrp" <span class="comment">// -1 is returned on error
+</span><span class="comment">// end of [tcgetpgrp]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="12368"><span class="dyncstdec">ttyname <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>strptr l <span class="keyword">-&lt;</span>lin<span class="keyword">,</span>prf<span class="keyword">&gt;</span> void <span class="keyword">|</span> strptr l<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "#atslib_ttyname"
+<span class="comment">// end of [ttyname]
+</span>
+<span class="keyword">dataview</span>
+<span class="prfexp"><span class="staexp"><a name="12507"><span class="stacstdec">ttyname_v <span class="keyword">(</span>m<span class="keyword">:</span>int<span class="keyword">,</span> l<span class="keyword">:</span>addr<span class="keyword">,</span> int<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">n<span class="keyword">:</span>nat</span> <span class="keyword">|</span> <span class="staexp">m <span class="keyword">&gt;</span> n</span><span class="keyword">}</span>
+    ttyname_v_succ <span class="staexp"><span class="keyword">(</span>m<span class="keyword">,</span> l<span class="keyword">,</span> 0<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">strbuf_v <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">i<span class="keyword">:</span>int</span> <span class="keyword">|</span> <span class="staexp">i <span class="keyword">&gt;</span> 0</span><span class="keyword">}</span> ttyname_v_fail <span class="staexp"><span class="keyword">(</span>m<span class="keyword">,</span> l<span class="keyword">,</span> i<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">b0ytes m @ l</span></span>
+<span class="keyword">fun</span> <a name="12676"><span class="dyncstdec">ttyname_r
+  <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">b0ytes m @ l</span></span>
+  <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">,</span> m<span class="keyword">:</span> <span class="staexp">size_t m</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &gt;= 0<span class="keyword">]</span> <span class="keyword">(</span>ttyname_v <span class="keyword">(</span>m<span class="keyword">,</span> l<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">|</span> int i<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "#atslib_ttyname_r" <span class="comment">// if it fails, errno is returned
+</span><span class="comment">// end of [ttyname_r]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="12936"><span class="dyncstdec">isatty <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_isatty" <span class="comment">// 1/0 : yes/no
+</span><span class="comment">// end of [isatty]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="13052"><span class="dyncstdec">environ_get_arrsz
+  <span class="keyword">(</span>n<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>size_t? &gt;&gt; size_t n</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">#[</span>n<span class="keyword">:</span>nat<span class="keyword">]</span> <span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>
+  array_v <span class="keyword">(</span>string<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span><span class="keyword">,</span> array_v <span class="keyword">(</span>string<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span> <span class="keyword">-&lt;</span>lin<span class="keyword">,</span>prf<span class="keyword">&gt;</span> void <span class="keyword">|</span> ptr l
+<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atslib_environ_get_arrsz"
+<span class="comment">// end of [environ_get_arrsz]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">dataview</span>
+<span class="prfexp"><span class="staexp"><a name="13290"><span class="stacstdec">gethostname_v <span class="keyword">(</span>m<span class="keyword">:</span>int<span class="keyword">,</span> l<span class="keyword">:</span>addr<span class="keyword">,</span> int<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> gethostname_v_fail <span class="staexp"><span class="keyword">(</span>m<span class="keyword">,</span> l<span class="keyword">,</span> ~1<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>b0ytes m @ l<span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">n<span class="keyword">:</span>nat</span> <span class="keyword">|</span> <span class="staexp">n <span class="keyword">&lt;</span> m</span><span class="keyword">}</span>
+    gethostname_v_succ <span class="staexp"><span class="keyword">(</span>m<span class="keyword">,</span> l<span class="keyword">,</span>  0<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">strbuf_v <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span></span></span>
+<span class="keyword">fun</span> <a name="13459"><span class="dyncstdec">gethostname <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>pos<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">b0ytes<span class="keyword">(</span>m<span class="keyword">)</span> @ l</span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">,</span> m<span class="keyword">:</span> <span class="staexp">size_t m</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>i<span class="keyword">:</span>nat<span class="keyword">]</span> <span class="keyword">(</span>gethostname_v <span class="keyword">(</span>m<span class="keyword">,</span> l<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">|</span> int i<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atslib_gethostname" <span class="comment">// function!
+</span><span class="comment">// end of [gethostname]
+</span><span class="comment">//
+</span><span class="comment">// HX: [m] should most likely be [n+1].
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="13689"><span class="dyncstdec">sethostname <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat <span class="keyword">|</span> n <span class="keyword">&lt;</span> m<span class="keyword">}</span></span>
+  <span class="keyword">(</span>name<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> m<span class="keyword">:</span> <span class="staexp">size_t m</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_sethostname"
+<span class="comment">// end of [sethostname]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">dataview</span>
+<span class="prfexp"><span class="staexp"><a name="13835"><span class="stacstdec">getdomainname_v <span class="keyword">(</span>m<span class="keyword">:</span>int<span class="keyword">,</span> l<span class="keyword">:</span>addr<span class="keyword">,</span> int<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> getdomainname_v_fail <span class="staexp"><span class="keyword">(</span>m<span class="keyword">,</span> l<span class="keyword">,</span> ~1<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>b0ytes m @ l<span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">n<span class="keyword">:</span>nat</span> <span class="keyword">|</span> <span class="staexp">n <span class="keyword">&lt;</span> m</span><span class="keyword">}</span>
+    getdomainname_v_succ <span class="staexp"><span class="keyword">(</span>m<span class="keyword">,</span> l<span class="keyword">,</span>  0<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">strbuf_v <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span></span></span>
+<span class="keyword">fun</span> <a name="14010"><span class="dyncstdec">getdomainname <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>pos<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">b0ytes<span class="keyword">(</span>m<span class="keyword">)</span> @ l</span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">,</span> m<span class="keyword">:</span> <span class="staexp">size_t m</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>i<span class="keyword">:</span>nat<span class="keyword">]</span> <span class="keyword">(</span>getdomainname_v <span class="keyword">(</span>m<span class="keyword">,</span> l<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">|</span> int i<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atslib_getdomainname" <span class="comment">// function!
+</span><span class="comment">// end of [getdomainname]
+</span><span class="comment">//
+</span><span class="comment">// HX: [m] should most likely be [n+1].
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="14248"><span class="dyncstdec">setdomainname <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat <span class="keyword">|</span> n <span class="keyword">&lt;</span> m<span class="keyword">}</span></span>
+  <span class="keyword">(</span>name<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> m<span class="keyword">:</span> <span class="staexp">size_t m</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_setdomainname"
+<span class="comment">// end of [setdomainname]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="14395"><span class="dyncstdec">pause <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_pause" <span class="comment">// if it returns, the return value is -1
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [unistd.sats] *)</span>
+</pre>
+</body>
+</html>

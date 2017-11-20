@@ -1,0 +1,129 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: October, 2010
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// book: AUP (2nd edition), pages 651 - 653
+</span><span class="comment">// section 9.7.1: alarm System Call
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">UNSAFE <span class="keyword">=</span> "prelude/SATS/unsafe.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anon*)</span> <span class="keyword">=</span> "prelude/DATS/pointer.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">T <span class="keyword">=</span> "libc/sys/SATS/types.sats"</span>
+<span class="keyword">macdef</span> <span class="neuexp">int_of_pid <span class="keyword">=</span> $T<span class="keyword">.</span>int_of_pid</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/errno.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/fcntl.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/signal.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/stdio.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/stdlib.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/unistd.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">//
+</span><span class="comment">// HX: this is really an overkill ...
+</span><span class="comment">//
+</span><span class="keyword">fun</span> fprint_bytes_size
+  <span class="staexp"><span class="keyword">{</span>n1<span class="keyword">,</span>n2<span class="keyword">:</span>nat <span class="keyword">|</span> n2 &lt;= n1<span class="keyword">}</span></span> 
+  <span class="keyword">(</span>out<span class="keyword">:</span> <span class="staexp">FILEref</span><span class="keyword">,</span> buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><span class="keyword">(</span><span class="keyword">@[</span>byte<span class="keyword">]</span><span class="keyword">[</span>n1<span class="keyword">]</span><span class="keyword">)</span></span><span class="keyword">,</span> n2<span class="keyword">:</span> <span class="staexp">size_t n2</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> p_buf <span class="keyword">=</span> <span class="keyword">&amp;</span>buf
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> eqsize_byte_one <span class="keyword">(</span><span class="keyword">)</span></span> <span class="comment">// sizeof byte == 1
+</span>  <span class="keyword">prval</span> <span class="prfexp">pfmul <span class="keyword">=</span> mul_make <span class="staexp"><span class="keyword">{</span>n2<span class="keyword">,</span>sizeof<span class="keyword">(</span>byte<span class="keyword">)</span><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span></span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> mul_elim <span class="staexp"><span class="keyword">{</span>n2<span class="keyword">,</span>1<span class="keyword">}</span></span> <span class="keyword">(</span>pfmul<span class="keyword">)</span></span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span>pf1<span class="keyword">,</span> pf2<span class="keyword">)</span> <span class="keyword">=</span> array_v_split <span class="staexp"><span class="keyword">{</span>byte<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n1<span class="keyword">,</span>n2<span class="keyword">}</span></span> <span class="keyword">(</span>pfmul<span class="keyword">,</span> view@ <span class="keyword">(</span>buf<span class="keyword">)</span><span class="keyword">)</span></span>
+  <span class="keyword">prval</span> <span class="prfexp">pfu <span class="keyword">=</span> unit_v <span class="keyword">(</span><span class="keyword">)</span></span>
+  <span class="keyword">typedef</span> <span class="staexp"><a name="1042"><span class="stacstdec">env <span class="keyword">=</span> FILEref</span></a></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> array_ptr_foreach_fun_tsz__main <span class="staexp"><span class="keyword">{</span>byte<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>unit_v<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>env<span class="keyword">}</span></span>
+    <span class="keyword">(</span><span class="prfexp">pfu</span> <span class="keyword">|</span> <span class="keyword">!</span>p_buf<span class="keyword">,</span> <span class="keyword">lam</span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> x<span class="keyword">,</span> out<span class="keyword">)</span> <span class="keyword">=&lt;&gt;</span> <span class="keyword">$effmask_ref</span> <span class="keyword">(</span>fprint_byte <span class="keyword">(</span>out<span class="keyword">,</span> x<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">,</span> n2<span class="keyword">,</span> sizeof&lt;<span class="staexp">byte</span><span class="keyword">&gt;</span><span class="keyword">,</span> out<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pfu</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> view@ <span class="keyword">(</span>buf<span class="keyword">)</span> := array_v_unsplit <span class="staexp"><span class="keyword">{</span>byte<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n2<span class="keyword">,</span>n1-n2<span class="keyword">}</span></span> <span class="keyword">(</span>pfmul<span class="keyword">,</span> pf1<span class="keyword">,</span> pf2<span class="keyword">)</span></span>
+<span class="keyword">in</span>
+  <span class="comment">// nothing
+</span><span class="keyword">end</span> <span class="comment">// end of [print_buf_size]
+</span>
+<span class="keyword">fun</span> print_bytes_size
+  <span class="staexp"><span class="keyword">{</span>n1<span class="keyword">,</span>n2<span class="keyword">:</span>nat <span class="keyword">|</span> n2 &lt;= n1<span class="keyword">}</span></span> 
+  <span class="keyword">(</span>buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><span class="keyword">(</span><span class="keyword">@[</span>byte<span class="keyword">]</span><span class="keyword">[</span>n1<span class="keyword">]</span><span class="keyword">)</span></span><span class="keyword">,</span> n2<span class="keyword">:</span> <span class="staexp">size_t n2</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> fprint_bytes_size <span class="keyword">(</span>stdout_ref<span class="keyword">,</span> buf<span class="keyword">,</span> n2<span class="keyword">)</span>
+<span class="comment">// end of [print_bytes_size]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+main <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">var</span> act<span class="keyword">:</span> <span class="staexp">sigaction</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> ptr_zero&lt;<span class="staexp">sigaction</span><span class="keyword">&gt;</span> <span class="keyword">(</span>act<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> act<span class="keyword">.</span>sa_handler := sighandler_of_fun<span class="keyword">(</span><span class="keyword">lam</span> <span class="keyword">(</span>sgn<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> err <span class="keyword">=</span> sigaction_null <span class="keyword">(</span>SIGALRM<span class="keyword">,</span> act<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+  <span class="keyword">macdef</span> <span class="neuexp">NSEC <span class="keyword">=</span> 5U</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> printf
+    <span class="keyword">(</span>"You've got %u seconds for input:\n"<span class="keyword">,</span> <span class="keyword">@(</span>NSEC<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_alarm</span> <span class="keyword">|</span> _<span class="keyword">)</span> <span class="keyword">=</span> alarm_set <span class="keyword">(</span>NSEC<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_stdin</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> stdin_fildes_view_get <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">#define</span> <span class="neuexp">BUFSZ 128</span>
+  <span class="keyword">var</span> nerr<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> 0
+  <span class="keyword">var</span> <span class="keyword">!</span>p_buf <span class="keyword">with</span> <span class="prfexp">pf_buf</span> <span class="keyword">=</span> <span class="keyword">@[</span><span class="staexp">byte</span><span class="keyword">]</span><span class="keyword">[</span>BUFSZ<span class="keyword">]</span><span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_buf := bytes_v_of_b0ytes_v <span class="keyword">(</span>pf_buf<span class="keyword">)</span></span>
+  <span class="keyword">val</span> nread <span class="keyword">=</span> read_err <span class="keyword">(</span><span class="prfexp">pf_stdin</span>  <span class="keyword">|</span> STDIN_FILENO<span class="keyword">,</span> <span class="keyword">!</span>p_buf<span class="keyword">,</span> BUFSZ<span class="keyword">)</span>
+  <span class="keyword">val</span> _leftover <span class="keyword">=</span> alarm_cancel <span class="keyword">(</span><span class="prfexp">pf_alarm</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">(</span>nread <span class="keyword">&lt;</span> 0<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">(</span>
+    <span class="keyword">if</span> <span class="keyword">(</span>errno_get<span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> EINTR<span class="keyword">)</span> <span class="keyword">then</span>
+      printf <span class="keyword">(</span>"Timed out! Please type faster next time.\n"<span class="keyword">,</span> <span class="keyword">@(</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">else</span> <span class="keyword">(</span>nerr := nerr + 1<span class="keyword">)</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">)</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> stdin_fildes_view_set <span class="keyword">(</span><span class="prfexp">pf_stdin</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+<span class="keyword">if</span> nread &gt;= 0 <span class="keyword">then</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> nread <span class="keyword">=</span> size1_of_ssize1 <span class="keyword">(</span>nread<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> nread <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> print "Got: "
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> print_bytes_size <span class="keyword">(</span><span class="keyword">!</span>p_buf<span class="keyword">,</span> nread<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="comment">// nothing
+</span>  <span class="keyword">end</span> <span class="keyword">else</span>
+    printf <span class="keyword">(</span>"Got: EOF\n"<span class="keyword">,</span> <span class="keyword">@(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="comment">// end of [if]
+</span><span class="keyword">in</span>
+  <span class="comment">// nothing
+</span><span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">(</span>nerr <span class="keyword">&gt;</span> 0<span class="keyword">)</span> <span class="keyword">then</span> exit <span class="keyword">(</span>EXIT_FAILURE<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [AUP_9_7_1.dats] *)</span>
+</pre>
+</body>
+</html>

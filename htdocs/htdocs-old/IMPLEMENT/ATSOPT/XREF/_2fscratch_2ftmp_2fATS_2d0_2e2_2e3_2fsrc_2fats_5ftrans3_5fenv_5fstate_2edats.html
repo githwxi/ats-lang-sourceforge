@@ -1,0 +1,741 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: January 2008
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* Mainly for tracking states during the third translation *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Eff <span class="keyword">=</span> "ats_effect.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Err <span class="keyword">=</span> "ats_error.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Lst <span class="keyword">=</span> "ats_list.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">SOL <span class="keyword">=</span> "ats_staexp2_solve.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_trans3_env.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_reference.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymous*)</span> <span class="keyword">=</span> "ats_reference.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="1970"><span class="stacstdec">stbefitem <span class="keyword">=</span> <span class="keyword">'{</span>
+  stbefitem_var<span class="keyword">=</span> d2var_t<span class="keyword">,</span> stbefitem_lin<span class="keyword">=</span> int<span class="keyword">,</span> stbefitem_typ<span class="keyword">=</span> s2expopt
+<span class="keyword">}</span></span></a></span> <span class="comment">// end of [stbefitem]
+</span>
+<span class="keyword">assume</span> <span class="staexp">stbefitem_t <span class="keyword">=</span> stbefitem</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> prerr_interror <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> prerr "INTERNAL ERROR (ats_trans3_env_state)"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> stbefitem_make <span class="keyword">(</span>d2v<span class="keyword">,</span> lin<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> os2e <span class="keyword">=</span> d2var_typ_get d2v <span class="keyword">in</span> <span class="keyword">'{</span>
+  stbefitem_var<span class="keyword">=</span> d2v<span class="keyword">,</span> stbefitem_lin<span class="keyword">=</span> lin<span class="keyword">,</span> stbefitem_typ<span class="keyword">=</span> os2e
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [stbefitem_make]
+</span>
+<span class="keyword">implement</span> stbefitemlst_restore_typ <span class="keyword">(</span>sbis<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> loop <span class="keyword">(</span>sbis<span class="keyword">:</span> <span class="staexp">stbefitemlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">case+</span> sbis <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>sbi<span class="keyword">,</span> sbis<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> d2v <span class="keyword">=</span> sbi<span class="keyword">.</span>stbefitem_var
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> d2var_typ_set <span class="keyword">(</span>d2v<span class="keyword">,</span> sbi<span class="keyword">.</span>stbefitem_typ<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        loop <span class="keyword">(</span>sbis<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="comment">// end of [loop]
+</span><span class="keyword">in</span>
+  loop <span class="keyword">(</span>sbis<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [stbefitemlst_restore_typ]
+</span>
+<span class="keyword">implement</span> stbefitemlst_restore_lin_typ <span class="keyword">(</span>sbis<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> loop <span class="keyword">(</span>sbis<span class="keyword">:</span> <span class="staexp">stbefitemlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">case+</span> sbis <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>sbi<span class="keyword">,</span> sbis<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> d2v <span class="keyword">=</span> sbi<span class="keyword">.</span>stbefitem_var
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> d2var_lin_set <span class="keyword">(</span>d2v<span class="keyword">,</span> sbi<span class="keyword">.</span>stbefitem_lin<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> d2var_typ_set <span class="keyword">(</span>d2v<span class="keyword">,</span> sbi<span class="keyword">.</span>stbefitem_typ<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        loop <span class="keyword">(</span>sbis<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="comment">// end of [loop]
+</span><span class="keyword">in</span>
+  loop <span class="keyword">(</span>sbis<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [stbefitemlst_restore_lin_typ]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="3277"><span class="stacstdec">saityp</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> SAITYPsome <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>loc_t<span class="keyword">,</span> s2exp<span class="keyword">)</span></span> <span class="keyword">|</span> SAITYPnone <span class="keyword">of</span> <span class="staexp">loc_t</span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="3349"><span class="stacstdec">saityplst <span class="keyword">=</span> List saityp</span></a></span>
+
+<span class="keyword">fn</span> saityp_loc_get <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">saityp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">loc_t</span> <span class="keyword">=</span> <span class="keyword">case+</span> x <span class="keyword">of</span>
+  <span class="keyword">|</span> SAITYPsome <span class="keyword">(</span>loc<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> loc <span class="keyword">|</span> SAITYPnone loc <span class="keyword">=&gt;</span> loc
+<span class="comment">// end of [saityp_loc_get]
+</span>
+<span class="keyword">fun</span> print_saityp <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">saityp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> x <span class="keyword">of</span>
+  <span class="keyword">|</span> SAITYPsome <span class="keyword">(</span>_<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">(</span>print "SAITYPsome("<span class="keyword">;</span> print_s2exp s2e<span class="keyword">;</span> print ")"<span class="keyword">)</span>
+  <span class="keyword">|</span> SAITYPnone _ <span class="keyword">=&gt;</span> print "SAITYPnone()"
+<span class="comment">// end of [print_saityp]
+</span><span class="keyword">fun</span> print_saityplst
+  <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">saityplst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> loop <span class="keyword">(</span>xs<span class="keyword">,</span> 0<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> loop <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">saityplst</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> xs <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>x<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>
+        <span class="keyword">if</span> <span class="keyword">(</span>i <span class="keyword">&gt;</span> 0<span class="keyword">)</span> <span class="keyword">then</span> print ", "<span class="keyword">;</span> print_saityp x<span class="keyword">;</span> loop <span class="keyword">(</span>xs<span class="keyword">,</span> i+1<span class="keyword">)</span>
+      <span class="keyword">)</span> <span class="comment">// end of [list_cons]
+</span>    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="comment">// end of [loop]
+</span><span class="keyword">}</span> <span class="comment">// end of [print_saityp]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> saityplst_check
+  <span class="keyword">(</span>d2v<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">,</span> xs<span class="keyword">:</span> <span class="staexp">saityplst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fn</span> errmsg <span class="keyword">(</span>d2v<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp">saityp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">case+</span> x <span class="keyword">of</span>
+    <span class="keyword">|</span> SAITYPsome <span class="keyword">(</span>loc<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        $Loc<span class="keyword">.</span>prerr_location loc<span class="keyword">;</span>
+        prerr ": the dynamic variable ["<span class="keyword">;</span> prerr d2v<span class="keyword">;</span>
+        prerr "] is not consumed in this branch."<span class="keyword">;</span>
+        prerr_newline <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [SAITYPsome]
+</span>    <span class="keyword">|</span> SAITYPnone <span class="keyword">(</span>loc<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        $Loc<span class="keyword">.</span>prerr_location loc<span class="keyword">;</span>
+        prerr ": the dynamic variable ["<span class="keyword">;</span> prerr d2v<span class="keyword">;</span>
+        prerr "] is consumed in this branch."<span class="keyword">;</span>
+        prerr_newline <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [SAITYPnone]
+</span>  <span class="keyword">fun</span> aux <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">saityplst</span><span class="keyword">,</span> xs_some<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>saityplst</span><span class="keyword">,</span> xs_none<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>saityplst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> xs <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>x<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> x <span class="keyword">of</span>
+      <span class="keyword">|</span> SAITYPsome _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          xs_some := list_cons <span class="keyword">(</span>x<span class="keyword">,</span> xs_some<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [SAITYPsome]
+</span>      <span class="keyword">|</span> SAITYPnone _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          xs_none := list_cons <span class="keyword">(</span>x<span class="keyword">,</span> xs_none<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [SAITYPnone]
+</span>      <span class="keyword">end</span> <span class="comment">(* end of [list_cons] *)</span>
+    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">var</span> xs_some<span class="keyword">:</span> <span class="staexp">saityplst</span> <span class="keyword">=</span> list_nil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">and</span> xs_none<span class="keyword">:</span> <span class="staexp">saityplst</span> <span class="keyword">=</span> list_nil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> aux <span class="keyword">(</span>xs<span class="keyword">,</span> xs_some<span class="keyword">,</span> xs_none<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>xs_some<span class="keyword">,</span> xs_none<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>list_nil _<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> 0
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> list_nil _<span class="keyword">)</span> <span class="keyword">=&gt;</span> 1
+  <span class="keyword">|</span> <span class="keyword">(</span>list_cons <span class="keyword">(</span>x1<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">,</span> list_cons <span class="keyword">(</span>x2<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> loc1 <span class="keyword">=</span> saityp_loc_get x1 <span class="keyword">and</span> loc2 <span class="keyword">=</span> saityp_loc_get x2
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> $Loc<span class="keyword">.</span>lte_location_location <span class="keyword">(</span>loc1<span class="keyword">,</span> loc2<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">begin</span>
+        errmsg <span class="keyword">(</span>d2v<span class="keyword">,</span> x1<span class="keyword">)</span><span class="keyword">;</span> errmsg <span class="keyword">(</span>d2v<span class="keyword">,</span> x2<span class="keyword">)</span><span class="keyword">;</span> $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>int<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+        errmsg <span class="keyword">(</span>d2v<span class="keyword">,</span> x2<span class="keyword">)</span><span class="keyword">;</span> errmsg <span class="keyword">(</span>d2v<span class="keyword">,</span> x1<span class="keyword">)</span><span class="keyword">;</span> $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>int<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">end</span> <span class="comment">(* end of [list_cons, list_cons] *)</span>
+<span class="keyword">end</span> <span class="comment">// end of [saityplst_check]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="5695"><span class="stacstdec">staftitem <span class="keyword">=</span> <span class="keyword">'{</span>
+  staftitem_var<span class="keyword">=</span> d2var_t<span class="keyword">,</span> staftitem_lin<span class="keyword">=</span> int<span class="keyword">,</span> staftitem_typ<span class="keyword">=</span> saityplst
+<span class="keyword">}</span></span></a></span> <span class="comment">// end of [staftitem]
+</span>
+<span class="keyword">assume</span> <span class="staexp">staftitem_t <span class="keyword">=</span> staftitem</span>
+
+<span class="keyword">extern</span>
+<span class="keyword">fun</span> <a name="5849"><span class="dyncstdec">staftitem_lin_set
+  <span class="keyword">(</span>sai<span class="keyword">:</span> <span class="staexp">staftitem</span><span class="keyword">,</span> lin<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "ats_trans3_env_state_staftitem_lin_set"
+<span class="comment">// end of [staftitem_lin_set]
+</span>
+<span class="keyword">extern</span>
+<span class="keyword">fun</span> <a name="5989"><span class="dyncstdec">staftitem_typ_set
+  <span class="keyword">(</span>sai<span class="keyword">:</span> <span class="staexp">staftitem</span><span class="keyword">,</span> typ<span class="keyword">:</span> <span class="staexp">saityplst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "ats_trans3_env_state_staftitem_typ_set"
+<span class="comment">// end of [staftitem_typ_set]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="6153"><span class="stacstdec">sascstr <span class="keyword">=</span> <span class="keyword">'{</span>
+  sascstr_loc<span class="keyword">=</span> loc_t
+<span class="keyword">,</span> sascstr_met<span class="keyword">=</span> s2explstopt
+<span class="keyword">,</span> sascstr_sub<span class="keyword">=</span> stasub_t
+<span class="keyword">,</span> sascstr_ref<span class="keyword">=</span> ref <span class="keyword">(</span>c3stropt<span class="keyword">)</span>
+<span class="keyword">}</span></span></a></span> <span class="comment">// end of [sascstr]
+</span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="6299"><span class="stacstdec">sascstrlst <span class="keyword">=</span> List sascstr</span></a></span>
+
+<span class="keyword">fn</span> sascstr_make
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> met<span class="keyword">:</span> <span class="staexp">s2explstopt</span><span class="keyword">,</span> sub<span class="keyword">:</span> <span class="staexp">stasub_t</span><span class="keyword">,</span> ref<span class="keyword">:</span> <span class="staexp">ref c3stropt</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">sascstr</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  sascstr_loc<span class="keyword">=</span> loc<span class="keyword">,</span> sascstr_met<span class="keyword">=</span> met<span class="keyword">,</span> sascstr_sub<span class="keyword">=</span> sub<span class="keyword">,</span> sascstr_ref<span class="keyword">=</span> ref
+<span class="keyword">}</span> <span class="comment">// end of [sascstr_make]
+</span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="6535"><span class="stacstdec">staftscstr <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  staftscstr_met<span class="keyword">=</span> s2explstopt
+<span class="keyword">,</span> staftscstr_res<span class="keyword">=</span> i2nvresstate
+<span class="keyword">,</span> staftscstr_sais<span class="keyword">=</span> staftitemlst n
+<span class="keyword">,</span> staftscstr_cstr<span class="keyword">=</span> sascstrlst
+<span class="keyword">}</span></span></a></span> <span class="comment">// end of [staftscstr]
+</span>
+<span class="keyword">assume</span> <span class="staexp">staftscstr_t <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> staftscstr <span class="keyword">(</span>n<span class="keyword">)</span></span>
+
+<span class="keyword">extern</span>
+<span class="keyword">fun</span> <a name="6767"><span class="dyncstdec">staftscstr_cstr_set <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>
+    sac<span class="keyword">:</span> <span class="staexp">staftscstr n</span><span class="keyword">,</span> cstr<span class="keyword">:</span> <span class="staexp">sascstrlst</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "ats_trans3_env_state_staftscstr_cstr_set"
+<span class="comment">// end of [staftscstr_cstr_set]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+staftscstr_initialize <span class="keyword">(</span>res<span class="keyword">,</span> sbis<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> sais <span class="keyword">=</span> aux sbis <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">fun</span> aux <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+      <span class="keyword">(</span>sbis<span class="keyword">:</span> <span class="staexp">stbefitemlst n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">staftitemlst n</span> <span class="keyword">=</span> <span class="keyword">case+</span> sbis <span class="keyword">of</span>
+      <span class="keyword">|</span> list_cons <span class="keyword">(</span>sbi<span class="keyword">,</span> sbis<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> d2v <span class="keyword">=</span> sbi<span class="keyword">.</span>stbefitem_var<span class="keyword">;</span> <span class="keyword">val</span> lin <span class="keyword">=</span> d2var_lin_get d2v
+<span class="comment">(*
+          val () = begin
+            print "staftscstr_initialize: aux: d2v = "; print d2v; print_newline ();
+            print "staftscstr_initialize: aux: lin = "; print lin; print_newline ();
+          end // end of [val]
+*)</span>
+          <span class="keyword">val</span> sai <span class="keyword">=</span> <span class="keyword">'{</span>
+            staftitem_var<span class="keyword">=</span> d2v<span class="keyword">,</span> staftitem_lin<span class="keyword">=</span> lin<span class="keyword">,</span> staftitem_typ<span class="keyword">=</span> list_nil <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>        <span class="keyword">in</span>
+          list_cons <span class="keyword">(</span>sai<span class="keyword">,</span> aux sbis<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>      <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> list_nil <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="comment">// end of [aux]
+</span>  <span class="keyword">}</span> <span class="comment">// end of [where]
+</span><span class="keyword">in</span> <span class="keyword">'{</span>
+  staftscstr_met<span class="keyword">=</span> None <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">,</span> staftscstr_res<span class="keyword">=</span> res
+<span class="keyword">,</span> staftscstr_sais<span class="keyword">=</span> sais
+<span class="keyword">,</span> staftscstr_cstr<span class="keyword">=</span> list_nil <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [staftscstr_initialize]
+</span>
+<span class="comment">//
+</span><span class="comment">// HX: [loc0] is the location of the branch
+</span><span class="comment">//
+</span><span class="keyword">fun</span> staftscstr_stbefitemlst_merge_ifmetck <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>
+    loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> sac<span class="keyword">:</span> <span class="staexp">staftscstr_t n</span><span class="keyword">,</span> sbis<span class="keyword">:</span> <span class="staexp">stbefitemlst n</span><span class="keyword">,</span> metck<span class="keyword">:</span> <span class="staexp">bool</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fn</span> aux <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> sai<span class="keyword">:</span> <span class="staexp">staftitem</span><span class="keyword">,</span> sbi<span class="keyword">:</span> <span class="staexp">stbefitem</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> linbef <span class="keyword">=</span> sbi<span class="keyword">.</span>stbefitem_lin
+    <span class="keyword">val</span> d2v <span class="keyword">=</span> sbi<span class="keyword">.</span>stbefitem_var
+    <span class="keyword">val</span> lincur <span class="keyword">=</span> d2var_lin_get d2v
+    <span class="keyword">val</span> linaft <span class="keyword">=</span> sai<span class="keyword">.</span>staftitem_lin
+<span class="comment">(*
+    val () = begin
+      print "staftscstr_stbefitemlst_merge: aux: sbi.stbefitem_lin = ";
+      print linbef; print_newline ();
+      print "staftscstr_stbefitemlst_merge: aux: d2v = ";
+      print d2v; print_newline ();
+      print "staftscstr_stbefitemlst_merge: aux: d2v.d2var_lin = ";
+      print lincur; print_newline ();
+      print "staftscstr_stbefitemlst_merge: aux: sai.staftitem_lin = ";
+      print linaft; print_newline ();
+
+    end // end of [val]
+*)</span>
+    <span class="keyword">val</span> saityp <span class="keyword">=</span> <span class="keyword">case+</span> d2var_typ_get d2v <span class="keyword">of</span>
+      <span class="keyword">|</span> Some s2e <span class="keyword">=&gt;</span> SAITYPsome <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> SAITYPnone loc0
+    <span class="comment">// end of [val]
+</span><span class="comment">(*
+    val () = begin
+      print "staftscstr_stbefitemlst_merge: aux: saityp = ";
+      print_saityp saityp; print_newline ()
+    end // end of [val]
+*)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> lincur <span class="keyword">&gt;</span> linbef <span class="keyword">then</span> <span class="keyword">begin</span>
+      staftitem_lin_set <span class="keyword">(</span>sai<span class="keyword">,</span> linaft + lincur - linbef<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>    <span class="keyword">val</span> saityps <span class="keyword">=</span> sai<span class="keyword">.</span>staftitem_typ
+<span class="comment">(*
+    val () = begin
+      print "staftscstr_stbefitemlst_merge: aux: saityps = ";
+      print_saityplst saityps; print_newline ()
+    end // end of [val]
+*)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> saityps <span class="keyword">of</span> <span class="comment">// consistency check
+</span>      <span class="keyword">|</span> list_cons <span class="keyword">(</span>saityp1<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> <span class="keyword">(</span>saityp<span class="keyword">,</span> saityp1<span class="keyword">)</span> <span class="keyword">of</span>
+        <span class="keyword">|</span> <span class="keyword">(</span>SAITYPsome <span class="keyword">(</span>loc<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">,</span> SAITYPnone _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+            $Loc<span class="keyword">.</span>prerr_location loc<span class="keyword">;</span> prerr ": error(3)"<span class="keyword">;</span>
+            prerr ": the dynamic variable ["<span class="keyword">;</span> prerr d2v<span class="keyword">;</span>
+            prerr "] is expected to be consumed but it is preserved instead."<span class="keyword">;</span>
+            prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span> $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [SAITYPsome, SAITYPnone]
+</span>        <span class="keyword">|</span> <span class="keyword">(</span>SAITYPnone loc<span class="keyword">,</span> SAITYPsome <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+            $Loc<span class="keyword">.</span>prerr_location loc<span class="keyword">;</span> prerr ": error(3)"<span class="keyword">;</span>
+            prerr ": the dynamic variable ["<span class="keyword">;</span> prerr d2v<span class="keyword">;</span>
+            prerr "] is expected to be preserved but it is consumed instead."<span class="keyword">;</span>
+            prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span> $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [SAITYPnone, SAITYPsome]
+</span>        <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>      <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> staftitem_typ_set <span class="keyword">(</span>sai<span class="keyword">,</span> list_cons <span class="keyword">(</span>saityp<span class="keyword">,</span> saityps<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="comment">// empty
+</span>  <span class="keyword">end</span> <span class="comment">// end of [aux]
+</span>  <span class="keyword">fun</span> auxlst <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+    <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> sais<span class="keyword">:</span> <span class="staexp">staftitemlst n</span><span class="keyword">,</span> sbis<span class="keyword">:</span> <span class="staexp">stbefitemlst n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> sais <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>sai<span class="keyword">,</span> sais<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val+</span> list_cons <span class="keyword">(</span>sbi<span class="keyword">,</span> sbis<span class="keyword">)</span> <span class="keyword">=</span> sbis
+      <span class="keyword">in</span>
+        aux <span class="keyword">(</span>loc0<span class="keyword">,</span> sai<span class="keyword">,</span> sbi<span class="keyword">)</span><span class="keyword">;</span> auxlst <span class="keyword">(</span>loc0<span class="keyword">,</span> sais<span class="keyword">,</span> sbis<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="comment">// end of [auxlst]
+</span>  <span class="keyword">val</span> res <span class="keyword">=</span> sac<span class="keyword">.</span>staftscstr_res
+  <span class="keyword">val</span> sub <span class="keyword">=</span> s2qua_instantiate_and_add
+    <span class="keyword">(</span>loc0<span class="keyword">,</span> res<span class="keyword">.</span>i2nvresstate_svs<span class="keyword">,</span> res<span class="keyword">.</span>i2nvresstate_gua<span class="keyword">)</span>
+  <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> met <span class="keyword">=</span> <span class="keyword">(</span>
+    <span class="keyword">if</span> metck <span class="keyword">then</span>
+      <span class="keyword">case+</span> res<span class="keyword">.</span>i2nvresstate_met <span class="keyword">of</span>
+      <span class="keyword">|</span> Some s2es <span class="keyword">=&gt;</span> Some <span class="keyword">(</span>s2explst_subst <span class="keyword">(</span>sub<span class="keyword">,</span> s2es<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> None <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">else</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">s2explstopt</span>
+  <span class="keyword">val</span> r <span class="keyword">=</span> ref_make_elt&lt;<span class="staexp">c3stropt</span><span class="keyword">&gt;</span> <span class="keyword">(</span>None <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> sascstr <span class="keyword">=</span> sascstr_make <span class="keyword">(</span>loc0<span class="keyword">,</span> met<span class="keyword">,</span> sub<span class="keyword">,</span> r<span class="keyword">)</span>
+<span class="keyword">in</span>
+  trans3_env_add_cstr_ref <span class="keyword">(</span>r<span class="keyword">)</span><span class="keyword">;</span>
+  staftscstr_cstr_set <span class="keyword">(</span>sac<span class="keyword">,</span> list_cons <span class="keyword">(</span>sascstr<span class="keyword">,</span> sac<span class="keyword">.</span>staftscstr_cstr<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+  auxlst <span class="keyword">(</span>loc0<span class="keyword">,</span> sac<span class="keyword">.</span>staftscstr_sais<span class="keyword">,</span> sbis<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [staftscstr_stbefitemlst_merge_ifmetck]
+</span>
+<span class="keyword">implement</span> staftscstr_stbefitemlst_merge
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> sac<span class="keyword">,</span> sbis<span class="keyword">)</span> <span class="keyword">=</span> staftscstr_stbefitemlst_merge_ifmetck <span class="keyword">(</span>loc0<span class="keyword">,</span> sac<span class="keyword">,</span> sbis<span class="keyword">,</span> true<span class="keyword">)</span>
+<span class="comment">// end of [staftscstr_stbefitemlst_merge]
+</span>
+<span class="keyword">implement</span> staftscstr_stbefitemlst_merge_skipmetck
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> sac<span class="keyword">,</span> sbis<span class="keyword">)</span> <span class="keyword">=</span> staftscstr_stbefitemlst_merge_ifmetck <span class="keyword">(</span>loc0<span class="keyword">,</span> sac<span class="keyword">,</span> sbis<span class="keyword">,</span> false<span class="keyword">)</span>
+<span class="comment">// end of [staftscstr_stbefitemlst_merge_skipmetck]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> i2nvarglst_d2var_find
+  <span class="keyword">(</span>args<span class="keyword">:</span> <span class="staexp">i2nvarglst</span><span class="keyword">,</span> d2v<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">Option_vt i2nvarg</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "i2nvarglst_d2var_find: d2v = "; print d2v; print_newline ()
+  end // end of [val]
+*)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> args <span class="keyword">of</span>
+  <span class="keyword">|</span> list_cons <span class="keyword">(</span>arg<span class="keyword">,</span> args<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">if</span> eq_d2var_d2var <span class="keyword">(</span>arg<span class="keyword">.</span>i2nvarg_var<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">then</span> Some_vt arg
+      <span class="keyword">else</span> i2nvarglst_d2var_find <span class="keyword">(</span>args<span class="keyword">,</span> d2v<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>  <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end [i2nvarlst_d2var_find]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">fn</span> d2var_is_done <span class="keyword">(</span>d2v<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> d2var_fin_get d2v <span class="keyword">of</span> D2VARFINdone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> true <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> false
+<span class="keyword">end</span> <span class="comment">// end of [d2var_is_done]
+</span>
+<span class="keyword">fn</span> aux_find <span class="keyword">(</span>
+    sub<span class="keyword">:</span> <span class="staexp">stasub_t</span>
+  <span class="keyword">,</span> args<span class="keyword">:</span> <span class="staexp">i2nvarglst</span>
+  <span class="keyword">,</span> d2v<span class="keyword">:</span> <span class="staexp">d2var_t</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">Option_vt <span class="keyword">(</span>s2expopt<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> i2nvarglst_d2var_find <span class="keyword">(</span>args<span class="keyword">,</span> d2v<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> ans <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>Some_vt arg <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> os2e <span class="keyword">=</span> <span class="keyword">(</span>
+        <span class="keyword">case+</span> arg<span class="keyword">.</span>i2nvarg_typ <span class="keyword">of</span>
+        <span class="keyword">|</span> Some s2e <span class="keyword">=&gt;</span> Some <span class="keyword">(</span>s2exp_subst <span class="keyword">(</span>sub<span class="keyword">,</span> s2e<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> None <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">s2expopt</span>
+    <span class="keyword">in</span>
+      Some_vt <span class="keyword">(</span>os2e<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>  <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [aux_find]
+</span>
+<span class="keyword">fn</span> aux_item_errmsg1 <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> d2v<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2exp</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  $Loc<span class="keyword">.</span>prerr_location loc<span class="keyword">;</span>
+  prerr ": error(3)"<span class="keyword">;</span>
+  prerr ": the dynamic variable ["<span class="keyword">;</span> prerr d2v<span class="keyword">;</span>
+  prerr "] is expected to be consumed but it is not."<span class="keyword">;</span>
+  prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+  $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>s2exp<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [aux_item_errmsg1]
+</span>
+<span class="keyword">fn</span> aux_item_errmsg2 <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> d2v<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  $Loc<span class="keyword">.</span>prerr_location loc<span class="keyword">;</span>
+  prerr ": error(3)"<span class="keyword">;</span>
+  prerr ": the dynamic variable ["<span class="keyword">;</span> prerr d2v<span class="keyword">;</span>
+  prerr "] is expected to be preserved but it is not."<span class="keyword">;</span>
+  prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+  $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [aux_item_errmsg2]
+</span>
+<span class="keyword">fn</span> aux_saityp <span class="keyword">(</span>
+    used<span class="keyword">:</span> <span class="staexp">int</span> <span class="comment">// [d2v] is used
+</span>  <span class="keyword">,</span> sub<span class="keyword">:</span> <span class="staexp">stasub_t</span><span class="keyword">,</span> args<span class="keyword">:</span> <span class="staexp">i2nvarglst</span><span class="keyword">,</span> d2v<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp">saityp</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> x <span class="keyword">of</span>
+  <span class="keyword">|</span> SAITYPsome <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">var</span> used1<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> used
+<span class="comment">(*
+      val () = begin
+        print "staftscstr_stbefitemlst_check: aux_saityp: used1 = ";      
+        print used1; print_newline ();
+        print "staftscstr_stbefitemlst_check: aux_saityp: d2v = ";
+        print d2v; print_newline ();
+        print "staftscstr_stbefitemlst_check: aux_saityp: s2e = ";
+        print s2e; print_newline ()
+      end // end of [val]
+*)</span>
+      <span class="keyword">val</span> s2e_check <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> aux_find <span class="keyword">(</span>sub<span class="keyword">,</span> args<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">of</span>
+        <span class="keyword">|</span> <span class="keyword">~</span>Some_vt os2e <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+            <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> used1 := used1 + 1 <span class="keyword">in</span> <span class="keyword">case+</span> os2e <span class="keyword">of</span>
+            <span class="keyword">|</span> Some s2e <span class="keyword">=&gt;</span> s2e <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> aux_item_errmsg1 <span class="keyword">(</span>loc<span class="keyword">,</span> d2v<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>        <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> d2var_mastyp_get d2v <span class="keyword">of</span>
+            <span class="keyword">|</span> Some s2e <span class="keyword">=&gt;</span> s2e <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> aux_item_errmsg1 <span class="keyword">(</span>loc<span class="keyword">,</span> d2v<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>      <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">s2exp</span>
+<span class="comment">(*
+      val () = begin
+        print "staftscstr_stbefitemlst_check: aux_saityp: used1 = ";      
+        print used1; print_newline ();
+        print "staftscstr_stbefitemlst_check: aux_saityp: s2e_check = ";
+        print s2e_check; print_newline ();
+      end // end of [val]
+*)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">(</span>used1 <span class="keyword">&gt;</span> 0<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_push_sta <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $SOL<span class="keyword">.</span>s2exp_tyleq_solve <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> s2e_check<span class="keyword">)</span>
+        <span class="keyword">val</span> knd <span class="keyword">=</span> C3STRKINDvarfin <span class="keyword">(</span>d2v<span class="keyword">,</span> s2e<span class="keyword">,</span> s2e_check<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_pop_sta_and_add <span class="keyword">(</span>loc<span class="keyword">,</span> knd<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        <span class="comment">// empty
+</span>      <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>    <span class="keyword">in</span>
+      <span class="comment">// empty
+</span>    <span class="keyword">end</span> <span class="comment">// end of [SAITYPsome]
+</span>  <span class="keyword">|</span> SAITYPnone <span class="keyword">(</span>loc<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> aux_find <span class="keyword">(</span>sub<span class="keyword">,</span> args<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">~</span>Some_vt <span class="keyword">(</span>os2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> os2e <span class="keyword">of</span>
+      <span class="keyword">|</span> Some _ <span class="keyword">=&gt;</span> aux_item_errmsg2 <span class="keyword">(</span>loc<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>    <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [SAITYPnone]
+</span><span class="keyword">end</span> <span class="comment">// end of [aux_saityp]
+</span>
+<span class="keyword">fn</span> aux_item_one <span class="keyword">(</span>
+    used<span class="keyword">:</span> <span class="staexp">int</span> <span class="comment">// [d2v] is used
+</span>  <span class="keyword">,</span> sub<span class="keyword">:</span> <span class="staexp">stasub_t</span><span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp">i2nvresstate</span><span class="keyword">,</span> sai<span class="keyword">:</span> <span class="staexp">staftitem</span><span class="keyword">,</span> d2v<span class="keyword">:</span> <span class="staexp">d2var_t</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "aux_item_one: d2v = "; print d2v; print_newline ()
+  end // end of [val]
+*)</span>
+  <span class="keyword">val</span> xs <span class="keyword">=</span> sai<span class="keyword">.</span>staftitem_typ
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> xs <span class="keyword">of</span>
+  <span class="keyword">|</span> list_cons <span class="keyword">(</span>x<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> args <span class="keyword">=</span> res<span class="keyword">.</span>i2nvresstate_arg
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> staftitem_typ_set <span class="keyword">(</span>sai<span class="keyword">,</span> xs<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      aux_saityp <span class="keyword">(</span>used<span class="keyword">,</span> sub<span class="keyword">,</span> res<span class="keyword">.</span>i2nvresstate_arg<span class="keyword">,</span> d2v<span class="keyword">,</span> x<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>  <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [aux_item_one]
+</span>
+<span class="keyword">fun</span> aux_item_all <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>
+    sub<span class="keyword">:</span> <span class="staexp">stasub_t</span>
+  <span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp">i2nvresstate</span>
+  <span class="keyword">,</span> sais<span class="keyword">:</span> <span class="staexp">staftitemlst n</span>
+  <span class="keyword">,</span> sbis<span class="keyword">:</span> <span class="staexp">stbefitemlst n</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> sais <span class="keyword">of</span>
+  <span class="keyword">|</span> list_cons <span class="keyword">(</span>sai<span class="keyword">,</span> sais<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val+</span> list_cons <span class="keyword">(</span>sbi<span class="keyword">,</span> sbis<span class="keyword">)</span> <span class="keyword">=</span> sbis
+      <span class="keyword">val</span> d2v <span class="keyword">=</span> sbi<span class="keyword">.</span>stbefitem_var
+<span class="comment">(*
+      val () = begin
+        print "aux_item_all: d2v = "; print d2v; print_newline ()
+      end // end of [aux_item_all]
+*)</span>
+      <span class="keyword">val</span> linaft <span class="keyword">=</span> sai<span class="keyword">.</span>staftitem_lin
+      <span class="keyword">and</span> linbef <span class="keyword">=</span> sbi<span class="keyword">.</span>stbefitem_lin
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> 0 <span class="keyword">of</span> <span class="comment">// type check
+</span>        <span class="keyword">|</span> _ <span class="keyword">when</span> d2var_is_done d2v <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+            <span class="comment">// already handled by [funarg_fin_check]
+</span>          <span class="keyword">end</span> <span class="comment">// end of [_ when ...]
+</span>        <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> aux_item_one <span class="keyword">(</span>linaft - linbef<span class="keyword">,</span> sub<span class="keyword">,</span> res<span class="keyword">,</span> sai<span class="keyword">,</span> d2v<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [case]
+</span>    <span class="keyword">in</span>
+      aux_item_all <span class="keyword">(</span>sub<span class="keyword">,</span> res<span class="keyword">,</span> sais<span class="keyword">,</span> sbis<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>  <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [aux_item_all]
+</span>
+<span class="keyword">fn</span> aux_term_check
+  <span class="keyword">(</span>met_bound<span class="keyword">:</span> <span class="staexp">s2explstopt</span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp">sascstr</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> met_bound <span class="keyword">of</span>
+  <span class="keyword">|</span> Some s2es_bound <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> x<span class="keyword">.</span>sascstr_met <span class="keyword">of</span>
+    <span class="keyword">|</span> Some s2es <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">n<span class="keyword">:</span>int</span><span class="keyword">]</span> sgn <span class="keyword">=</span> $Lst<span class="keyword">.</span>list_length_compare <span class="keyword">(</span>s2es<span class="keyword">,</span> s2es_bound<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>
+          <span class="keyword">if</span> <span class="keyword">(</span>sgn &lt;&gt; 0<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">begin</span>
+            prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+            prerr ": aux_term_check: Some: Some"<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+            $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+            assert <span class="keyword">(</span>sgn <span class="keyword">=</span> 0<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+            <span class="comment">// [sgn==n] holds
+</span>          <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>        <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>n==0<span class="keyword">]</span> void</span>
+      <span class="keyword">in</span>
+        trans3_env_add_metric_dec <span class="keyword">(</span>x<span class="keyword">.</span>sascstr_loc<span class="keyword">,</span> s2es<span class="keyword">,</span> s2es_bound<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [Some]
+</span>    <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// this means that termination checking is skipped
+</span>    <span class="keyword">end</span> <span class="comment">(* end of [Some] *)</span>
+  <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [aux_term_check]
+</span>
+<span class="keyword">fun</span> aux_itemlst_all <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>
+    met_bound<span class="keyword">:</span> <span class="staexp">s2explstopt</span>
+  <span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp">i2nvresstate</span>
+  <span class="keyword">,</span> sais<span class="keyword">:</span> <span class="staexp">staftitemlst n</span>
+  <span class="keyword">,</span> sbis<span class="keyword">:</span> <span class="staexp">stbefitemlst n</span>
+  <span class="keyword">,</span> xs<span class="keyword">:</span> <span class="staexp">sascstrlst</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> xs <span class="keyword">of</span>
+  <span class="keyword">|</span> list_cons <span class="keyword">(</span>x<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_push_sta <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> aux_term_check <span class="keyword">(</span>met_bound<span class="keyword">,</span> x<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> aux_item_all <span class="keyword">(</span>x<span class="keyword">.</span>sascstr_sub<span class="keyword">,</span> res<span class="keyword">,</span> sais<span class="keyword">,</span> sbis<span class="keyword">)</span>
+      <span class="keyword">val</span> s3is <span class="keyword">=</span> trans3_env_pop_sta <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">val</span> s3is <span class="keyword">=</span> $Lst<span class="keyword">.</span>list_vt_reverse_list s3is
+      <span class="keyword">val</span> c3t <span class="keyword">=</span> c3str_itmlst <span class="keyword">(</span>x<span class="keyword">.</span>sascstr_loc<span class="keyword">,</span> C3STRKINDnone <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> s3is<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span><span class="keyword">(</span>x<span class="keyword">.</span>sascstr_ref<span class="keyword">)</span> := Some <span class="keyword">(</span>c3t<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      aux_itemlst_all <span class="keyword">(</span>met_bound<span class="keyword">,</span> res<span class="keyword">,</span> sais<span class="keyword">,</span> sbis<span class="keyword">,</span> xs<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>  <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [aux_itemlst_all]
+</span>
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span>
+staftscstr_stbefitemlst_check <span class="keyword">(</span>loc0<span class="keyword">,</span> sac<span class="keyword">,</span> sbis<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    $Loc.print_location loc0;
+    print ": staftscstr_stbefitemlst_check: res = ";
+    print sac.staftscstr_res (* : i2nvresstate *);
+    print_newline ();
+  end // end of [val]
+*)</span>
+  <span class="keyword">val</span> met <span class="keyword">=</span> sac<span class="keyword">.</span>staftscstr_met
+  <span class="keyword">val</span> res <span class="keyword">=</span> sac<span class="keyword">.</span>staftscstr_res
+  <span class="keyword">val</span> sais <span class="keyword">=</span> sac<span class="keyword">.</span>staftscstr_sais
+<span class="keyword">in</span>
+  aux_itemlst_all <span class="keyword">(</span>met<span class="keyword">,</span> res<span class="keyword">,</span> sais<span class="keyword">,</span> sbis<span class="keyword">,</span> sac<span class="keyword">.</span>staftscstr_cstr<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [staftscstr_stbefitemlst_check]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">fun</span> aux_find <span class="keyword">(</span>
+    args<span class="keyword">:</span> <span class="staexp">i2nvarglst</span>
+  <span class="keyword">,</span> d2v<span class="keyword">:</span> <span class="staexp">d2var_t</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">Option_vt <span class="keyword">(</span>s2expopt<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> i2nvarglst_d2var_find <span class="keyword">(</span>args<span class="keyword">,</span> d2v<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> ans <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>Some_vt arg <span class="keyword">=&gt;</span> Some_vt <span class="keyword">(</span>arg<span class="keyword">.</span>i2nvarg_typ<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [aux_find]
+</span>
+<span class="keyword">fun</span> aux_iter <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>
+    loc0<span class="keyword">:</span> <span class="staexp">loc_t</span>
+  <span class="keyword">,</span> args<span class="keyword">:</span> <span class="staexp">i2nvarglst</span>
+  <span class="keyword">,</span> sais<span class="keyword">:</span> <span class="staexp">staftitemlst n</span>
+  <span class="keyword">,</span> sbis<span class="keyword">:</span> <span class="staexp">stbefitemlst n</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> sais <span class="keyword">of</span>
+  <span class="keyword">|</span> list_cons <span class="keyword">(</span>sai<span class="keyword">,</span> sais<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val+</span> list_cons <span class="keyword">(</span>sbi<span class="keyword">,</span> sbis<span class="keyword">)</span> <span class="keyword">=</span> sbis
+      <span class="keyword">val</span> d2v <span class="keyword">=</span> sbi<span class="keyword">.</span>stbefitem_var
+      <span class="keyword">val</span> linaft <span class="keyword">=</span> sai<span class="keyword">.</span>staftitem_lin <span class="keyword">and</span> linbef <span class="keyword">=</span> sbi<span class="keyword">.</span>stbefitem_lin
+<span class="comment">(*
+      val () = begin
+        print "staftscstr_stbefitemlst_update: aux_iter: d2v = ";
+        print d2v; print_newline ();
+        printf (
+          "staftscstr_stbefitemlst_update: aux_iter: linaft = %i and linbef = %i"
+        , @(linaft, linbef)
+        );
+        print_newline ();
+      end // end of [val]
+*)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> linaft <span class="keyword">&gt;</span> linbef <span class="keyword">then</span> d2var_lin_set <span class="keyword">(</span>d2v<span class="keyword">,</span> linaft<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> ans <span class="keyword">=</span> aux_find <span class="keyword">(</span>args<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">in</span>
+        <span class="keyword">case+</span> ans <span class="keyword">of</span>
+        <span class="keyword">|</span> <span class="keyword">~</span>Some_vt os2e <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+            <span class="keyword">val</span> os2e <span class="keyword">=</span> s2expopt_opnexi_and_add <span class="keyword">(</span>loc0<span class="keyword">,</span> os2e<span class="keyword">)</span>
+          <span class="keyword">in</span>
+            d2var_typ_set <span class="keyword">(</span>d2v<span class="keyword">,</span> os2e<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>        <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+          <span class="keyword">|</span> _ <span class="keyword">when</span> linaft <span class="keyword">&gt;</span> linbef <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+            <span class="keyword">case+</span> d2var_typ_get d2v <span class="keyword">of</span>
+            <span class="keyword">|</span> Some _ <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+                <span class="keyword">val</span> os2e <span class="keyword">=</span> d2var_mastyp_get d2v
+                <span class="keyword">val</span> os2e <span class="keyword">=</span> s2expopt_opnexi_and_add <span class="keyword">(</span>loc0<span class="keyword">,</span> os2e<span class="keyword">)</span>
+              <span class="keyword">in</span>
+                d2var_typ_set <span class="keyword">(</span>d2v<span class="keyword">,</span> os2e<span class="keyword">)</span>
+              <span class="keyword">end</span> <span class="comment">// end of [Some]
+</span>            <span class="keyword">|</span> None _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// nothing to update
+</span>            <span class="keyword">end</span> <span class="comment">// end of [_ when ...]
+</span>          <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// [d2v] is unused and no update is needed
+</span>          <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>      <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>    <span class="keyword">in</span>
+      aux_iter <span class="keyword">(</span>loc0<span class="keyword">,</span> args<span class="keyword">,</span> sais<span class="keyword">,</span> sbis<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>  <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [aux_iter]
+</span>
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span>
+staftscstr_stbefitemlst_update <span class="keyword">(</span>loc0<span class="keyword">,</span> sac<span class="keyword">,</span> sbis<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> res <span class="keyword">=</span> sac<span class="keyword">.</span>staftscstr_res <span class="keyword">and</span> sais <span class="keyword">=</span> sac<span class="keyword">.</span>staftscstr_sais
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_add_svarlst res<span class="keyword">.</span>i2nvresstate_svs
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_hypo_add_proplst <span class="keyword">(</span>loc0<span class="keyword">,</span> res<span class="keyword">.</span>i2nvresstate_gua<span class="keyword">)</span>
+<span class="keyword">in</span>
+  aux_iter <span class="keyword">(</span>loc0<span class="keyword">,</span> res<span class="keyword">.</span>i2nvresstate_arg<span class="keyword">,</span> sais<span class="keyword">,</span> sbis<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [staftscstr_stbefitemlst_update]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">typedef</span> <span class="staexp">"staftitem_t" <span class="keyword">=</span> staftitem</span>
+
+<span class="extern">%{$
+
+ats_void_type
+ats_trans3_env_state_staftitem_lin_set
+  (ats_ptr_type sai, ats_int_type lin) {
+  ((staftitem_t)sai)-&gt;atslab_staftitem_lin = lin; return ;
+} // end of [ats_trans3_env_state_staftitem_lin_set]
+
+ats_void_type
+ats_trans3_env_state_staftitem_typ_set
+  (ats_ptr_type sai, ats_ptr_type os2es) {
+  ((staftitem_t)sai)-&gt;atslab_staftitem_typ = os2es; return ;
+} // end of [ats_trans3_env_state_staftitem_typ_set]
+
+%}</span> <span class="comment">// end of [%{$]
+</span>
+<span class="keyword">extern</span> <span class="keyword">typedef</span> <span class="staexp">"staftscstr_t" <span class="keyword">=</span> <span class="keyword">[</span>n<span class="keyword">:</span>int<span class="keyword">]</span> staftscstr <span class="keyword">(</span>n<span class="keyword">)</span></span>
+
+<span class="extern">%{$
+
+ats_void_type
+ats_trans3_env_state_staftscstr_met_set
+  (ats_ptr_type sac, ats_ptr_type met) {
+  ((staftscstr_t)sac)-&gt;atslab_staftscstr_met = met ; return ;
+} // end of [ats_trans3_env_state_staftscstr_met_set]
+
+ats_void_type
+ats_trans3_env_state_staftscstr_cstr_set
+  (ats_ptr_type sac, ats_ptr_type cstr) {
+  ((staftscstr_t)sac)-&gt;atslab_staftscstr_cstr = cstr ; return ;
+} // end of [ats_trans3_env_state_staftscstr_cstr_set]
+
+%}</span> <span class="comment">// end of [%{$]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_trans3_env_state.dats] *)</span>
+</pre>
+</body>
+</html>

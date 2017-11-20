@@ -1,0 +1,491 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>Proof Functions for View Changes</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+TITLE="Introduction to Programming in ATS"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Dataviews as Linear Dataprops"
+HREF="c3315.html"><LINK
+REL="PREVIOUS"
+TITLE="Linear Arrays"
+HREF="x3347.html"><LINK
+REL="NEXT"
+TITLE="Dataviewtypes as Linear Datatypes"
+HREF="c3441.html"></HEAD
+><BODY
+CLASS="sect1"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>Introduction to Programming in ATS: </TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="x3347.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+>Dataviews as Linear Dataprops</TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="c3441.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="sect1"
+><H1
+CLASS="sect1"
+><A
+NAME="view_change"
+>Proof Functions for View Changes</A
+></H1
+><P
+>&#13;By the phrase <I
+CLASS="emphasis"
+>view change</I
+>, I mean applying a function to proofs of
+a set of views to turn them into proofs of another set of views.  As this
+function itself is a proof function, there is no run-time cost associated
+with each view change. For instance, a proof of the at-view int32@L for any
+address L can be turned into a proof of a tuple of 4 at-views: int8@L,
+int8@L+1, int8@L+2 and int8@L+3, where int32 and int8 are types for 32-bit
+and 8-bit integers, respectively. Often more interesting view changes
+involve recursively defined proof functions, and I present several of such
+cases in the rest of this section.
+
+</P
+><P
+>&#13;When implementing an array subscripting operation of O(1)-time, we need a
+proof function to change the view of one array into the views of two
+adjacently located arrays and another proof function to do precisely the
+opposite. Formally speaking, we need to construct the following two proof
+functions <FONT
+COLOR="RED"
+>array_v_split</FONT
+> and <FONT
+COLOR="RED"
+>array_v_unsplit</FONT
+>:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3409"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>extern
+prfun array_v_split
+  {a:t@ype} {n,i:nat | i &#60;= n} {l:addr} {ofs:int} (
+  pfmul: MUL (i, sizeof(a), ofs), pfarr: array_v (a, n, l)
+) : (array_v (a, i, l), array_v (a, n-i, l+ofs))
+
+extern
+prfun array_v_unsplit
+  {a:t@ype} {n1,n2:nat} {l:addr} {ofs:int} (
+  pfmul: MUL (n1, sizeof(a), ofs)
+, pf1arr: array_v (a, n1, l), pf2arr: array_v (a, n2, l+ofs)
+) : array_v (a, n1+n2, l)
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;An implementation of <FONT
+COLOR="RED"
+>array_v_split</FONT
+> is given as follows:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3413"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>implement
+array_v_split {a} (pfmul, pfarr) = let
+  prfun split
+    {n,i:nat | i &#60;= n} {l:addr} {ofs:int} .&#60;i&#62;. (
+    pfmul: MUL (i, sizeof(a), ofs), pfarr: array_v (a, n, l)
+  ) : (array_v (a, i, l), array_v (a, n-i, l+ofs)) =
+    sif i &#62; 0 then let
+      prval MULind (pf1mul) = pfmul
+      prval array_v_cons (pf1at, pf1arr) = pfarr
+      prval (pf1res1, pf1res2) = split (pf1mul, pf1arr)
+    in
+      (array_v_cons (pf1at, pf1res1), pf1res2)
+    end else let
+      prval MULbas () = pfmul in (array_v_nil (), pfarr)
+    end // end of [sif]
+in
+  split (pfmul, pfarr)
+end // end of [array_v_split]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;Clearly, the proof function <FONT
+COLOR="RED"
+>split</FONT
+> directly corresponds to a proof
+based on mathematical induction. In addition, an implementation of
+<FONT
+COLOR="RED"
+>array_v_unsplit</FONT
+> is given as follows:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3418"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>implement
+array_v_unsplit {a}
+  (pfmul, pf1arr, pf2arr) = let
+  prfun unsplit
+    {n1,n2:nat} {l:addr} {ofs:int} .&#60;n1&#62;. (
+    pfmul: MUL (n1, sizeof(a), ofs)
+  , pf1arr: array_v (a, n1, l)
+  , pf2arr: array_v (a, n2, l+ofs)
+  ) : array_v (a, n1+n2, l) =
+    sif n1 &#62; 0 then let
+      prval MULind (pf1mul) = pfmul
+      prval array_v_cons (pf1at, pf1arr) = pf1arr
+      prval pfres = unsplit (pf1mul, pf1arr, pf2arr)
+    in
+      array_v_cons (pf1at, pfres)
+    end else let
+      prval MULbas () = pfmul
+      prval array_v_nil () = pf1arr
+    in
+      pf2arr
+    end // end of [sif]
+in
+  unsplit (pfmul, pf1arr, pf2arr)
+end // end of [array_v_unsplit]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;The proof function <FONT
+COLOR="RED"
+>unsplit</FONT
+> also directly corresponds to a proof
+based on mathematical induction.
+
+</P
+><P
+>&#13;Let us now see an even more interesting proof function for performing view
+change.  The interface of the proof function <FONT
+COLOR="RED"
+>array_v_takeout</FONT
+> is
+given as follows:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3424"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>extern
+prfun array_v_takeout
+  {a:t@ype} {n,i:nat | i &#60; n} {l:addr} {ofs:int} (
+  pfmul: MUL (i, sizeof(a), ofs), pfarr: array_v (a, n, l)
+) : (a @ l+ofs, a @ l+ofs -&#60;lin,prf&#62; array_v (a, n, l))
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;Note that the following type is for a linear proof function that takes a
+proof of an at-view to return a proof of an array-view:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3427"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>a @ l+ofs -&#60;lin,prf&#62; array_v (a, n, l)
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;As such a function essentially represents an array with one missing cell,
+we may simply say that <FONT
+COLOR="RED"
+>array_v_takeout</FONT
+> turns the view of an array
+into an at-view (for one cell) and a view for the rest of the array.  By
+making use of <FONT
+COLOR="RED"
+>array_v_takeout</FONT
+>, we can give another implementation
+of <FONT
+COLOR="RED"
+>arrget</FONT
+>:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3433"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>implement{a}
+arrget (pf | p, i) = x where {
+  val tsz = int1_of_size1 (sizeof&#60;a&#62;)
+  val (pfmul | ofs) = i imul2 tsz
+  prval (pf1, fpf2) = array_v_takeout {a} (pfmul, pf)
+  val x = ptr_get1&#60;a&#62; (pf1 | p+ofs)
+  prval () = pf := fpf2 (pf1) // putting the cell and the rest together
+} // end of [arrget]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;The proof function <FONT
+COLOR="RED"
+>array_v_takeout</FONT
+> can be implemented as follows:
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3437"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>implement
+array_v_takeout
+  {a} (pfmul, pfarr) = let
+  prfun takeout
+    {n,i:nat | i &#60; n} {l:addr} {ofs:int} .&#60;i&#62;. (
+    pfmul: MUL (i, sizeof(a), ofs), pfarr: array_v (a, n, l)
+  ) : (a @ l+ofs, a @ l+ofs -&#60;lin,prf&#62; array_v (a, n, l)) = let
+    prval array_v_cons (pf1at, pf1arr) = pfarr
+  in
+    sif i &#62; 0 then let
+      prval MULind (pf1mul) = pfmul
+      prval (pfres, fpfres) = takeout (pf1mul, pf1arr)
+    in
+      (pfres, llam (pfres) =&#62; array_v_cons (pf1at, fpfres (pfres)))
+    end else let
+      prval MULbas () = pfmul
+    in
+      (pf1at, llam (pf1at) =&#62; array_v_cons (pf1at, pf1arr))
+    end // end of [sif]
+  end // end of [takeout]
+in
+  takeout (pfmul, pfarr)
+end // end of [array_v_takeout]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;Note that <FONT
+COLOR="RED"
+>llam</FONT
+> is a keyword for forming a linear functon, which is
+consumed once it is applied and the resource in it, if not reclaimed, moves
+into the result it returns.
+
+</P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="x3347.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="c3441.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Linear Arrays</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="c3315.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Dataviewtypes as Linear Datatypes</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

@@ -1,0 +1,286 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: August 2007
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* ats_symbol: implementing symbol table facilities for ATS *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+#include "ats_counter.cats" /* only needed for [ATS/Geizella] */
+%}</span> <span class="comment">// end of [%{^]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_counter.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_symbol.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_symtbl.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="1842"><span class="stacstdec">symbol <span class="keyword">=</span> <span class="keyword">'{</span> name<span class="keyword">=</span> string<span class="keyword">,</span> code<span class="keyword">=</span> count_t <span class="keyword">}</span></span></a></span>
+<span class="keyword">assume</span> <span class="staexp">symbol_t <span class="keyword">=</span> symbol</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">SYMTBLSZHNT 512</span>
+
+<span class="keyword">implement</span> symbol_name <span class="keyword">(</span>sym<span class="keyword">)</span> <span class="keyword">=</span> sym<span class="keyword">.</span>name
+
+<span class="keyword">local</span>
+
+<span class="keyword">val</span> counter <span class="keyword">=</span> counter_make <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">val</span> symtbl <span class="keyword">=</span> symtbl_make <span class="keyword">(</span>SYMTBLSZHNT<span class="keyword">)</span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> symbol_make_string name <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "symbol_make_string: name = "; print name; print_newline ()
+  end // end of [val]
+*)</span>
+  <span class="keyword">val</span> symopt <span class="keyword">=</span> symtbl_search <span class="keyword">(</span>symtbl<span class="keyword">,</span> name<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> symopt <span class="keyword">of</span>
+  <span class="keyword">|</span> Some sym <span class="keyword">=&gt;</span> sym <span class="comment">// end of [Some]
+</span>  <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> cnt <span class="keyword">=</span> counter_get_and_inc <span class="keyword">(</span>counter<span class="keyword">)</span>
+      <span class="keyword">val</span> sym<span class="keyword">:</span> <span class="staexp">symbol</span> <span class="keyword">=</span> <span class="keyword">'{</span> name<span class="keyword">=</span> name<span class="keyword">,</span> code<span class="keyword">=</span> cnt <span class="keyword">}</span>
+<span class="comment">(*
+      val () = begin
+        print "symbol_make_string: sym = ";
+        print_symbol_code sym;
+        print_newline ()
+      end // end of [val]
+*)</span>
+    <span class="keyword">in</span>
+      symtbl_insert <span class="keyword">(</span>symtbl<span class="keyword">,</span> name<span class="keyword">,</span> sym<span class="keyword">)</span><span class="keyword">;</span> sym
+    <span class="keyword">end</span> <span class="comment">// end of [None]
+</span><span class="keyword">end</span> <span class="comment">// end of [symbol_make_string]
+</span> 
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> symbol_empty <span class="keyword">=</span> symbol_make_string ""
+
+<span class="comment">(* various symbols *)</span>
+
+<span class="keyword">implement</span> symbol_ADD <span class="keyword">=</span> symbol_make_string "+" 
+<span class="keyword">implement</span> symbol_AMPERSAND <span class="keyword">=</span> symbol_make_string "&amp;"
+<span class="keyword">implement</span> symbol_AND <span class="keyword">=</span> symbol_make_string "&amp;&amp;" 
+<span class="keyword">implement</span> symbol_AT <span class="keyword">=</span> symbol_make_string "@"
+<span class="keyword">implement</span> symbol_BACKSLASH <span class="keyword">=</span> symbol_make_string "\\"
+<span class="keyword">implement</span> symbol_BANG <span class="keyword">=</span> symbol_make_string "!"
+<span class="keyword">implement</span> symbol_COLONEQ <span class="keyword">=</span> symbol_make_string ":="
+<span class="keyword">implement</span> symbol_DIV <span class="keyword">=</span> symbol_make_string "/" 
+<span class="keyword">implement</span> symbol_EQ <span class="keyword">=</span> symbol_make_string "="
+<span class="keyword">implement</span> symbol_EQEQ <span class="keyword">=</span> symbol_make_string "=="
+<span class="keyword">implement</span> symbol_FUN <span class="keyword">=</span> symbol_make_string "fun"
+<span class="keyword">implement</span> symbol_GT <span class="keyword">=</span> symbol_make_string "&gt;"
+<span class="keyword">implement</span> symbol_GTEQ <span class="keyword">=</span> symbol_make_string "&gt;="
+<span class="keyword">implement</span> symbol_GTGT <span class="keyword">=</span> symbol_make_string "&gt;&gt;"
+<span class="keyword">implement</span> symbol_GTLT <span class="keyword">=</span> symbol_make_string "&gt;&lt;"
+<span class="keyword">implement</span> symbol_LRBRACKETS <span class="keyword">=</span> symbol_make_string "[]"
+<span class="keyword">implement</span> symbol_LT <span class="keyword">=</span> symbol_make_string "&lt;"
+<span class="keyword">implement</span> symbol_LTEQ <span class="keyword">=</span> symbol_make_string "&lt;="
+<span class="keyword">implement</span> symbol_LTLT <span class="keyword">=</span> symbol_make_string "&lt;&lt;"
+<span class="keyword">implement</span> symbol_MINUSGT <span class="keyword">=</span> symbol_make_string "-&gt;"
+<span class="keyword">implement</span> symbol_MINUSLTGT <span class="keyword">=</span> symbol_make_string "-&lt;&gt;"
+<span class="keyword">implement</span> symbol_MUL <span class="keyword">=</span> symbol_make_string "*" 
+<span class="keyword">implement</span> symbol_NEQ <span class="keyword">=</span> symbol_make_string "&lt;&gt;"
+<span class="keyword">implement</span> symbol_NEQEQ <span class="keyword">=</span> symbol_make_string "!="
+<span class="keyword">implement</span> symbol_OR <span class="keyword">=</span> symbol_make_string "||" 
+<span class="keyword">implement</span> symbol_QMARK <span class="keyword">=</span> symbol_make_string "?" 
+<span class="keyword">implement</span> symbol_QMARKBANG <span class="keyword">=</span> symbol_make_string "?!" 
+<span class="keyword">implement</span> symbol_SUB <span class="keyword">=</span> symbol_make_string "-" 
+<span class="keyword">implement</span> symbol_TILDA <span class="keyword">=</span> symbol_make_string "~"
+<span class="keyword">implement</span> symbol_UNDERSCORE <span class="keyword">=</span> symbol_make_string "_"
+
+<span class="keyword">implement</span> symbol_FALSE <span class="keyword">=</span> symbol_make_string "false"
+<span class="keyword">implement</span> symbol_TRUE <span class="keyword">=</span> symbol_make_string "true"
+
+<span class="keyword">implement</span> symbol_DO <span class="keyword">=</span> symbol_make_string "do"
+<span class="keyword">implement</span> symbol_FOR <span class="keyword">=</span> symbol_make_string "for"
+<span class="keyword">implement</span> symbol_IN <span class="keyword">=</span> symbol_make_string "in"
+<span class="keyword">implement</span> symbol_R0EAD <span class="keyword">=</span> symbol_make_string "r@ead"
+<span class="keyword">implement</span> symbol_SIZEOF <span class="keyword">=</span> symbol_make_string "sizeof"
+<span class="keyword">implement</span> symbol_STDIN <span class="keyword">=</span> symbol_make_string "stdin"
+<span class="keyword">implement</span> symbol_TUPZ <span class="keyword">=</span> symbol_make_string "tupz"
+<span class="keyword">implement</span> symbol_UNION <span class="keyword">=</span> symbol_make_string "union"
+<span class="keyword">implement</span> symbol_VBOX <span class="keyword">=</span> symbol_make_string "vbox"
+<span class="keyword">implement</span> symbol_WHILE <span class="keyword">=</span> symbol_make_string "while"
+
+<span class="comment">(* macro expansion *)</span>
+
+<span class="keyword">implement</span> symbol_DEFINED <span class="keyword">=</span> symbol_make_string "defined"
+<span class="keyword">implement</span> symbol_UNDEFINED <span class="keyword">=</span> symbol_make_string "undefined"
+<span class="keyword">implement</span> symbol_EVALMAC <span class="keyword">=</span> symbol_make_string "evalmac"
+<span class="keyword">implement</span> symbol_LIFTMAC <span class="keyword">=</span> symbol_make_string "liftmac"
+
+<span class="keyword">implement</span> symbol_IS_NIL <span class="keyword">=</span> symbol_make_string "is_nil"
+<span class="keyword">implement</span> symbol_IS_CONS <span class="keyword">=</span> symbol_make_string "is_cons"
+<span class="keyword">implement</span> symbol_TUP_HEAD <span class="keyword">=</span> symbol_make_string "tup_head"
+<span class="keyword">implement</span> symbol_TUP_TAIL <span class="keyword">=</span> symbol_make_string "tup_tail"
+
+<span class="comment">(* base sorts *)</span>
+
+<span class="keyword">implement</span> symbol_ADDR <span class="keyword">=</span> symbol_make_string "addr"
+<span class="keyword">implement</span> symbol_BOOL <span class="keyword">=</span> symbol_make_string "bool"
+<span class="keyword">implement</span> symbol_CHAR <span class="keyword">=</span> symbol_make_string "char"
+<span class="keyword">implement</span> symbol_CLS <span class="keyword">=</span> symbol_make_string "cls"
+<span class="keyword">implement</span> symbol_EFF <span class="keyword">=</span> symbol_make_string "eff"
+<span class="keyword">implement</span> symbol_EXN <span class="keyword">=</span> symbol_make_string "exn"
+<span class="keyword">implement</span> symbol_INT <span class="keyword">=</span> symbol_make_string "int"
+
+<span class="comment">(* base impredicative sorts *)</span>
+
+<span class="keyword">implement</span> symbol_PROP <span class="keyword">=</span> symbol_make_string "prop"
+<span class="keyword">implement</span> symbol_TYPE <span class="keyword">=</span> symbol_make_string "type"
+<span class="keyword">implement</span> symbol_T0YPE <span class="keyword">=</span> symbol_make_string "t@ype"
+<span class="keyword">implement</span> symbol_VIEW <span class="keyword">=</span> symbol_make_string "view"
+<span class="keyword">implement</span> symbol_VIEWTYPE <span class="keyword">=</span> symbol_make_string "viewtype"
+<span class="keyword">implement</span> symbol_VIEWT0YPE <span class="keyword">=</span> symbol_make_string "viewt@ype"
+<span class="keyword">implement</span> symbol_TYPES <span class="keyword">=</span> symbol_make_string "types"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+//
+// special variables for OOP
+//
+implement symbol_SELF = symbol_make_string "self"
+implement symbol_MYCLS = symbol_make_string "mycls"
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> symbol_ATSCCOMP_NAMESPACE <span class="keyword">=</span>
+  symbol_make_string "ATSCCOMP_NAMESPACE"
+
+<span class="comment">// static loading at run-time is needed or not
+</span><span class="keyword">implement</span> symbol_ATS_STALOADFLAG <span class="keyword">=</span>
+  symbol_make_string "ATS_STALOADFLAG"
+
+<span class="comment">// dynamic loading at run-time is needed or not
+</span><span class="keyword">implement</span> symbol_ATS_DYNLOADFLAG <span class="keyword">=</span>
+  symbol_make_string "ATS_DYNLOADFLAG"
+
+<span class="keyword">implement</span> symbol_ATS_DYNLOADFUN_NAME <span class="keyword">=</span>
+  symbol_make_string "ATS_DYNLOADFUN_NAME"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> lt_symbol_symbol <span class="keyword">(</span>sym1<span class="keyword">,</span> sym2<span class="keyword">)</span> <span class="keyword">=</span>
+  lt_count_count <span class="keyword">(</span>sym1<span class="keyword">.</span>code<span class="keyword">,</span> sym2<span class="keyword">.</span>code<span class="keyword">)</span>
+
+<span class="keyword">implement</span> lte_symbol_symbol <span class="keyword">(</span>sym1<span class="keyword">,</span> sym2<span class="keyword">)</span> <span class="keyword">=</span>
+  lte_count_count <span class="keyword">(</span>sym1<span class="keyword">.</span>code<span class="keyword">,</span> sym2<span class="keyword">.</span>code<span class="keyword">)</span>
+
+<span class="keyword">implement</span> gt_symbol_symbol <span class="keyword">(</span>sym1<span class="keyword">,</span> sym2<span class="keyword">)</span> <span class="keyword">=</span>
+  gt_count_count <span class="keyword">(</span>sym1<span class="keyword">.</span>code<span class="keyword">,</span> sym2<span class="keyword">.</span>code<span class="keyword">)</span>
+
+<span class="keyword">implement</span> gte_symbol_symbol <span class="keyword">(</span>sym1<span class="keyword">,</span> sym2<span class="keyword">)</span> <span class="keyword">=</span>
+  gte_count_count <span class="keyword">(</span>sym1<span class="keyword">.</span>code<span class="keyword">,</span> sym2<span class="keyword">.</span>code<span class="keyword">)</span>
+
+<span class="keyword">implement</span> eq_symbol_symbol <span class="keyword">(</span>sym1<span class="keyword">,</span> sym2<span class="keyword">)</span> <span class="keyword">=</span>
+  eq_count_count <span class="keyword">(</span>sym1<span class="keyword">.</span>code<span class="keyword">,</span> sym2<span class="keyword">.</span>code<span class="keyword">)</span>
+
+<span class="keyword">implement</span> neq_symbol_symbol <span class="keyword">(</span>sym1<span class="keyword">,</span> sym2<span class="keyword">)</span> <span class="keyword">=</span>
+  neq_count_count <span class="keyword">(</span>sym1<span class="keyword">.</span>code<span class="keyword">,</span> sym2<span class="keyword">.</span>code<span class="keyword">)</span>
+
+<span class="keyword">implement</span> compare_symbol_symbol <span class="keyword">(</span>sym1<span class="keyword">,</span> sym2<span class="keyword">)</span> <span class="keyword">=</span>
+  compare_count_count <span class="keyword">(</span>sym1<span class="keyword">.</span>code<span class="keyword">,</span> sym2<span class="keyword">.</span>code<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> symbol_hash <span class="keyword">(</span>sym<span class="keyword">)</span> <span class="keyword">=</span> count_hash <span class="keyword">(</span>sym<span class="keyword">.</span>code<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> fprint_symbol <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> sym<span class="keyword">)</span> <span class="keyword">=</span>
+  fprint_string <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> sym<span class="keyword">.</span>name<span class="keyword">)</span>
+
+<span class="keyword">implement</span> print_symbol <span class="keyword">(</span>sym<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span>fprint_symbol<span class="keyword">,</span> sym<span class="keyword">)</span>
+<span class="keyword">implement</span> prerr_symbol <span class="keyword">(</span>sym<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span>fprint_symbol<span class="keyword">,</span> sym<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> fprint_symbol_code <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> sym<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  fprint_string <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> sym<span class="keyword">.</span>name<span class="keyword">)</span><span class="keyword">;</span>
+  fprint_char <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> '\('<span class="keyword">)</span><span class="keyword">;</span>
+  fprint_count <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> sym<span class="keyword">.</span>code<span class="keyword">)</span><span class="keyword">;</span>
+  fprint_char <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ')'<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [fprint_symbol_code]
+</span>
+<span class="keyword">implement</span> print_symbol_code <span class="keyword">(</span>sym<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span>fprint_symbol_code<span class="keyword">,</span> sym<span class="keyword">)</span>
+<span class="keyword">implement</span> prerr_symbol_code <span class="keyword">(</span>sym<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span>fprint_symbol_code<span class="keyword">,</span> sym<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_symbol.dats] *)</span>
+</pre>
+</body>
+</html>

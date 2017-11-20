@@ -1,0 +1,233 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: October, 2010
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// book: AUP (2nd edition), pages 628 - 634
+</span><span class="comment">// section 9.2.3: sigsuspend System Call
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">UNSAFE <span class="keyword">=</span> "prelude/SATS/unsafe.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anon*)</span> <span class="keyword">=</span> "prelude/DATS/pointer.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">T <span class="keyword">=</span> "libc/sys/SATS/types.sats"</span>
+<span class="keyword">macdef</span> <span class="neuexp">int_of_pid <span class="keyword">=</span> $T<span class="keyword">.</span>int_of_pid</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/errno.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/fcntl.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/signal.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/stdio.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/stdlib.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/unistd.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: any order printing order is possible: child/parent or parent/child
+</span><span class="comment">//
+</span><span class="keyword">fun</span> try1 <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> pid <span class="keyword">=</span> fork_err <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> ipid <span class="keyword">=</span> int_of_pid <span class="keyword">(</span>pid<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+  <span class="keyword">|</span> _ <span class="keyword">when</span> ipid <span class="keyword">=</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> cpid <span class="keyword">=</span> getpid <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> printf <span class="keyword">(</span>"try1: child(%ld)\n"<span class="keyword">,</span> <span class="keyword">@(</span>$UNSAFE<span class="keyword">.</span>cast2lint<span class="keyword">(</span>cpid<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      exit <span class="keyword">(</span>EXIT_SUCCESS<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_]
+</span>  <span class="keyword">|</span> _ <span class="keyword">when</span> ipid <span class="keyword">&gt;</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> printf <span class="keyword">(</span>"parent(%d)\n"<span class="keyword">,</span> <span class="keyword">@(</span>ipid<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="comment">// nothing
+</span>    <span class="keyword">end</span> <span class="comment">// end of [ipid &gt; 0]
+</span>  <span class="keyword">|</span> _ <span class="comment">(*ipid=-1*)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> perror <span class="keyword">(</span>"fork"<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      exit <span class="keyword">(</span>EXIT_SUCCESS<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_]
+</span><span class="keyword">end</span> <span class="comment">// end of [try1]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// this one uses [sigsuspend]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> try4 <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">typedef</span> <span class="staexp"><a name="1325"><span class="stacstdec">T <span class="keyword">=</span> sigset_t</span></a></span>
+  <span class="keyword">var</span> set<span class="keyword">:</span> <span class="staexp">T</span>
+  <span class="keyword">val</span> err <span class="keyword">=</span> sigemptyset <span class="keyword">(</span>set<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> opt_unsome<span class="staexp"><span class="keyword">{</span>T<span class="keyword">}</span></span> <span class="keyword">(</span>set<span class="keyword">)</span></span>
+  <span class="keyword">val</span> err <span class="keyword">=</span> sigaddset <span class="keyword">(</span>set<span class="keyword">,</span> SIGUSR1<span class="keyword">)</span> <span class="comment">// SIGUSR1 is blocked
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+  <span class="keyword">val</span> err <span class="keyword">=</span> sigprocmask_null <span class="keyword">(</span>SIG_SETMASK<span class="keyword">,</span> set<span class="keyword">)</span>
+  <span class="keyword">val</span> pid <span class="keyword">=</span> fork_err <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> ipid <span class="keyword">=</span> int_of_pid <span class="keyword">(</span>pid<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+  <span class="keyword">|</span> _ <span class="keyword">when</span> ipid <span class="keyword">=</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// child
+</span><span class="comment">//
+</span>      <span class="keyword">var</span> act<span class="keyword">:</span> <span class="staexp">sigaction</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> ptr_zero&lt;<span class="staexp">sigaction</span><span class="keyword">&gt;</span> <span class="keyword">(</span>act<span class="keyword">)</span>
+      <span class="comment">// HX: note that SIGUSR1 kills the process if there is no handler for it
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> act<span class="keyword">.</span>sa_handler := sighandler<span class="keyword">(</span><span class="keyword">lam</span> <span class="keyword">(</span>sgn<span class="keyword">:</span><span class="staexp">signum_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">val</span> err <span class="keyword">=</span> sigaction_null <span class="keyword">(</span>SIGUSR1<span class="keyword">,</span> act<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+<span class="comment">//
+</span>      <span class="keyword">var</span> suspendset<span class="keyword">:</span> <span class="staexp">sigset_t</span>
+      <span class="keyword">val</span> err <span class="keyword">=</span> sigfillset <span class="keyword">(</span>suspendset<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> opt_unsome<span class="staexp"><span class="keyword">{</span>T<span class="keyword">}</span></span> <span class="keyword">(</span>suspendset<span class="keyword">)</span></span>
+      <span class="keyword">val</span> err <span class="keyword">=</span> sigdelset <span class="keyword">(</span>suspendset<span class="keyword">,</span> SIGUSR1<span class="keyword">)</span> <span class="comment">// only [SIGUSR1] is allowed
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+      <span class="keyword">val</span> err <span class="keyword">=</span> sigsuspend <span class="keyword">(</span>suspendset<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">&lt;</span> 0<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">(</span>errno_get<span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> EINTR<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> cpid <span class="keyword">=</span> getpid <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> printf <span class="keyword">(</span>"try4: child(%ld)\n"<span class="keyword">,</span> <span class="keyword">@(</span>$UNSAFE<span class="keyword">.</span>cast2lint<span class="keyword">(</span>cpid<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> exit <span class="keyword">(</span>EXIT_SUCCESS<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        <span class="comment">// nothing
+</span>      <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> exit <span class="keyword">(</span>EXIT_FAILURE<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="comment">// nothing
+</span>    <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">|</span> _ <span class="keyword">when</span> ipid <span class="keyword">&gt;</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// parent
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> printf <span class="keyword">(</span>"parent(%d)\n"<span class="keyword">,</span> <span class="keyword">@(</span>ipid<span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">val</span> err <span class="keyword">=</span> kill <span class="keyword">(</span>pid<span class="keyword">,</span> SIGUSR1<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="comment">// nothing
+</span>    <span class="keyword">end</span> <span class="comment">// end of [ipid &gt; 0]
+</span>  <span class="keyword">|</span> _ <span class="comment">(*ipid=-1*)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> perror "fork" <span class="keyword">in</span> <span class="comment">(*nothing*)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_]
+</span><span class="keyword">end</span> <span class="comment">// end of [try4]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// this one uses [sigwait]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> try5 <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> set<span class="keyword">:</span> <span class="staexp">sigset_t</span>
+  <span class="keyword">val</span> err <span class="keyword">=</span> sigemptyset <span class="keyword">(</span>set<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> opt_unsome<span class="staexp"><span class="keyword">{</span>sigset_t<span class="keyword">}</span></span> <span class="keyword">(</span>set<span class="keyword">)</span></span>
+  <span class="keyword">val</span> err <span class="keyword">=</span> sigaddset <span class="keyword">(</span>set<span class="keyword">,</span> SIGUSR1<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+  <span class="keyword">val</span> err <span class="keyword">=</span> sigprocmask_null <span class="keyword">(</span>SIG_SETMASK<span class="keyword">,</span> set<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+  <span class="keyword">val</span> pid <span class="keyword">=</span> fork_err <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> ipid <span class="keyword">=</span> int_of_pid <span class="keyword">(</span>pid<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+  <span class="keyword">|</span> _ <span class="keyword">when</span> ipid <span class="keyword">=</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// child
+</span>      <span class="keyword">var</span> sgn<span class="keyword">:</span> <span class="staexp">signum_t</span>
+      <span class="keyword">val</span> err <span class="keyword">=</span> sigwait <span class="keyword">(</span>set<span class="keyword">,</span> sgn<span class="keyword">)</span> <span class="comment">// wait for SIGUSR1
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> opt_unsome<span class="staexp"><span class="keyword">{</span>signum_t<span class="keyword">}</span></span> <span class="keyword">(</span>sgn<span class="keyword">)</span></span>      
+      <span class="keyword">val</span> cpid <span class="keyword">=</span> getpid <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> printf <span class="keyword">(</span>"try5: child(%ld)\n"<span class="keyword">,</span> <span class="keyword">@(</span>$UNSAFE<span class="keyword">.</span>cast2lint<span class="keyword">(</span>cpid<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      exit <span class="keyword">(</span>EXIT_SUCCESS<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">|</span> _ <span class="keyword">when</span> ipid <span class="keyword">&gt;</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// parent
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> printf <span class="keyword">(</span>"parent(%d)\n"<span class="keyword">,</span> <span class="keyword">@(</span>ipid<span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">val</span> err <span class="keyword">=</span> kill <span class="keyword">(</span>pid<span class="keyword">,</span> SIGUSR1<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="comment">// nothing
+</span>    <span class="keyword">end</span> <span class="comment">// end of [ipid &gt; 0]
+</span>  <span class="keyword">|</span> _ <span class="comment">(*ipid=-1*)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> perror "fork" <span class="keyword">in</span> <span class="comment">(*nothing*)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_]
+</span><span class="keyword">end</span> <span class="comment">// end of [try5]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// this one uses [pipe]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> try6 <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> fd1<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">and</span> fd2<span class="keyword">:</span> <span class="staexp">int</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pfopt</span> <span class="keyword">|</span> err<span class="keyword">)</span> <span class="keyword">=</span> pipe <span class="keyword">(</span>fd1<span class="keyword">,</span> fd2<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err &gt;= 0<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp">Some_v <span class="keyword">@(</span>pfd1<span class="keyword">,</span> pfd2<span class="keyword">)</span> <span class="keyword">=</span> pfopt</span>
+  <span class="keyword">val</span> pid <span class="keyword">=</span> fork_err <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> ipid <span class="keyword">=</span> int_of_pid <span class="keyword">(</span>pid<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+  <span class="keyword">|</span> _ <span class="keyword">when</span> ipid <span class="keyword">=</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// child
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> close_exn <span class="keyword">(</span><span class="prfexp">pfd2</span> <span class="keyword">|</span> fd2<span class="keyword">)</span>
+      <span class="keyword">var</span> c<span class="keyword">:</span> <span class="staexp">byte</span>
+      <span class="keyword">prval</span> <span class="prfexp">pfc <span class="keyword">=</span> array_v_sing <span class="keyword">(</span>view@ c<span class="keyword">)</span></span>
+      <span class="keyword">val</span> nread <span class="keyword">=</span> read_err <span class="keyword">(</span><span class="prfexp">pfd1</span> <span class="keyword">|</span> fd1<span class="keyword">,</span> c<span class="keyword">,</span> 1<span class="keyword">)</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> view@ c := array_v_unsing <span class="keyword">(</span>pfc<span class="keyword">)</span></span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> close_exn <span class="keyword">(</span><span class="prfexp">pfd1</span> <span class="keyword">|</span> fd1<span class="keyword">)</span>
+      <span class="keyword">val</span> cpid <span class="keyword">=</span> getpid <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> printf <span class="keyword">(</span>"try6: child(%ld)\n"<span class="keyword">,</span> <span class="keyword">@(</span>$UNSAFE<span class="keyword">.</span>cast2lint<span class="keyword">(</span>cpid<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      exit <span class="keyword">(</span>EXIT_SUCCESS<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [ipid = 0]
+</span>  <span class="keyword">|</span> _ <span class="keyword">when</span> ipid <span class="keyword">&gt;</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// parent
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> printf <span class="keyword">(</span>"parent(%d)\n"<span class="keyword">,</span> <span class="keyword">@(</span>ipid<span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> close_exn <span class="keyword">(</span><span class="prfexp">pfd1</span> <span class="keyword">|</span> fd1<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> close_exn <span class="keyword">(</span><span class="prfexp">pfd2</span> <span class="keyword">|</span> fd2<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="comment">// nothing
+</span>    <span class="keyword">end</span> <span class="comment">// end of [ipid &gt; 0]
+</span>  <span class="keyword">|</span> _ <span class="comment">(*ipid=-1*)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// failure
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> close_exn <span class="keyword">(</span><span class="prfexp">pfd1</span> <span class="keyword">|</span> fd1<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> close_exn <span class="keyword">(</span><span class="prfexp">pfd2</span> <span class="keyword">|</span> fd2<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> perror <span class="keyword">(</span>"fork"<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      exit <span class="keyword">(</span>EXIT_SUCCESS<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_]
+</span><span class="keyword">end</span> <span class="comment">// end of [try6]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+main <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> try1 <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> try4 <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> try5 <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> try6 <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> _leftover <span class="keyword">=</span> sleep <span class="keyword">(</span>1<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [AUP_9_2_3.dats] *)</span>
+</pre>
+</body>
+</html>

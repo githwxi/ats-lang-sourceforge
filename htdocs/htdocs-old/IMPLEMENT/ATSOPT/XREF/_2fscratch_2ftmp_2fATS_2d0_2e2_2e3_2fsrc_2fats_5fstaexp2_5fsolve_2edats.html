@@ -1,0 +1,1362 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: December 2007
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+#include "ats_counter.cats" /* only needed for [ATS/Geizella] */
+%}</span> <span class="comment">// end of [%{^]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Deb <span class="keyword">=</span> "ats_debug.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Err <span class="keyword">=</span> "ats_error.sats"</span>
+
+<span class="keyword">staload</span> <span class="staexp">Loc <span class="keyword">=</span> "ats_location.sats"</span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1733"><span class="stacstdec">loc_t <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_t</span></a></span>
+
+<span class="keyword">staload</span> <span class="staexp">Lst <span class="keyword">=</span> "ats_list.sats"</span>
+
+<span class="keyword">staload</span> <span class="staexp">Syn <span class="keyword">=</span> "ats_syntax.sats"</span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1829"><span class="stacstdec">funclo <span class="keyword">=</span> $Syn<span class="keyword">.</span>funclo</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2_pprint.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_stadyncst2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_trans3_env.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2_solve.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">THISFILENAME "ats_staexp2_solve.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">nil list_nil</span>
+<span class="keyword">#define</span> <span class="neuexp">cons list_cons</span>
+<span class="keyword">#define</span> <span class="neuexp">:: list_cons</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">=</span> <span class="keyword">with</span> $Lab<span class="keyword">.</span>eq_label_label</span>
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">=</span> <span class="keyword">with</span> $Stamp<span class="keyword">.</span>eq_stamp_stamp</span>
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">=</span> <span class="keyword">with</span> $Syn<span class="keyword">.</span>eq_funclo_funclo</span>
+
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> $Loc<span class="keyword">.</span>prerr_location</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> prerr_loc_error3 <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">(</span>$Loc<span class="keyword">.</span>prerr_location loc<span class="keyword">;</span> prerr ": error(3)"<span class="keyword">)</span>
+<span class="comment">// end of [prerr_loc_error3]
+</span>
+<span class="keyword">fn</span> prerr_loc_interror <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  $Loc<span class="keyword">.</span>prerr_location loc<span class="keyword">;</span> prerr ": INTERNAL ERROR (ats_staexp2_solve)"
+<span class="keyword">end</span> <span class="comment">// end of [prerr_loc_interror]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="2700"><span class="stacstdec">staerr</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> STAERR_s2exp_tyleq <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>loc_t<span class="keyword">,</span> s2exp<span class="keyword">,</span> s2exp<span class="keyword">)</span></span>
+  <span class="keyword">|</span> STAERR_s2exp_equal <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>loc_t<span class="keyword">,</span> s2exp<span class="keyword">,</span> s2exp<span class="keyword">)</span></span>
+  <span class="keyword">|</span> STAERR_funclo_equal <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>loc_t<span class="keyword">,</span> funclo<span class="keyword">,</span> funclo<span class="keyword">)</span></span>
+  <span class="keyword">|</span> STAERR_s2eff_leq <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>loc_t<span class="keyword">,</span> s2eff<span class="keyword">,</span> s2eff<span class="keyword">)</span></span>
+  <span class="keyword">|</span> STAERR_s2exp_linearity <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>loc_t<span class="keyword">,</span> s2exp<span class="keyword">)</span></span>
+<span class="comment">// end of [datatype]
+</span>
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="2981"><span class="stacstdec">staerrlst_vt <span class="keyword">=</span> List_vt <span class="keyword">(</span>staerr<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">var</span> the_staerrlst<span class="keyword">:</span> <span class="staexp">staerrlst_vt</span> <span class="keyword">=</span> list_vt_nil <span class="keyword">(</span><span class="keyword">)</span>
+
+<span class="keyword">val</span> p_the_staerrlst <span class="keyword">=</span>
+  <span class="keyword">&amp;</span>the_staerrlst <span class="comment">// end of [val]
+</span><span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pfbox_the_staerrlst</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span>
+  vbox_make_view_ptr <span class="staexp"><span class="keyword">{</span>staerrlst_vt<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">view@ <span class="keyword">(</span>the_staerrlst<span class="keyword">)</span></span> <span class="keyword">|</span> p_the_staerrlst<span class="keyword">)</span>
+<span class="comment">// end of [val]
+</span>
+<span class="keyword">in</span>
+
+<span class="keyword">fn</span> the_staerrlst_add
+  <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">staerr</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">vbox pf <span class="keyword">=</span> pfbox_the_staerrlst</span>
+<span class="keyword">in</span>
+  <span class="keyword">!</span>p_the_staerrlst := list_vt_cons <span class="keyword">(</span>x<span class="keyword">,</span> <span class="keyword">!</span>p_the_staerrlst<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_staerrlst_add]
+</span>
+<span class="keyword">fn</span> the_staerrlst_get
+  <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">staerrlst_vt</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">vbox pf <span class="keyword">=</span> pfbox_the_staerrlst</span>
+  <span class="keyword">val</span> xs <span class="keyword">=</span> <span class="keyword">!</span>p_the_staerrlst
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>p_the_staerrlst := list_vt_nil <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  xs
+<span class="keyword">end</span> <span class="comment">// end of [the_staerrlst_get]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="keyword">fn</span> prerr_staerr_funclo_equal
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> fc1<span class="keyword">:</span> <span class="staexp">funclo</span><span class="keyword">,</span> fc2<span class="keyword">:</span> <span class="staexp">funclo</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  prerr_loc_error3 <span class="keyword">(</span>loc<span class="keyword">)</span><span class="keyword">;</span>
+  prerr ": function/closure mismatch:\n"<span class="keyword">;</span>
+  prerr "The needed funclo kind is: "<span class="keyword">;</span> $Syn<span class="keyword">.</span>prerr_funclo fc2<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+  prerr "The actual funclo kind is: "<span class="keyword">;</span> $Syn<span class="keyword">.</span>prerr_funclo fc1<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+<span class="keyword">end</span> <span class="comment">// end of [prerr_staerr_funclo_equal]
+</span>
+<span class="keyword">fn</span> prerr_staerr_s2exp_tyleq
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2e1<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2e2<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  prerr_loc_error3 <span class="keyword">(</span>loc<span class="keyword">)</span><span class="keyword">;</span>
+  $Deb<span class="keyword">.</span>debug_prerrf <span class="keyword">(</span>": %s: s2exp_tyleq_solve"<span class="keyword">,</span> <span class="keyword">@(</span>THISFILENAME<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+  prerr ": mismatch of static terms (tyleq):\n"<span class="keyword">;</span>
+  prerr "The needed term is: "<span class="keyword">;</span> pprerr_s2exp s2e2<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+  prerr "The actual term is: "<span class="keyword">;</span> pprerr_s2exp s2e1<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+<span class="keyword">end</span> <span class="comment">// end of [prerr_staerr_s2exp_tyleq]
+</span>
+<span class="keyword">fn</span> prerr_staerr_s2exp_equal
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2e1<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2e2<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  prerr_loc_error3 <span class="keyword">(</span>loc<span class="keyword">)</span><span class="keyword">;</span>
+  $Deb<span class="keyword">.</span>debug_prerrf <span class="keyword">(</span>": %s: s2exp_equal_solve"<span class="keyword">,</span> <span class="keyword">@(</span>THISFILENAME<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+  prerr ": mismatch of static terms (equal):\n"<span class="keyword">;</span>
+  prerr "The needed term is: "<span class="keyword">;</span> pprerr_s2exp s2e2<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+  prerr "The actual term is: "<span class="keyword">;</span> pprerr_s2exp s2e1<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+<span class="keyword">end</span> <span class="comment">// end of [prerr_staerr_s2exp_equal]
+</span>
+<span class="keyword">fn</span> prerr_staerr_s2eff_leq
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2fe1<span class="keyword">:</span> <span class="staexp">s2eff</span><span class="keyword">,</span> s2fe2<span class="keyword">:</span> <span class="staexp">s2eff</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  prerr_loc_error3 <span class="keyword">(</span>loc<span class="keyword">)</span><span class="keyword">;</span>
+  $Deb<span class="keyword">.</span>debug_prerrf <span class="keyword">(</span>": %s: s2exp_equal_solve"<span class="keyword">,</span> <span class="keyword">@(</span>THISFILENAME<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+  prerr ": mismatch of effects:\n"<span class="keyword">;</span>
+  prerr "The needed term is: "<span class="keyword">;</span> prerr_s2eff s2fe2<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+  prerr "The actual term is: "<span class="keyword">;</span> prerr_s2eff s2fe1<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>  
+<span class="keyword">end</span> <span class="comment">// end of [prerr_staerr_s2eff_leq]
+</span>
+<span class="keyword">fn</span> prerr_staerr_s2exp_linearity
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2e<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  prerr_loc_error3 <span class="keyword">(</span>loc<span class="keyword">)</span><span class="keyword">;</span>
+  $Deb<span class="keyword">.</span>debug_prerrf <span class="keyword">(</span>": %s: s2exp_equal_solve"<span class="keyword">,</span> <span class="keyword">@(</span>THISFILENAME<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+  prerr ": mismatch of linearity:\n"<span class="keyword">;</span>
+  prerr "A nonlinear term is needed: "<span class="keyword">;</span> pprerr_s2exp s2e<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+<span class="keyword">end</span> <span class="comment">// end of [prerr_staerr_s2exp_linearity]
+</span>
+<span class="keyword">fn</span> prerr_the_staerrlst <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> loop <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">staerrlst_vt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">case+</span> xs <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">~</span>list_vt_cons <span class="keyword">(</span>x<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> x <span class="keyword">of</span>
+        <span class="keyword">|</span> STAERR_funclo_equal <span class="keyword">(</span>loc<span class="keyword">,</span> fc1<span class="keyword">,</span> fc2<span class="keyword">)</span> <span class="keyword">=&gt;</span> prerr_staerr_funclo_equal <span class="keyword">(</span>loc<span class="keyword">,</span> fc1<span class="keyword">,</span> fc2<span class="keyword">)</span>
+        <span class="keyword">|</span> STAERR_s2exp_equal <span class="keyword">(</span>loc<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">=&gt;</span> prerr_staerr_s2exp_equal <span class="keyword">(</span>loc<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span>
+        <span class="keyword">|</span> STAERR_s2exp_tyleq <span class="keyword">(</span>loc<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">=&gt;</span> prerr_staerr_s2exp_tyleq <span class="keyword">(</span>loc<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span>
+        <span class="keyword">|</span> STAERR_s2eff_leq <span class="keyword">(</span>loc<span class="keyword">,</span> s2fe1<span class="keyword">,</span> s2fe2<span class="keyword">)</span> <span class="keyword">=&gt;</span> prerr_staerr_s2eff_leq <span class="keyword">(</span>loc<span class="keyword">,</span> s2fe1<span class="keyword">,</span> s2fe2<span class="keyword">)</span>
+        <span class="keyword">|</span> STAERR_s2exp_linearity <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> prerr_staerr_s2exp_linearity <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">)</span>
+        <span class="comment">// end of [case] // end of [val]
+</span>      <span class="keyword">in</span>
+        loop <span class="keyword">(</span>xs<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [list_vt_cons]
+</span>    <span class="keyword">|</span> <span class="keyword">~</span>list_vt_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="comment">// end of [loop]
+</span><span class="keyword">in</span>
+  loop <span class="keyword">(</span>the_staerrlst_get <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [prerr_the_staerrlst]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+funclo_equal_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> fc1<span class="keyword">,</span> fc2<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> fc1 <span class="keyword">=</span> fc2 <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> prerr_staerr_funclo_equal <span class="keyword">(</span>loc0<span class="keyword">,</span> fc1<span class="keyword">,</span> fc2<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="comment">// end of [funclo_equal_solve]
+</span>
+<span class="keyword">implement</span>
+funclo_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> fc1<span class="keyword">,</span> fc2<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> fc1 <span class="keyword">=</span> fc2 <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> err := err + 1
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_staerrlst_add <span class="keyword">(</span>STAERR_funclo_equal <span class="keyword">(</span>loc0<span class="keyword">,</span> fc1<span class="keyword">,</span> fc2<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="comment">// nothing
+</span>  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="comment">// end of [funclo_equal_solve_err]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+clokind_equal_solve_err <span class="keyword">(</span>loc<span class="keyword">,</span> knd1<span class="keyword">,</span> knd2<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> knd1 <span class="keyword">=</span> knd2 <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+<span class="comment">// end of [clokind_equal_solve_err]
+</span>
+<span class="keyword">implement</span>
+label_equal_solve_err <span class="keyword">(</span>loc<span class="keyword">,</span> l1<span class="keyword">,</span> l2<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> l1 <span class="keyword">=</span> l2 <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+<span class="comment">// end of [label_equal_solve_err]
+</span>
+<span class="keyword">implement</span>
+linearity_equal_solve_err <span class="keyword">(</span>loc<span class="keyword">,</span> lin1<span class="keyword">,</span> lin2<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> lin1 <span class="keyword">=</span> lin2 <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+<span class="comment">// end of [linearity_equal_solve_err]
+</span>
+<span class="keyword">implement</span>
+pfarity_equal_solve_err <span class="keyword">(</span>loc<span class="keyword">,</span> npf1<span class="keyword">,</span> npf2<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> npf1 <span class="keyword">=</span> npf2 <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+<span class="comment">// end of [pfarity_equal_solve_err]
+</span>
+<span class="keyword">implement</span>
+refval_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> refval1<span class="keyword">,</span> refval2<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> refval1 <span class="keyword">=</span> refval2 <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+<span class="comment">// end of [refval_equal_solve_err]
+</span>
+<span class="keyword">implement</span>
+stamp_equal_solve_err <span class="keyword">(</span>loc<span class="keyword">,</span> s1<span class="keyword">,</span> s2<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> s1 <span class="keyword">=</span> s2 <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+<span class="comment">// end of [stamp_equal_solve_err]
+</span>
+<span class="keyword">implement</span>
+tyreckind_equal_solve_err <span class="keyword">(</span>loc<span class="keyword">,</span> knd1<span class="keyword">,</span> knd2<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> knd1 <span class="keyword">=</span> knd2 <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+<span class="comment">// end of [tyreckind_equal_solve_err]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+s2exp_out_void_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> err<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> 0
+  <span class="keyword">val</span> s2e <span class="keyword">=</span> s2exp_whnf s2e
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> s2e<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Ecst s2c <span class="keyword">=&gt;</span>
+        <span class="keyword">if</span> s2cstref_cst_equ <span class="keyword">(</span>Void_t0ype<span class="keyword">,</span> s2c<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> err := err + 1
+      <span class="comment">// end of [S2Ecst]
+</span>    <span class="keyword">|</span> S2Eout _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">|</span> S2Etyrec <span class="keyword">(</span>_knd<span class="keyword">,</span> _npf<span class="keyword">,</span> ls2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> loop <span class="keyword">(</span>loc0<span class="keyword">,</span> ls2es<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">fun</span> loop
+          <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> ls2es<span class="keyword">:</span> <span class="staexp">labs2explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">case+</span> ls2es <span class="keyword">of</span>
+          <span class="keyword">|</span> LABS2EXPLSTcons <span class="keyword">(</span>_<span class="keyword">,</span> s2e<span class="keyword">,</span> ls2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+              <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2exp_out_void_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">in</span> loop <span class="keyword">(</span>loc0<span class="keyword">,</span> ls2es<span class="keyword">)</span>
+            <span class="keyword">end</span> <span class="comment">// end of [LABS2EXPLSTcons]
+</span>          <span class="keyword">|</span> LABS2EXPLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [where] // end of [S2Etyrec]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+  <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="keyword">if</span> err <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+    prerr_loc_error3 <span class="keyword">(</span>loc0<span class="keyword">)</span><span class="keyword">;</span>
+    prerr ": the type ["<span class="keyword">;</span> prerr s2e<span class="keyword">;</span> prerr "] is expected to be empty."<span class="keyword">;</span>
+    prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+    $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">// end of [s2exp_out_or_void_solve]
+</span>
+<span class="keyword">implement</span>
+s2exp_out_void_solve_at <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e_at<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> un_s2exp_at_viewt0ype_addr_view s2e_at <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>Some_vt s2ts2a <span class="keyword">=&gt;</span> s2exp_out_void_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2ts2a<span class="keyword">.</span>0<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prerr_loc_error3 <span class="keyword">(</span>loc0<span class="keyword">)</span><span class="keyword">;</span>
+      prerr ": the type ["<span class="keyword">;</span> prerr s2e_at<span class="keyword">;</span> prerr "] is expected to be an @-view."<span class="keyword">;</span>
+      prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span><span class="keyword">end</span> <span class="comment">// end of [s2exp_out_void_solve_at]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> s2exp_nonlin_test_err <span class="keyword">(</span>
+    loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2e<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> err<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int</span>
+   <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> s2exp_is_linear s2e <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> err := err + 1
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_staerrlst_add <span class="keyword">(</span>STAERR_s2exp_linearity <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="comment">// nothing
+</span>  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="comment">// end of [s2exp_nonlin_test_err]
+</span>
+<span class="keyword">fn</span> s2exp_equal_solve_abscon_err <span class="keyword">(</span>
+    loc0<span class="keyword">:</span> <span class="staexp">loc_t</span>
+  <span class="keyword">,</span> s2e1<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2e2<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> err<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux_solve <span class="keyword">(</span> <span class="comment">// nontailrec
+</span>      loc0<span class="keyword">:</span> <span class="staexp">loc_t</span>
+    <span class="keyword">,</span> s2e1<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2e2<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> err<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int</span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> <span class="keyword">(</span>s2e1<span class="keyword">.</span>s2exp_node<span class="keyword">,</span> s2e2<span class="keyword">.</span>s2exp_node<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>S2Eapp <span class="keyword">(</span>s2e11<span class="keyword">,</span> s2es12<span class="keyword">)</span><span class="keyword">,</span> S2Eapp <span class="keyword">(</span>s2e21<span class="keyword">,</span> s2es22<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> aux_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e11<span class="keyword">,</span> s2e21<span class="keyword">,</span> err<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2explst_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es12<span class="keyword">,</span> s2es22<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        <span class="comment">// nothing
+</span>      <span class="keyword">end</span> <span class="comment">// end of [S2Eapp, S2Eapp]
+</span>    <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [aux_solve]
+</span>
+  <span class="keyword">fun</span> aux_check <span class="keyword">(</span> <span class="comment">// tailrec
+</span>      s2e1<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2e2<span class="keyword">:</span> <span class="staexp">s2exp</span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> <span class="keyword">(</span>s2e1<span class="keyword">.</span>s2exp_node<span class="keyword">,</span> s2e2<span class="keyword">.</span>s2exp_node<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>S2Ecst s2c1<span class="keyword">,</span> S2Ecst s2c2<span class="keyword">)</span> <span class="keyword">=&gt;</span> eq_s2cst_s2cst <span class="keyword">(</span>s2c1<span class="keyword">,</span> s2c2<span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>S2Eapp <span class="keyword">(</span>s2e1<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">,</span> S2Eapp <span class="keyword">(</span>s2e2<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> aux_check <span class="keyword">(</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _ <span class="keyword">)</span> <span class="keyword">=&gt;</span> false
+  <span class="keyword">end</span> <span class="comment">// end of [aux_check]
+</span>
+  <span class="keyword">val</span> coneq <span class="keyword">=</span> aux_check <span class="keyword">(</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> coneq <span class="keyword">then</span> aux_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_equal_solve_abscon_err]
+</span>
+<span class="keyword">fn</span> s2exp_equal_solve_appvar_err <span class="keyword">(</span>
+    loc0<span class="keyword">:</span> <span class="staexp">loc_t</span>
+  <span class="keyword">,</span> s2e1<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2e2<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> err<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> aux <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> aux
+    <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2e1<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2e2<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> err<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int</span><span class="keyword">)</span>
+    <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> <span class="keyword">(</span>s2e1<span class="keyword">.</span>s2exp_node<span class="keyword">,</span> s2e2<span class="keyword">.</span>s2exp_node<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>S2Eapp <span class="keyword">(</span>s2e11<span class="keyword">,</span> s2es12<span class="keyword">)</span><span class="keyword">,</span> S2Eapp <span class="keyword">(</span>s2e21<span class="keyword">,</span> s2es22<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        aux <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e11<span class="keyword">,</span> s2e21<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span>
+        s2explst_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es12<span class="keyword">,</span> s2es22<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [S2Eapp, S2Eapp]
+</span>    <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [aux]
+</span><span class="keyword">}</span> <span class="comment">// end of [s2exp_equal_solve_appvar_err]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+s2exp_equal_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e10<span class="keyword">,</span> s2e20<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> err<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> 0
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2exp_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e10<span class="keyword">,</span> s2e20<span class="keyword">,</span> err<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> err <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> prerr_the_staerrlst <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">in</span> $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">(* end of [s2exp_equal_solve] *)</span>
+
+<span class="keyword">implement</span>
+s2exp_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e10<span class="keyword">,</span> s2e20<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> err0 <span class="keyword">=</span> err
+  <span class="keyword">val</span> s2e10 <span class="keyword">=</span> s2exp_whnf s2e10 <span class="keyword">and</span> s2e20 <span class="keyword">=</span> s2exp_whnf s2e20
+<span class="comment">(*
+  val () = begin
+    print "s2exp_equal_solve_err: s2e10 = "; print s2e10; print_newline ();
+    print "s2exp_equal_solve_err: s2e20 = "; print s2e20; print_newline ();
+    print "s2exp_equal_solve_err: err = "; print err; print_newline ();
+  end // end of [val]
+*)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> <span class="keyword">(</span>s2e10<span class="keyword">.</span>s2exp_node<span class="keyword">,</span> s2e20<span class="keyword">.</span>s2exp_node<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>S2EVar s2V1<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      s2exp_equal_solve_Var_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2V1<span class="keyword">,</span> s2e10<span class="keyword">,</span> s2e20<span class="keyword">,</span> err<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2EVar, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> S2EVar s2V2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      s2exp_equal_solve_Var_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2V2<span class="keyword">,</span> s2e20<span class="keyword">,</span> s2e10<span class="keyword">,</span> err<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_, S2EVar]
+</span><span class="comment">(*
+// HX-2010-12-04: inadequate design
+  | (S2Enamed (_(*name*), s2e1), _) =&gt;
+      s2exp_equal_solve_err (loc0, s2e1, s2e20, err)
+    // end of [S2Enamed, _]  
+  | (_, S2Enamed (_(*name*), s2e2)) =&gt;
+      s2exp_equal_solve_err (loc0, s2e10, s2e2, err)
+    // end of [_, S2Enamed]  
+*)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>S2Ecrypt s2e1<span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Ecrypt s2e2 <span class="keyword">=&gt;</span> s2exp_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Ecrypt, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Ecst s2c1<span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Ecst s2c2 <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> eq_s2cst_s2cst <span class="keyword">(</span>s2c1<span class="keyword">,</span> s2c2<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [S2Ecst]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        trans3_env_add_eqeq <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e10<span class="keyword">,</span> s2e20<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [_]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [S2Ecst, _]
+</span>  <span class="comment">(* S2Eread is contravariant at its first argument *)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>S2Eread <span class="keyword">(</span>_v1<span class="keyword">,</span> s2e1<span class="keyword">)</span><span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Eread <span class="keyword">(</span>_v2<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        s2exp_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> _v2<span class="keyword">,</span> _v1<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span>
+        s2exp_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [S2Eread]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eread, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Esizeof s2e1<span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Esizeof s2e2 <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        s2exp_size_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [S2Esizeof]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Esizeof, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Etyarr <span class="keyword">(</span>s2e1_elt<span class="keyword">,</span> s2ess1_dim<span class="keyword">)</span><span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Etyarr <span class="keyword">(</span>s2e2_elt<span class="keyword">,</span> s2ess2_dim<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        s2exp_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1_elt<span class="keyword">,</span> s2e2_elt<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span>
+        s2explstlst_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2ess1_dim<span class="keyword">,</span> s2ess2_dim<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [S2Etyarr]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Etyarr, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Etyrec <span class="keyword">(</span>knd1<span class="keyword">,</span> npf1<span class="keyword">,</span> ls2es1<span class="keyword">)</span><span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Etyrec <span class="keyword">(</span>knd2<span class="keyword">,</span> npf2<span class="keyword">,</span> ls2es2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        tyreckind_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> knd1<span class="keyword">,</span> knd2<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span>
+        pfarity_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> npf1<span class="keyword">,</span> npf2<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span>
+        labs2explst_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> ls2es1<span class="keyword">,</span> ls2es2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [S2Etyrec]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Etyrec, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Ewth <span class="keyword">(</span>s2e1<span class="keyword">,</span> wths2es1<span class="keyword">)</span><span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Ewth <span class="keyword">(</span>s2e2<span class="keyword">,</span> wths2es2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        s2exp_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span>
+        wths2explst_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> wths2es1<span class="keyword">,</span> wths2es2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [S2Ewth]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Ewth, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">when</span>
+      s2exp_is_abscon s2e10 andalso s2exp_is_abscon s2e20 <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      s2exp_equal_solve_abscon_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e10<span class="keyword">,</span> s2e20<span class="keyword">,</span> err<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_, _ when ...]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">when</span> s2exp_is_impredicative s2e10 <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e10<span class="keyword">,</span> s2e20<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span>
+      s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e20<span class="keyword">,</span> s2e10<span class="keyword">,</span> err<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_, _ when ...]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">when</span> s2exp_syneq <span class="keyword">(</span>s2e10<span class="keyword">,</span> s2e20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> trans3_env_add_eqeq <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e10<span class="keyword">,</span> s2e20<span class="keyword">)</span>
+<span class="comment">// end of [case]  // end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> err <span class="keyword">&gt;</span> err0 <span class="keyword">then</span>
+    the_staerrlst_add <span class="keyword">(</span>STAERR_s2exp_equal <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e10<span class="keyword">,</span> s2e20<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="comment">// nothing
+</span><span class="keyword">end</span> <span class="comment">// end of [s2exp_equal_solve_err]
+</span>
+<span class="keyword">implement</span>
+s2explst_equal_solve_err
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es10<span class="keyword">,</span> s2es20<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span> <span class="comment">// tail-recursive
+</span>      s2es1<span class="keyword">:</span> <span class="staexp">s2explst</span><span class="keyword">,</span> s2es2<span class="keyword">:</span> <span class="staexp">s2explst</span><span class="keyword">,</span> err<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int</span>
+    <span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> <span class="keyword">(</span>s2es1<span class="keyword">,</span> s2es2<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>s2e1 :: s2es1<span class="keyword">,</span> s2e2 :: s2es2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        s2exp_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span>
+        aux <span class="keyword">(</span>s2es1<span class="keyword">,</span> s2es2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [::, ::]
+</span>    <span class="keyword">|</span> <span class="keyword">(</span>nil _<span class="keyword">,</span> nil _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>cons _<span class="keyword">,</span> nil _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>nil _<span class="keyword">,</span> cons _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+  <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>s2es10<span class="keyword">,</span> s2es20<span class="keyword">,</span> err<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2explst_equal_solve_err]
+</span>
+<span class="keyword">implement</span>
+labs2explst_equal_solve_err
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> ls2es10<span class="keyword">,</span> ls2es20<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>
+      ls2es1<span class="keyword">:</span> <span class="staexp">labs2explst</span>
+    <span class="keyword">,</span> ls2es2<span class="keyword">:</span> <span class="staexp">labs2explst</span>
+    <span class="keyword">,</span> err<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int</span>
+    <span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> <span class="keyword">(</span>ls2es1<span class="keyword">,</span> ls2es2<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>LABS2EXPLSTcons <span class="keyword">(</span>l1<span class="keyword">,</span> s2e1<span class="keyword">,</span> ls2es1<span class="keyword">)</span><span class="keyword">,</span>
+       LABS2EXPLSTcons <span class="keyword">(</span>l2<span class="keyword">,</span> s2e2<span class="keyword">,</span> ls2es2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        label_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> l1<span class="keyword">,</span> l2<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span>
+        s2exp_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span>
+        aux <span class="keyword">(</span>ls2es1<span class="keyword">,</span> ls2es2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [LABS2EXPLSTcons, LABS2EXPLSTcons]
+</span>    <span class="keyword">|</span> <span class="keyword">(</span>LABS2EXPLSTnil _<span class="keyword">,</span> LABS2EXPLSTnil _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>LABS2EXPLSTcons _<span class="keyword">,</span> LABS2EXPLSTnil _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>LABS2EXPLSTnil _<span class="keyword">,</span> LABS2EXPLSTcons _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>ls2es10<span class="keyword">,</span> ls2es20<span class="keyword">,</span> err<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [labs2explst_equal_solve_err]
+</span>
+<span class="keyword">implement</span>
+wths2explst_equal_solve_err
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> wths2es10<span class="keyword">,</span> wths2es20<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>
+      wths2es1<span class="keyword">:</span> <span class="staexp">wths2explst</span>
+    <span class="keyword">,</span> wths2es2<span class="keyword">:</span> <span class="staexp">wths2explst</span>
+    <span class="keyword">,</span> err<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int</span>
+    <span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> <span class="keyword">(</span>wths2es1<span class="keyword">,</span> wths2es2<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>WTHS2EXPLSTcons_some <span class="keyword">(</span>refval1<span class="keyword">,</span> s2e1<span class="keyword">,</span> wths2es1<span class="keyword">)</span><span class="keyword">,</span>
+       WTHS2EXPLSTcons_some <span class="keyword">(</span>refval2<span class="keyword">,</span> s2e2<span class="keyword">,</span> wths2es2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+<span class="comment">(*
+        refval_equal_solve_err (loc0, refval1, refval2, err); // no need
+*)</span>
+        s2exp_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span>
+        aux <span class="keyword">(</span>wths2es1<span class="keyword">,</span> wths2es2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [WTHS2EXPLSTcons_some, WTHS2EXPLSTcons_some]
+</span>    <span class="keyword">|</span> <span class="keyword">(</span>WTHS2EXPLSTcons_none wths2es1<span class="keyword">,</span>
+       WTHS2EXPLSTcons_none wths2es2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        aux <span class="keyword">(</span>wths2es1<span class="keyword">,</span> wths2es2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [WTHS2EXPLSTcons_none, WTHS2EXPLSTcons_none]
+</span>    <span class="keyword">|</span> <span class="keyword">(</span>WTHS2EXPLSTnil _<span class="keyword">,</span> WTHS2EXPLSTnil _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>wths2es10<span class="keyword">,</span> wths2es20<span class="keyword">,</span> err<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [wths2explst_equal_solve_err]
+</span>
+<span class="keyword">implement</span>
+s2explstlst_equal_solve_err
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> s2ess10<span class="keyword">,</span> s2ess20<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>
+      s2ess1<span class="keyword">:</span> <span class="staexp">s2explstlst</span><span class="keyword">,</span> s2ess2<span class="keyword">:</span> <span class="staexp">s2explstlst</span><span class="keyword">,</span> err<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int</span>
+    <span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> <span class="keyword">(</span>s2ess1<span class="keyword">,</span> s2ess2<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>cons <span class="keyword">(</span>s2es1<span class="keyword">,</span> s2ess1<span class="keyword">)</span><span class="keyword">,</span> cons <span class="keyword">(</span>s2es2<span class="keyword">,</span> s2ess2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2explst_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es1<span class="keyword">,</span> s2es2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        aux <span class="keyword">(</span>s2ess1<span class="keyword">,</span> s2ess2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [cons, cons]
+</span>    <span class="keyword">|</span> <span class="keyword">(</span>nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>s2ess10<span class="keyword">,</span> s2ess20<span class="keyword">,</span> err<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2explstlst_equal_solve_err]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+s2exp_size_equal_solve_err
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e10<span class="keyword">,</span> s2e20<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "s2exp_size_equal_solve_err: s2e10 = "; print s2e10; print_newline ();
+    print "s2exp_size_equal_solve_err: s2e20 = "; print s2e20; print_newline ();
+    print "s2exp_size_equal_err: err = "; print err; print_newline ();
+  end // end of [val]
+*)</span>
+  <span class="keyword">val</span> s2ze10 <span class="keyword">=</span> s2zexp_make_s2exp s2e10
+  <span class="keyword">and</span> s2ze20 <span class="keyword">=</span> s2zexp_make_s2exp s2e20
+  <span class="keyword">val</span> test <span class="keyword">=</span> s2zexp_syneq <span class="keyword">(</span>s2ze10<span class="keyword">,</span> s2ze20<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> test <span class="keyword">then</span> <span class="keyword">(</span><span class="comment">(*nothing*)</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">(* end of [s2exp_size_equal_solve_err] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e10<span class="keyword">,</span> s2e20<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> err0 <span class="keyword">=</span> err
+  <span class="keyword">val</span> s2e10 <span class="keyword">=</span> s2exp_whnf s2e10 <span class="keyword">and</span> s2e20 <span class="keyword">=</span> s2exp_whnf s2e20
+<span class="comment">//
+</span><span class="comment">(*
+  val () = begin
+    print "s2exp_tyleq_solve_err: s2e10 = "; print s2e10; print_newline ();
+    print "s2exp_tyleq_solve_err: s2e20 = "; print s2e20; print_newline ();
+    print "s2exp_tyleq_solve_err: err = "; print err; print_newline ();
+  end // end of [val]
+*)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> <span class="keyword">(</span>s2e10<span class="keyword">.</span>s2exp_node<span class="keyword">,</span> s2e20<span class="keyword">.</span>s2exp_node<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>S2EVar s2V1<span class="keyword">,</span> S2EVar s2V2<span class="keyword">)</span> <span class="keyword">when</span> eq_s2Var_s2Var <span class="keyword">(</span>s2V1<span class="keyword">,</span> s2V2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>S2EVar s2V1<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      s2exp_tyleq_solve_Var_l_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2V1<span class="keyword">,</span> s2e10<span class="keyword">,</span> s2e20<span class="keyword">,</span> err<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2EVar, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> S2EVar s2V2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      s2exp_tyleq_solve_Var_r_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e10<span class="keyword">,</span> s2V2<span class="keyword">,</span> s2e20<span class="keyword">,</span> err<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_, S2EVar]
+</span><span class="comment">(*
+// HX-2010-12-04: inadequate design
+  | (S2Enamed (_(*name*), s2e1), _) =&gt;
+      s2exp_tyleq_solve_err (loc0, s2e1, s2e20, err)
+  | (_, S2Enamed (_(*name*), s2e2)) =&gt;
+      s2exp_tyleq_solve_err (loc0, s2e10, s2e2, err)
+*)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>s2en10<span class="keyword">,</span> S2Etop <span class="keyword">(</span>knd2<span class="keyword">,</span> s2e2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> knd2 <span class="keyword">of</span>
+    <span class="keyword">|</span> 0 <span class="comment">(* topization *)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> s2exp_is_nonlin s2e10 <span class="keyword">then</span> <span class="keyword">begin</span>
+          s2exp_size_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e10<span class="keyword">,</span> s2e20<span class="keyword">,</span> err<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span> <span class="comment">// end of [if]
+</span>      <span class="keyword">end</span> <span class="comment">// end of [knd2 = 0]
+</span>    <span class="keyword">|</span> _ <span class="comment">(* typization *)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2en10 <span class="keyword">of</span>
+      <span class="keyword">|</span> S2Etop <span class="keyword">(</span>knd1<span class="keyword">,</span> s2e1<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+          <span class="keyword">if</span> knd1 <span class="keyword">=</span> 1 <span class="keyword">then</span> <span class="keyword">begin</span>
+            s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span> <span class="comment">// end of [if]
+</span>      <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">(* end of [knd2 = 1] *)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_, S2Etop]
+</span><span class="comment">(* ****** ******
+//
+// HX-2010-02-04: this is not common; should it be supported?
+//
+  | (S2Euni (nil (), _, _), _) =&gt; let
+      val s2e1 = s2exp_uni_instantiate_all (loc0, s2e10)
+      val () = s2exp_tyleq_solve_err (loc0, s2e1, s2e20, err)
+    in
+      // nothing
+    end // end of [S2Euni (nil, _, _), _]
+  | (_, S2Eexi (nil (), _, _)) =&gt; let
+      val s2e2 = s2exp_exi_instantiate_all (loc0, s2e20)
+      val () = s2exp_tyleq_solve_err (loc0, s2e10, s2e2, err)
+    in
+      // nothing
+    end // end of [_, S2Eexi (nil, _, _)]
+****** ****** *)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>S2Euni _<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_push_sta <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="comment">// this order is mandatary!
+</span>      <span class="keyword">val</span> s2e2 <span class="keyword">=</span> s2exp_absuni_and_add <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e20<span class="keyword">)</span>
+      <span class="keyword">val</span> s2e1 <span class="keyword">=</span> s2exp_uni_instantiate_all <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e10<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      trans3_env_pop_sta_and_add_none <span class="keyword">(</span>loc0<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Euni, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> S2Eexi _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_push_sta <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="comment">// this order is mandatary!
+</span>      <span class="keyword">val</span> s2e1 <span class="keyword">=</span> s2exp_opnexi_and_add <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e10<span class="keyword">)</span>
+      <span class="keyword">val</span> s2e2 <span class="keyword">=</span> s2exp_exi_instantiate_all <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e20<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      trans3_env_pop_sta_and_add_none <span class="keyword">(</span>loc0<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_, S2Eexi]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> S2Euni _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_push_sta <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">val</span> s2e2 <span class="keyword">=</span> s2exp_absuni_and_add <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e20<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e10<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      trans3_env_pop_sta_and_add_none <span class="keyword">(</span>loc0<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_, S2Euni]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Eexi _<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_push_sta <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">val</span> s2e1 <span class="keyword">=</span> s2exp_opnexi_and_add <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e10<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e20<span class="keyword">,</span> err<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      trans3_env_pop_sta_and_add_none <span class="keyword">(</span>loc0<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eexi, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Eapp <span class="keyword">(</span>s2e1_fun<span class="keyword">,</span> s2es1_arg<span class="keyword">)</span><span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Eapp <span class="keyword">(</span>s2e2_fun<span class="keyword">,</span> s2es2_arg<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">case+</span> <span class="keyword">(</span>
+        s2e1_fun<span class="keyword">.</span>s2exp_node<span class="keyword">,</span> s2e2_fun<span class="keyword">.</span>s2exp_node
+      <span class="keyword">)</span> <span class="keyword">of</span>
+      <span class="keyword">|</span> <span class="keyword">(</span>S2Ecst s2c1_fun<span class="keyword">,</span> S2Ecst s2c2_fun<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          <span class="keyword">if</span> s2cst_is_eqsup <span class="keyword">(</span>s2c1_fun<span class="keyword">,</span> s2c2_fun<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">begin</span>
+            <span class="keyword">case+</span> s2cst_argvar_get s2c1_fun <span class="keyword">of</span>
+            <span class="keyword">|</span> Some argvarlst <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+                s2explst_tyleq_solve_argvarlst_err
+                  <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es1_arg<span class="keyword">,</span> s2es2_arg<span class="keyword">,</span> argvarlst<span class="keyword">,</span> err<span class="keyword">)</span>
+              <span class="keyword">end</span> <span class="comment">// end of [Some]
+</span>            <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+                s2explst_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es1_arg<span class="keyword">,</span> s2es2_arg<span class="keyword">,</span> err<span class="keyword">)</span>
+              <span class="keyword">end</span> <span class="comment">// end of [None]
+</span>          <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+            err := err + 1
+          <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>        <span class="keyword">end</span> <span class="comment">(* [(S2Ecst, S2Ecst)] *)</span>
+      <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="comment">(* sound but incomplete! *)</span>
+          s2exp_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1_fun<span class="keyword">,</span> s2e2_fun<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span>
+          s2explst_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es1_arg<span class="keyword">,</span> s2es2_arg<span class="keyword">,</span> err<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">(* end of [_, _] *)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [S2Eapp]
+</span>    <span class="keyword">|</span> S2Ecst s2c2 <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2e1_fun<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+      <span class="keyword">|</span> S2Ecst s2c1_fun <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          <span class="keyword">if</span> s2cst_is_eqsup <span class="keyword">(</span>s2c1_fun<span class="keyword">,</span> s2c2<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [S2Ecst]
+</span>      <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of S2Ecst]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eapp, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Eclo <span class="keyword">(</span>knd1<span class="keyword">,</span> s2e1<span class="keyword">)</span><span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Eclo <span class="keyword">(</span>knd2<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> clokind_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> knd1<span class="keyword">,</span> knd2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [S2Eclo]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eclo, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Ecrypt s2e1<span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Ecrypt s2e2 <span class="keyword">=&gt;</span> s2exp_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Ecrypt, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Ecst s2c1<span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Ecst s2c2 <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> s2cst_is_eqsup <span class="keyword">(</span>s2c1<span class="keyword">,</span> s2c2<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Ecst, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Edatconptr <span class="keyword">(</span>d2c1<span class="keyword">,</span> s2es1<span class="keyword">)</span><span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Edatconptr <span class="keyword">(</span>d2c2<span class="keyword">,</span> s2es2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> d2c1 <span class="keyword">=</span> d2c2 <span class="keyword">then</span> <span class="keyword">begin</span>
+          s2explst_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es1<span class="keyword">,</span> s2es2<span class="keyword">,</span> err<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+          err := err + 1
+        <span class="keyword">end</span>
+      <span class="keyword">end</span> <span class="comment">// end of [S2Edatcon]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Edatconptr, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Efun <span class="keyword">(</span>fc1<span class="keyword">,</span> lin1<span class="keyword">,</span> s2fe1<span class="keyword">,</span> npf1<span class="keyword">,</span> s2es1_arg<span class="keyword">,</span> s2e1_res<span class="keyword">)</span><span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Efun <span class="keyword">(</span>
+        fc2<span class="keyword">,</span> lin2<span class="keyword">,</span> s2fe2<span class="keyword">,</span> npf2<span class="keyword">,</span> s2es2_arg<span class="keyword">,</span> s2e2_res
+      <span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> funclo_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> fc1<span class="keyword">,</span> fc2<span class="keyword">,</span> err<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> linearity_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> lin1<span class="keyword">,</span> lin2<span class="keyword">,</span> err<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pfarity_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> npf1<span class="keyword">,</span> npf2<span class="keyword">,</span> err<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2eff_leq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2fe1<span class="keyword">,</span> s2fe2<span class="keyword">,</span> err<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2explst_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es2_arg<span class="keyword">,</span> s2es1_arg<span class="keyword">,</span> err<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1_res<span class="keyword">,</span> s2e2_res<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [S2Efun]
+</span>    <span class="keyword">|</span> S2Eclo <span class="keyword">(</span>knd2<span class="keyword">,</span> s2e2_fun<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> fc1 <span class="keyword">of</span>
+          <span class="keyword">|</span> $Syn<span class="keyword">.</span>FUNCLOclo knd1 <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+              clokind_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> knd1<span class="keyword">,</span> knd2<span class="keyword">,</span> err<span class="keyword">)</span>
+            <span class="keyword">end</span> <span class="comment">// end of [FUNCLOclo]
+</span>          <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+        <span class="keyword">val</span> s2t1<span class="keyword">:</span> <span class="staexp">s2rt</span> <span class="keyword">=</span> <span class="keyword">if</span> lin1 <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> s2rt_viewtype <span class="keyword">else</span> s2rt_type
+        <span class="keyword">val</span> s2e1_fun <span class="keyword">=</span> s2exp_fun_srt
+          <span class="keyword">(</span>s2t1<span class="keyword">,</span> $Syn<span class="keyword">.</span>FUNCLOfun <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> lin1<span class="keyword">,</span> s2fe1<span class="keyword">,</span> npf1<span class="keyword">,</span> s2es1_arg<span class="keyword">,</span> s2e1_res<span class="keyword">)</span>
+        <span class="comment">// end of [val]
+</span>      <span class="keyword">in</span>
+        s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1_fun<span class="keyword">,</span> s2e2_fun<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [S2Eclo]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Efun, _]
+</span>  <span class="comment">(* S2Eread is contravariant at its first argument *)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>S2Eread <span class="keyword">(</span>_v1<span class="keyword">,</span> s2e1<span class="keyword">)</span><span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Eread <span class="keyword">(</span>_v2<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> _v2<span class="keyword">,</span> _v1<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span>
+        s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [S2Eread]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eread, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Erefarg <span class="keyword">(</span>refval1<span class="keyword">,</span> s2e1<span class="keyword">)</span><span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Erefarg <span class="keyword">(</span>refval2<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        refval_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> refval1<span class="keyword">,</span> refval2<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span>
+        s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [S2Erefarg]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Erefarg, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Etyarr <span class="keyword">(</span>s2e1_elt<span class="keyword">,</span> s2ess1_dim<span class="keyword">)</span><span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Etyarr <span class="keyword">(</span>s2e2_elt<span class="keyword">,</span> s2ess2_dim<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1_elt<span class="keyword">,</span> s2e2_elt<span class="keyword">,</span> err<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2explstlst_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2ess1_dim<span class="keyword">,</span> s2ess2_dim<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [S2Etyarr]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Etyarr, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Etylst s2es1<span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Etylst s2es2 <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        s2explst_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es1<span class="keyword">,</span> s2es2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [S2Etylst]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Etylst, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Etyrec <span class="keyword">(</span>knd1<span class="keyword">,</span> npf1<span class="keyword">,</span> ls2es1<span class="keyword">)</span><span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Etyrec <span class="keyword">(</span>knd2<span class="keyword">,</span> npf2<span class="keyword">,</span> ls2es2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+<span class="comment">(*
+        val () = begin
+          print "ls2es1 = "; print ls2es1; print_newline ();
+          print "ls2es2 = "; print ls2es2; print_newline ();
+        end // end of [val]
+*)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> tyreckind_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> knd1<span class="keyword">,</span> knd2<span class="keyword">,</span> err<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pfarity_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> npf1<span class="keyword">,</span> npf2<span class="keyword">,</span> err<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> labs2explst_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> ls2es1<span class="keyword">,</span> ls2es2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [S2Etyrec]
+</span>    <span class="keyword">|</span> S2Evararg s2e2 <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> s2e1 <span class="keyword">=</span> s2exp_tylst <span class="keyword">(</span>s2es<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+          <span class="keyword">fun</span> aux <span class="keyword">(</span>
+              loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> ls2es<span class="keyword">:</span> <span class="staexp">labs2explst</span><span class="keyword">,</span> err<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int</span>
+            <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">s2explst</span> <span class="keyword">=</span> <span class="keyword">case+</span> ls2es <span class="keyword">of</span>
+            <span class="keyword">|</span> LABS2EXPLSTcons <span class="keyword">(</span>_<span class="keyword">,</span> s2e<span class="keyword">,</span> ls2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+                <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2exp_nonlin_test_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e<span class="keyword">,</span> err<span class="keyword">)</span>
+                <span class="keyword">val</span> s2es <span class="keyword">=</span> aux <span class="keyword">(</span>loc0<span class="keyword">,</span> ls2es<span class="keyword">,</span> err<span class="keyword">)</span>
+              <span class="keyword">in</span>
+                list_cons <span class="keyword">(</span>s2e<span class="keyword">,</span> s2es<span class="keyword">)</span>
+              <span class="keyword">end</span> <span class="comment">// end of [LABS2EXPLSTcons]
+</span>            <span class="keyword">|</span> LABS2EXPLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> list_nil <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="comment">// end of [aux]
+</span>          <span class="keyword">val</span> s2es <span class="keyword">=</span> aux <span class="keyword">(</span>loc0<span class="keyword">,</span> ls2es1<span class="keyword">,</span> err<span class="keyword">)</span>
+        <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> tyreckind_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> knd1<span class="keyword">,</span> TYRECKINDflt0<span class="keyword">,</span> err<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pfarity_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> npf1<span class="keyword">,</span> 0<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [S2Evararg]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Etyrec, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Eunion <span class="keyword">(</span>s1<span class="keyword">,</span> s2i1<span class="keyword">,</span> ls2es1<span class="keyword">)</span><span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Eunion <span class="keyword">(</span>s2<span class="keyword">,</span> s2i2<span class="keyword">,</span> ls2es2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> stamp_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s1<span class="keyword">,</span> s2<span class="keyword">,</span> err<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2exp_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2i1<span class="keyword">,</span> s2i2<span class="keyword">,</span> err<span class="keyword">)</span> <span class="comment">// indexes must equal
+</span>      <span class="keyword">in</span>
+        labs2explst_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> ls2es1<span class="keyword">,</span> ls2es2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [S2Eunion]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eunion, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Evar s2v1<span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Evar s2v2 <span class="keyword">=&gt;</span>
+        <span class="keyword">if</span> s2v1 <span class="keyword">=</span> s2v2 <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+      <span class="comment">// end of [S2Evar]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Evar, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Evararg s2e1<span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Evararg s2e2 <span class="keyword">=&gt;</span> s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Evararg, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Ewth <span class="keyword">(</span>s2e1<span class="keyword">,</span> wths2es1<span class="keyword">)</span><span class="keyword">,</span> s2en20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> s2en20 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Ewth <span class="keyword">(</span>s2e2<span class="keyword">,</span> wths2es2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> wths2explst_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> wths2es1<span class="keyword">,</span> wths2es2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [S2Ewth]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Ewth, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">when</span> s2exp_syneq <span class="keyword">(</span>s2e10<span class="keyword">,</span> s2e20<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      err := err + 1
+    <span class="keyword">end</span> <span class="comment">// end of [_, _]
+</span><span class="comment">// end of [case]  // end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> err <span class="keyword">&gt;</span> err0 <span class="keyword">then</span>
+    the_staerrlst_add <span class="keyword">(</span>STAERR_s2exp_tyleq <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e10<span class="keyword">,</span> s2e20<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="comment">// nothing
+</span><span class="keyword">end</span> <span class="comment">// end of [s2exp_tyleq_solve_err]
+</span>
+<span class="keyword">implement</span>
+s2explst_tyleq_solve_err
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es10<span class="keyword">,</span> s2es20<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>s2es1<span class="keyword">:</span> <span class="staexp">s2explst</span><span class="keyword">,</span> s2es2<span class="keyword">:</span> <span class="staexp">s2explst</span><span class="keyword">,</span> err<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int</span><span class="keyword">)</span>
+    <span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> <span class="keyword">(</span>s2es1<span class="keyword">,</span> s2es2<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>s2e1 :: s2es1<span class="keyword">,</span> s2e2 :: s2es2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span>
+        aux <span class="keyword">(</span>s2es1<span class="keyword">,</span> s2es2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [::, ::]
+</span>    <span class="keyword">|</span> <span class="keyword">(</span>nil _<span class="keyword">,</span> nil _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>cons _<span class="keyword">,</span> nil _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>nil _<span class="keyword">,</span> cons _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>s2es10<span class="keyword">,</span> s2es20<span class="keyword">,</span> err<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2explst_tyleq_solve_err]
+</span>
+<span class="keyword">implement</span>
+s2explst_tyleq_solve_argvarlst_err
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es1<span class="keyword">,</span> s2es2<span class="keyword">,</span> argvarlst<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> argvarlst <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>argvar<span class="keyword">,</span> argvarlst<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> <span class="keyword">(</span>s2es1<span class="keyword">,</span> s2es2<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>s2e1 :: s2es1<span class="keyword">,</span> s2e2 :: s2es2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> pol <span class="keyword">=</span> argvar<span class="keyword">.</span>2
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+          <span class="keyword">if</span> pol <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+            s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> pol <span class="keyword">&lt;</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+            s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e2<span class="keyword">,</span> s2e1<span class="keyword">,</span> err<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+            s2exp_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>        <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>      <span class="keyword">in</span>
+        s2explst_tyleq_solve_argvarlst_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es1<span class="keyword">,</span> s2es2<span class="keyword">,</span> argvarlst<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [::, ::]
+</span>    <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        prerr_loc_interror loc0<span class="keyword">;</span>
+        prerr ": s2explst_tyleq_solve_argvarlst_err"<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+        $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>        
+      <span class="keyword">end</span> <span class="comment">// end of [_, _]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [case]
+</span>  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2explst_tyleq_solve_argvarlst_err]
+</span>
+<span class="keyword">implement</span>
+labs2explst_tyleq_solve_err
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> ls2es10<span class="keyword">,</span> ls2es20<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>ls2es1<span class="keyword">:</span> <span class="staexp">labs2explst</span><span class="keyword">,</span> ls2es2<span class="keyword">:</span> <span class="staexp">labs2explst</span><span class="keyword">,</span> err<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int</span><span class="keyword">)</span>
+    <span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> <span class="keyword">(</span>ls2es1<span class="keyword">,</span> ls2es2<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>LABS2EXPLSTcons <span class="keyword">(</span>l1<span class="keyword">,</span> s2e1<span class="keyword">,</span> ls2es1<span class="keyword">)</span><span class="keyword">,</span>
+       LABS2EXPLSTcons <span class="keyword">(</span>l2<span class="keyword">,</span> s2e2<span class="keyword">,</span> ls2es2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        label_equal_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> l1<span class="keyword">,</span> l2<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span>
+        s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span>
+        aux <span class="keyword">(</span>ls2es1<span class="keyword">,</span> ls2es2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>LABS2EXPLSTnil _<span class="keyword">,</span> LABS2EXPLSTnil _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>LABS2EXPLSTcons _<span class="keyword">,</span> LABS2EXPLSTnil _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>LABS2EXPLSTnil _<span class="keyword">,</span> LABS2EXPLSTcons _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>ls2es10<span class="keyword">,</span> ls2es20<span class="keyword">,</span> err<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [labs2explst_tyleq_solve_err]
+</span>
+<span class="keyword">implement</span>
+wths2explst_tyleq_solve_err
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> wths2es10<span class="keyword">,</span> wths2es20<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>wths2es1<span class="keyword">:</span> <span class="staexp">wths2explst</span><span class="keyword">,</span> wths2es2<span class="keyword">:</span> <span class="staexp">wths2explst</span><span class="keyword">,</span> err<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int</span><span class="keyword">)</span>
+    <span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> <span class="keyword">(</span>wths2es1<span class="keyword">,</span> wths2es2<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>WTHS2EXPLSTcons_some <span class="keyword">(</span>refval1<span class="keyword">,</span> s2e1<span class="keyword">,</span> wths2es1<span class="keyword">)</span><span class="keyword">,</span>
+       WTHS2EXPLSTcons_some <span class="keyword">(</span>refval2<span class="keyword">,</span> s2e2<span class="keyword">,</span> wths2es2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+<span class="comment">(*
+        refval_equal_solve_err (loc0, refval1, refval2, err); // no need
+*)</span>
+        s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span>
+        aux <span class="keyword">(</span>wths2es1<span class="keyword">,</span> wths2es2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [WTHS2EXPLSTcons_some, WTHS2EXPLSTcons_some]
+</span>    <span class="keyword">|</span> <span class="keyword">(</span>WTHS2EXPLSTcons_none wths2es1<span class="keyword">,</span>
+       WTHS2EXPLSTcons_none wths2es2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        aux <span class="keyword">(</span>wths2es1<span class="keyword">,</span> wths2es2<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [WTHS2EXPLSTcons_none, WTHS2EXPLSTcons_none]
+</span>    <span class="keyword">|</span> <span class="keyword">(</span>WTHS2EXPLSTnil _<span class="keyword">,</span> WTHS2EXPLSTnil _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>err := err + 1<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>wths2es10<span class="keyword">,</span> wths2es20<span class="keyword">,</span> err<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [wths2explst_tyleq_solve_err]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">implement</span>
+s2eff_leq_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2fe1<span class="keyword">,</span> s2fe2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> err<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> 0
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2eff_leq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2fe1<span class="keyword">,</span> s2fe2<span class="keyword">,</span> err<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> err <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+    prerr_loc_error3 <span class="keyword">(</span>loc0<span class="keyword">)</span><span class="keyword">;</span>
+    prerr ": the computed effects ["<span class="keyword">;</span>
+    prerr s2fe1<span class="keyword">;</span>
+    prerr "] does not match the expected effects ["<span class="keyword">;</span>
+    prerr s2fe2<span class="keyword">;</span>
+    prerr "]."<span class="keyword">;</span>
+    prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+    $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">// end of [s2eff_leq_solve]
+</span>
+<span class="keyword">implement</span>
+s2eff_leq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2fe1<span class="keyword">,</span> s2fe2<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "s2eff_leq_solve_err: s2fe1 = "; print s2fe1; print_newline ();
+    print "s2eff_leq_solve_err: s2fe2 = "; print s2fe2; print_newline ();
+  end // end of [val]
+*)</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> s2fe2 <span class="keyword">of</span>
+    <span class="keyword">|</span> S2EFFset <span class="keyword">(</span>effs<span class="keyword">,</span> s2es2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2es2 <span class="keyword">of</span>
+      <span class="keyword">|</span> cons <span class="keyword">(</span>s2e2<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> s2e2_whnf <span class="keyword">=</span> s2exp_whnf s2e2
+        <span class="keyword">in</span>
+          <span class="keyword">case+</span> s2e2_whnf<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+          <span class="keyword">|</span> S2EVar s2V2 <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+              <span class="keyword">val</span> s2e1 <span class="keyword">=</span> s2exp_eff s2fe1
+            <span class="keyword">in</span>
+              s2exp_equal_solve_Var_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2V2<span class="keyword">,</span> s2e2<span class="keyword">,</span> s2e1<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span> 0
+            <span class="keyword">end</span> <span class="comment">// end of [S2EVar]
+</span>          <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> 1
+        <span class="keyword">end</span>
+      <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> 1
+      <span class="keyword">end</span> <span class="comment">// end of [S2EFFset]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> 1
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">int</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="keyword">if</span> ans <span class="keyword">&gt;</span> 0 <span class="keyword">then</span>
+    <span class="keyword">if</span> s2eff_contain_s2eff <span class="keyword">(</span>s2fe2<span class="keyword">,</span> s2fe1<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_staerrlst_add <span class="keyword">(</span>STAERR_s2eff_leq <span class="keyword">(</span>loc0<span class="keyword">,</span> s2fe1<span class="keyword">,</span> s2fe2<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      err := err + 1
+    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">// end of [s2eff_leq_solve_err]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> s2exp_tyleq_solve_lbs_err
+  <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> lbs<span class="keyword">:</span> <span class="staexp">s2Varboundlst</span><span class="keyword">,</span> s2e<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> err<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> lbs <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>lb<span class="keyword">,</span> lbs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> lb_s2e <span class="keyword">=</span> s2Varbound_val_get lb
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> lb_s2e<span class="keyword">,</span> s2e<span class="keyword">,</span> err<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      s2exp_tyleq_solve_lbs_err <span class="keyword">(</span>loc0<span class="keyword">,</span> lbs<span class="keyword">,</span> s2e<span class="keyword">,</span> err<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [s2exp_tyleq_solve_lbs_err]
+</span>
+<span class="keyword">fun</span> s2exp_tyleq_solve_ubs_err
+  <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2e<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> ubs<span class="keyword">:</span> <span class="staexp">s2Varboundlst</span><span class="keyword">,</span> err<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> ubs <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>ub<span class="keyword">,</span> ubs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> ub_s2e <span class="keyword">=</span> s2Varbound_val_get ub
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e<span class="keyword">,</span> ub_s2e<span class="keyword">,</span> err<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      s2exp_tyleq_solve_ubs_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e<span class="keyword">,</span> ubs<span class="keyword">,</span> err<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [s2exp_tyleq_solve_ubs_err]
+</span>
+<span class="keyword">implement</span>
+s2exp_equal_solve_Var_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2V1<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "s2exp_equal_solve_Var_err: s2V1 = "; print s2V1; print_newline ();
+    print "s2exp_equal_solve_Var_err: s2e2 = "; print s2e2; print_newline ();
+    print "s2exp_equal_solve_Var_err: err = "; print err; print_newline ();
+  end // end of [val]
+*)</span>
+  <span class="keyword">var</span> s2cs<span class="keyword">:</span> <span class="staexp">s2cstlst</span> <span class="keyword">=</span> S2CSTLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">and</span> s2vs<span class="keyword">:</span> <span class="staexp">s2varlst</span> <span class="keyword">=</span> list_nil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> s2Var_s2exp_occurs <span class="keyword">(</span>s2V1<span class="keyword">,</span> s2e2<span class="keyword">,</span> s2cs<span class="keyword">,</span> s2vs<span class="keyword">)</span>
+<span class="comment">(*
+  val () = begin
+    print "s2exp_equal_solve_Var_err: ans = "; print ans; print_newline ();
+    print "s2exp_equal_solve_Var_err: s2cs = "; print s2cs; print_newline ();
+    print "s2exp_equal_solve_Var_err: s2vs = "; print s2vs; print_newline ();
+  end // end of [val]
+*)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>ans<span class="keyword">,</span> s2cs<span class="keyword">,</span> s2vs<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>0<span class="keyword">,</span> S2CSTLSTnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> s2t1 <span class="keyword">=</span> s2Var_srt_get s2V1 <span class="keyword">and</span> s2t2 <span class="keyword">=</span> s2e2<span class="keyword">.</span>s2exp_srt
+<span class="comment">(*
+      val () = begin
+        print "s2exp_equal_solve_Var_err: s2t1 = "; print s2t1; print_newline ();
+        print "s2exp_equal_solve_Var_err: s2t2 = "; print s2t2; print_newline ();
+      end // end of [val]
+*)</span>
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> <span class="keyword">(</span>s2t2 &lt;= s2t1<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2Var_srt_set <span class="keyword">(</span>s2V1<span class="keyword">,</span> s2t2<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2exp_srt_set <span class="keyword">(</span>s2e1<span class="keyword">,</span> s2t2<span class="keyword">)</span>
+<span class="comment">(*
+        val () = begin
+          print "s2exp_equal_solve_Var_err: "; print s2V1; print " &lt;- "; print s2e2;
+          print_newline ()
+        end // end of [val]
+*)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2Var_link_set <span class="keyword">(</span>s2V1<span class="keyword">,</span> Some s2e2<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        s2exp_tyleq_solve_lbs_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2Var_lbs_get s2V1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span>
+        s2exp_tyleq_solve_ubs_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e2<span class="keyword">,</span> s2Var_ubs_get s2V1<span class="keyword">,</span> err<span class="keyword">)</span><span class="keyword">;</span>
+      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+        prerr_loc_error3 <span class="keyword">(</span>loc0<span class="keyword">)</span><span class="keyword">;</span>
+        $Deb<span class="keyword">.</span>debug_prerrf <span class="keyword">(</span>": %s: s2exp_equal_solve_Var_err"<span class="keyword">,</span> <span class="keyword">@(</span>THISFILENAME<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+        prerr ": sort mismatch: the sort of ["<span class="keyword">;</span>
+        prerr s2V1<span class="keyword">;</span>
+        prerr "] is ["<span class="keyword">;</span>
+        prerr s2t1<span class="keyword">;</span>
+        prerr "], but the sort of its solution is ["<span class="keyword">;</span>
+        prerr s2t2<span class="keyword">;</span>
+        prerr "]."<span class="keyword">;</span>
+        prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+        err := err + 1
+      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [0, S2CSTLSTnil, list_nil]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+<span class="comment">(*
+      val () = begin
+        print "s2exp_equal_solve_Var_err: s2e1 = "; print s2e1; print_newline ();
+        print "s2exp_equal_solve_Var_err: s2e2 = "; print s2e2; print_newline ();
+      end // end of [val]
+*)</span>
+    <span class="keyword">in</span>
+      trans3_env_add_eqeq <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of (_, _, _)
+</span><span class="keyword">end</span> <span class="comment">// end of [s2exp_equal_solve_Var_err]
+</span>
+<span class="keyword">implement</span> s2exp_tyleq_solve_Var_l_err
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> s2V1<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> lbs <span class="keyword">=</span> s2Var_lbs_get s2V1 <span class="keyword">and</span> ubs <span class="keyword">=</span> s2Var_ubs_get s2V1
+  <span class="keyword">var</span> s2cs<span class="keyword">:</span> <span class="staexp">s2cstlst</span> <span class="keyword">=</span> S2CSTLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">and</span> s2vs<span class="keyword">:</span> <span class="staexp">s2varlst</span> <span class="keyword">=</span> list_nil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> s2Var_s2exp_occurs <span class="keyword">(</span>s2V1<span class="keyword">,</span> s2e2<span class="keyword">,</span> s2cs<span class="keyword">,</span> s2vs<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>ans<span class="keyword">,</span> s2cs<span class="keyword">,</span> s2vs<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>0<span class="keyword">,</span> S2CSTLSTnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2exp_tyleq_solve_lbs_err <span class="keyword">(</span>loc0<span class="keyword">,</span> lbs<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span>
+<span class="comment">(*
+      val s2t1 = s2Var_srt_get (s2V1)
+      val s2t2 = s2e2.s2exp_srt
+      val () = if s2t2 &lt;= s2t1 then () else begin
+        prerr_loc_error3 (loc0);
+        $Deb.debug_prerrf (": %s: s2exp_equal_solve_Var_err", @(THISFILENAME));
+        prerr ": sort mismatch: the sort of [s2V(";
+        prerr s2V1;
+        prerr ")] is [";
+        prerr s2t1;
+        prerr "], but the sort of its upper bound is [";
+        prerr s2t2;
+        prerr "].";
+        prerr_newline ();
+        err := err + 1
+      end // end of [val]
+*)</span>
+      <span class="keyword">val</span> ub <span class="keyword">=</span> s2Varbound_make <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e2<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      s2Var_ubs_set <span class="keyword">(</span>s2V1<span class="keyword">,</span> list_cons <span class="keyword">(</span>ub<span class="keyword">,</span> ubs<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [0, S2CSTLSTnil, list_nil]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+<span class="comment">(*
+      val () = begin
+        print "s2exp_tyleq_solve_Var_l_err: s2e1 = "; print s2e1; print_newline ();
+        print "s2exp_tyleq_solve_Var_l_err: s2e2 = "; print s2e2; print_newline ();
+      end // end of [val]
+*)</span>
+    <span class="keyword">in</span>
+      trans3_env_add_tyleq <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_, _, _]
+</span><span class="keyword">end</span> <span class="comment">// end of [s2exp_tyleq_solve_Var_l_err]
+</span>
+<span class="keyword">implement</span> s2exp_tyleq_solve_Var_r_err
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2V2<span class="keyword">,</span> s2e2<span class="keyword">,</span> err<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> lbs <span class="keyword">=</span> s2Var_lbs_get s2V2 <span class="keyword">and</span> ubs <span class="keyword">=</span> s2Var_ubs_get s2V2
+  <span class="keyword">var</span> s2cs<span class="keyword">:</span> <span class="staexp">s2cstlst</span> <span class="keyword">=</span> S2CSTLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">and</span> s2vs<span class="keyword">:</span> <span class="staexp">s2varlst</span> <span class="keyword">=</span> list_nil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> s2Var_s2exp_occurs <span class="keyword">(</span>s2V2<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2cs<span class="keyword">,</span> s2vs<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>ans<span class="keyword">,</span> s2cs<span class="keyword">,</span> s2vs<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>0<span class="keyword">,</span> S2CSTLSTnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2exp_tyleq_solve_ubs_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> ubs<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">val</span> s2t1 <span class="keyword">=</span> s2e1<span class="keyword">.</span>s2exp_srt
+      <span class="keyword">val</span> s2t2 <span class="keyword">=</span> s2Var_srt_get <span class="keyword">(</span>s2V2<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> s2t1 &lt;= s2t2 <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+        prerr_loc_error3 <span class="keyword">(</span>loc0<span class="keyword">)</span><span class="keyword">;</span>
+        $Deb<span class="keyword">.</span>debug_prerrf <span class="keyword">(</span>": %s: s2exp_equal_solve_Var_err"<span class="keyword">,</span> <span class="keyword">@(</span>THISFILENAME<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+        prerr ": sort mismatch: the sort of [s2V("<span class="keyword">;</span>
+        prerr s2V2<span class="keyword">;</span>
+        prerr ")] is ["<span class="keyword">;</span>
+        prerr s2t2<span class="keyword">;</span>
+        prerr "], but the sort of its lower bound is ["<span class="keyword">;</span>
+        prerr s2t1<span class="keyword">;</span>
+        prerr "]."<span class="keyword">;</span>
+        prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+        err := err + 1
+      <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>    <span class="keyword">val</span> lb <span class="keyword">=</span> s2Varbound_make <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      s2Var_lbs_set <span class="keyword">(</span>s2V2<span class="keyword">,</span> list_cons <span class="keyword">(</span>lb<span class="keyword">,</span> lbs<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+<span class="comment">(*
+      val () = begin
+        print "s2exp_tyleq_solve_Var_r_err: s2e1 = "; print s2e1; print_newline ();
+        print "s2exp_tyleq_solve_Var_r_err: s2e2 = "; print s2e2; print_newline ();
+      end // end of [val]
+*)</span>
+    <span class="keyword">in</span>
+      trans3_env_add_tyleq <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_tyleq_solve_Var_r_err]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+s2exp_tyleq_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e10<span class="keyword">,</span> s2e20<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> err<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> 0
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s2exp_tyleq_solve_err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e10<span class="keyword">,</span> s2e20<span class="keyword">,</span> err<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> err <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> prerr_the_staerrlst <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">in</span> $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">(* end of [s2exp_tyleq_solve] *)</span>
+
+<span class="keyword">implement</span>
+s2explst_arg_tyleq_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es10<span class="keyword">,</span> s2es20<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+    <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2es1<span class="keyword">:</span> <span class="staexp">list <span class="keyword">(</span>s2exp<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> s2es2<span class="keyword">:</span> <span class="staexp">list <span class="keyword">(</span>s2exp<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span>
+    <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">case+</span> s2es1 <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>cons <span class="keyword">(</span>s2e1<span class="keyword">,</span> s2es1<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val+</span> cons <span class="keyword">(</span>s2e2<span class="keyword">,</span> s2es2<span class="keyword">)</span> <span class="keyword">=</span> s2es2
+        <span class="keyword">val</span> s2e2 <span class="keyword">=</span> un_s2exp_refarg_arg s2e2
+      <span class="keyword">in</span>
+        s2exp_tyleq_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span><span class="keyword">;</span> aux <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es1<span class="keyword">,</span> s2es2<span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">sgn<span class="keyword">:</span>int</span><span class="keyword">]</span> sgn <span class="keyword">=</span> $Lst<span class="keyword">.</span>list_length_compare <span class="keyword">(</span>s2es10<span class="keyword">,</span> s2es20<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>
+    <span class="keyword">if</span> <span class="keyword">(</span>sgn &lt;&gt; 0<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">begin</span>
+      prerr_loc_error3 <span class="keyword">(</span>loc0<span class="keyword">)</span><span class="keyword">;</span>
+      $Deb<span class="keyword">.</span>debug_prerrf <span class="keyword">(</span>": %s: s2exp_arg_tyleq_solve"<span class="keyword">,</span> <span class="keyword">@(</span>THISFILENAME<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+      <span class="keyword">if</span> sgn <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> prerr ": this function call needs more arguments."<span class="keyword">;</span>
+      <span class="keyword">if</span> sgn <span class="keyword">&lt;</span> 0 <span class="keyword">then</span> prerr ": this function call needs less arguments."<span class="keyword">;</span>
+      prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      assert <span class="keyword">(</span>sgn <span class="keyword">=</span> 0<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// [sgn = 0] holds!
+</span>    <span class="keyword">end</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>sgn==0<span class="keyword">]</span> void</span>
+<span class="keyword">in</span>
+  aux <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es10<span class="keyword">,</span> s2es20<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2explst_arg_tyleq_solve]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> s2exp_hypo_equal_solve_con
+  <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2e1<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2e2<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "s2exp_hypo_equal_solve_con: s2e1 = "; print s2e1; print_newline ();
+    print "s2exp_hypo_equal_solve_con: s2e2 = "; print s2e2; print_newline ();
+  end // end of [val]
+*)</span>
+  <span class="keyword">fun</span> aux_solve <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2e1<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2e2<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> <span class="keyword">(</span>s2e1<span class="keyword">.</span>s2exp_node<span class="keyword">,</span> s2e2<span class="keyword">.</span>s2exp_node<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>S2Eapp <span class="keyword">(</span>s2e1_fun<span class="keyword">,</span> s2es1_arg<span class="keyword">)</span><span class="keyword">,</span> S2Eapp <span class="keyword">(</span>s2e2_fun<span class="keyword">,</span> s2es2_arg<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        aux_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1_fun<span class="keyword">,</span> s2e2_fun<span class="keyword">)</span><span class="keyword">;</span>
+        s2explst_hypo_equal_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es1_arg<span class="keyword">,</span> s2es2_arg<span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">fun</span> aux_check <span class="keyword">(</span>s2e1<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2e2<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> <span class="keyword">(</span>s2e1<span class="keyword">.</span>s2exp_node<span class="keyword">,</span> s2e2<span class="keyword">.</span>s2exp_node<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>S2Ecst s2c1<span class="keyword">,</span> S2Ecst s2c2<span class="keyword">)</span> <span class="keyword">=&gt;</span> eq_s2cst_s2cst <span class="keyword">(</span>s2c1<span class="keyword">,</span> s2c2<span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>S2Eapp <span class="keyword">(</span>s2e1<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">,</span> S2Eapp <span class="keyword">(</span>s2e2<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> aux_check <span class="keyword">(</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> false
+<span class="keyword">in</span>
+  <span class="keyword">if</span> aux_check <span class="keyword">(</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">begin</span>
+    aux_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="comment">// c1 arg1_1 ... arg1_n = c2 arg2_1 ... arg2_n
+</span>  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+    trans3_env_hypo_add_prop <span class="keyword">(</span>loc0<span class="keyword">,</span> s2exp_bool false<span class="keyword">)</span>
+  <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_hypo_equal_solve_con]
+</span>
+<span class="keyword">implement</span>
+s2exp_hypo_equal_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2e1 <span class="keyword">=</span> s2exp_whnf s2e1 <span class="keyword">and</span> s2e2 <span class="keyword">=</span> s2exp_whnf s2e2
+<span class="comment">(*
+  val () = begin
+    print "s2exp_hypo_equal_solve: s2e1 = "; print s2e1; print_newline ();
+    print "s2exp_hypo_equal_solve: s2e2 = "; print s2e2; print_newline ();
+  end // end of [val]
+*)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>s2e1<span class="keyword">.</span>s2exp_node<span class="keyword">,</span> s2e2<span class="keyword">.</span>s2exp_node<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">when</span> <span class="keyword">(</span>s2exp_is_abscon s2e1 andalso s2exp_is_abscon s2e2<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      s2exp_hypo_equal_solve_con <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>S2Ecst s2c1<span class="keyword">,</span> S2Ecst s2c2<span class="keyword">)</span> <span class="keyword">when</span> s2c1 <span class="keyword">=</span> s2c2 <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">(*
+// HX-2010-12-04: inadequate design
+  | (S2Enamed (_(*name*), s2e1), _) =&gt;
+      s2exp_hypo_equal_solve (loc0, s2e1, s2e2)
+    // end of [S2Enamed, _]  
+  | (_, S2Enamed (_(*name*), s2e2)) =&gt;
+      s2exp_hypo_equal_solve (loc0, s2e1, s2e2)
+    // end of [_, S2Enamed]  
+*)</span>
+<span class="comment">(*
+  | (S2Evar s2v1, S2Evar s2v2) when s2v1 = s2v2 =&gt; ()
+*)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>S2Evar s2v1<span class="keyword">,</span> S2Evar s2v2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> sgn <span class="keyword">=</span> compare_s2var_s2var <span class="keyword">(</span>s2v1<span class="keyword">,</span> s2v2<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="keyword">case+</span> sgn <span class="keyword">of</span> 
+      <span class="keyword">|</span> _ <span class="keyword">when</span> sgn <span class="keyword">&gt;</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          trans3_env_hypo_add_bind <span class="keyword">(</span>loc0<span class="keyword">,</span> s2v1<span class="keyword">,</span> s2e2<span class="keyword">)</span>
+        <span class="keyword">end</span>
+      <span class="keyword">|</span> _ <span class="keyword">when</span> sgn <span class="keyword">&lt;</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          trans3_env_hypo_add_bind <span class="keyword">(</span>loc0<span class="keyword">,</span> s2v2<span class="keyword">,</span> s2e1<span class="keyword">)</span>
+        <span class="keyword">end</span>
+      <span class="keyword">|</span> _ <span class="comment">(*sgn = 0*)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Evar _, S2Evar _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Evar s2v1<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+<span class="comment">(*
+      val s2t_var = s2var_srt_get s2v1
+      val s2t_exp = s2e2.s2exp_srt
+      val () = begin
+        if not (s2t_var &lt;= s2t_exp) then s2var_srt_set (s2v1, s2t_exp)
+      end // end of [val]
+*)</span>
+    <span class="keyword">in</span>
+      trans3_env_hypo_add_bind <span class="keyword">(</span>loc0<span class="keyword">,</span> s2v1<span class="keyword">,</span> s2e2<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Evar _, _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> S2Evar s2v2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+<span class="comment">(*
+      val s2t_var = s2var_srt_get s2v2
+      val s2t_exp = s2e1.s2exp_srt
+      val () = begin
+        if not (s2t_var &lt;= s2t_exp) then s2var_srt_set (s2v2, s2t_exp)
+      end // end of [val]
+*)</span>
+    <span class="keyword">in</span>
+      trans3_env_hypo_add_bind <span class="keyword">(</span>loc0<span class="keyword">,</span> s2v2<span class="keyword">,</span> s2e1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_, S2Evar _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>S2Efun <span class="keyword">(</span>_<span class="comment">(*fc*)</span><span class="keyword">,</span> _<span class="comment">(*lin*)</span><span class="keyword">,</span> _<span class="comment">(*sf2e*)</span><span class="keyword">,</span> _<span class="comment">(*npf*)</span><span class="keyword">,</span> s2es11<span class="keyword">,</span> s2e12<span class="keyword">)</span><span class="keyword">,</span>
+     S2Efun <span class="keyword">(</span>_<span class="comment">(*fc*)</span><span class="keyword">,</span> _<span class="comment">(*lin*)</span><span class="keyword">,</span> _<span class="comment">(*sf2e*)</span><span class="keyword">,</span> _<span class="comment">(*npf*)</span><span class="keyword">,</span> s2es21<span class="keyword">,</span> s2e22<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+       s2explst_hypo_equal_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es21<span class="keyword">,</span> s2es11<span class="keyword">)</span><span class="keyword">;</span>
+       s2exp_hypo_equal_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e12<span class="keyword">,</span> s2e22<span class="keyword">)</span>
+     <span class="keyword">end</span> <span class="comment">// end of [S2Efun _, S2Efun _]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> trans3_env_hypo_add_eqeq <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_hypo_equal_solve]
+</span>
+<span class="keyword">implement</span>
+s2explst_hypo_equal_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es1<span class="keyword">,</span> s2es2<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>s2es1<span class="keyword">,</span> s2es2<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>cons <span class="keyword">(</span>s2e1<span class="keyword">,</span> s2es1<span class="keyword">)</span><span class="keyword">,</span> cons <span class="keyword">(</span>s2e2<span class="keyword">,</span> s2es2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      s2exp_hypo_equal_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span><span class="keyword">;</span>
+      s2explst_hypo_equal_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es1<span class="keyword">,</span> s2es2<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [cons, cons]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      trans3_env_hypo_add_prop <span class="keyword">(</span>loc0<span class="keyword">,</span> s2exp_bool false<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_, _]
+</span><span class="comment">// end of [s2explst_hypo_equal_solve]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_staexp2_solve.dats] *)</span>
+</pre>
+</body>
+</html>

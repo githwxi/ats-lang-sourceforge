@@ -1,0 +1,163 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    .atsyntax {color:#E80000;background-color:#E0E0E0;}
+    .atsyntax span.comment {color:#787878;font-style:italic;}
+    .atsyntax span.extern  {color:#A52A2A;}
+    .atsyntax span.keyword {color:#000000;font-weight:bold;}
+    .atsyntax span.neuexp  {color:#800080;}
+    .atsyntax span.staexp  {color:#0000FF;}
+    .atsyntax span.dynexp  {color:#E80000;}
+    .atsyntax span.prfexp  {color:#009000;}
+    .atsyntax span.stacstdec  {text-decoration:none;}
+    .atsyntax span.stacstuse  {color:#0000CF;text-decoration:underline;}
+    .atsyntax span.dyncstdec  {text-decoration:none;}
+    .atsyntax span.dyncstimp  {color:#B80000;text-decoration:underline;}
+    .atsyntax span.dyncstuse  {color:#B80000;text-decoration:underline;}
+  </style>
+</head>
+<body class="atsyntax">
+<pre class="atsyntax">
+<span class="comment">//
+</span><span class="comment">// K&amp;R, 2nd edition, page 29
+</span><span class="comment">//
+</span>
+<span class="comment">//
+</span><span class="comment">// Translated into ATS by Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">//
+</span>
+<span class="comment">(*
+** Handling C strings (byte sequences ending with the null byte)
+** in ATS is a constant challenge. This example makes use of several
+** advanced features in ATS that are probably difficult for a beginner
+** to grasp. So skip it if you find it to be the case.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/stdio.sats"</span>
+
+<span class="comment">(****** ****** *)</span>
+ 
+<span class="keyword">#define</span> <span class="neuexp">MAXLINE 1000</span>
+<span class="keyword">typedef</span> <span class="staexp"><span id="loc477"><span class="stacstdec">b0ytes <span class="keyword">(</span>n<span class="keyword">:</span> int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">@[</span>byte?<span class="keyword">]</span><span class="keyword">[</span>n<span class="keyword">]</span></span></span></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// implemented in C
+</span><span class="keyword">extern</span>
+<span class="keyword">fun</span> <span id="loc560"><span class="dyncstdec">getline <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>pos<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf_buf<span class="keyword">:</span> <span class="staexp">b0ytes m @ l</span></span> <span class="keyword">|</span> p_buf<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">,</span> m<span class="keyword">:</span> <span class="staexp">int m</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>n<span class="keyword">:</span>nat <span class="keyword">|</span> n <span class="keyword">&lt;</span> m<span class="keyword">]</span> <span class="keyword">(</span>strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span> @ l  <span class="keyword">|</span> int n<span class="keyword">)</span></span></span></span>
+  <span class="keyword">=</span> "__getline"
+<span class="comment">// end of [getline]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// implemented in C
+</span><span class="keyword">extern</span>
+<span class="keyword">fun</span> <span id="loc773"><span class="dyncstdec">copy <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat <span class="keyword">|</span> n <span class="keyword">&lt;</span> m<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l_to<span class="keyword">,</span>l_from<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf_to<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>b0ytes m @ l_to &gt;&gt; strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span> @ l_to</span></span>
+  <span class="keyword">,</span> <span class="prfexp">pf_from<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span> @ l_from</span></span>
+  <span class="keyword">|</span> p_to<span class="keyword">:</span> <span class="staexp">ptr l_to</span><span class="keyword">,</span> p_from<span class="keyword">:</span> <span class="staexp">ptr l_from</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span></span></span>
+  <span class="keyword">=</span> "__copy"
+<span class="comment">// end of [copy]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">s2b bytes_v_of_strbuf_v</span> <span class="comment">// from [prelude/SATS/string.sats]
+</span>
+<span class="comment">(*
+** It is formally verified in the type system of ATS that there is
+** *no* possibility of buffer overlow in this implementation under the
+** assumption that both [getline] and [copy] are implemented correctly
+** in C.
+*)</span>
+
+<span class="keyword">implement</span> main <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">#define</span> <span class="neuexp">M MAXLINE</span>
+  <span class="keyword">var</span> <span class="keyword">!</span>p_line <span class="keyword">with</span> <span class="prfexp">pf_line</span> <span class="keyword">=</span> <span class="keyword">@[</span><span class="staexp">byte</span><span class="keyword">]</span><span class="keyword">[</span>M<span class="keyword">]</span><span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">var</span> <span class="keyword">!</span>p_longest <span class="keyword">with</span> <span class="prfexp">pf_longest</span> <span class="keyword">=</span> <span class="keyword">@[</span><span class="staexp">byte</span><span class="keyword">]</span><span class="keyword">[</span>M<span class="keyword">]</span><span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> bytes_strbuf_trans <span class="keyword">(</span><span class="prfexp">pf_longest</span> <span class="keyword">|</span> p_longest<span class="keyword">,</span> 0<span class="keyword">)</span>
+  <span class="keyword">val</span> max <span class="keyword">=</span> loop <span class="keyword">(</span><span class="prfexp">pf_line</span><span class="keyword">,</span> <span class="prfexp">pf_longest</span> <span class="keyword">|</span> p_line<span class="keyword">,</span> p_longest<span class="keyword">,</span> 0<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">fun</span> loop <span class="staexp"><span class="keyword">{</span>max<span class="keyword">:</span>nat <span class="keyword">|</span> max <span class="keyword">&lt;</span> M<span class="keyword">}</span></span> <span class="keyword">(</span>
+        <span class="prfexp">pf_line<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>b0ytes M @ p_line</span></span>
+      <span class="keyword">,</span> <span class="prfexp">pf_longest<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>strbuf <span class="keyword">(</span>M<span class="keyword">,</span> max<span class="keyword">)</span> @ p_longest &gt;&gt; strbuf <span class="keyword">(</span>M<span class="keyword">,</span> max<span class="keyword">)</span> @ p_longest</span></span>
+      <span class="keyword">|</span> p_line<span class="keyword">:</span> <span class="staexp">ptr p_line</span><span class="keyword">,</span> p_longest<span class="keyword">:</span> <span class="staexp">ptr p_longest</span><span class="keyword">,</span> max<span class="keyword">:</span> <span class="staexp">int <span class="keyword">(</span>max<span class="keyword">)</span></span>
+      <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>max<span class="keyword">:</span> nat <span class="keyword">|</span> max <span class="keyword">&lt;</span> M<span class="keyword">]</span> int max</span> <span class="keyword">=</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_line_new</span> <span class="keyword">|</span> n<span class="keyword">)</span> <span class="keyword">=</span> getline <span class="keyword">(</span><span class="prfexp">pf_line</span> <span class="keyword">|</span> p_line<span class="keyword">,</span> M<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> n <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+        <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_line := s2b <span class="keyword">(</span>pf_line_new<span class="keyword">)</span></span>
+      <span class="keyword">in</span>
+        max <span class="comment">// loop exits
+</span>      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> max <span class="keyword">&lt;</span> n <span class="keyword">then</span> <span class="keyword">let</span>
+          <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_longest := s2b <span class="keyword">(</span>pf_longest<span class="keyword">)</span></span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> copy <span class="keyword">(</span><span class="prfexp">pf_longest</span><span class="keyword">,</span> <span class="prfexp">pf_line_new</span> <span class="keyword">|</span> p_longest<span class="keyword">,</span> p_line<span class="keyword">)</span>
+          <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_line := s2b <span class="keyword">(</span>pf_line_new<span class="keyword">)</span></span>
+        <span class="keyword">in</span>
+          loop <span class="keyword">(</span><span class="prfexp">pf_line</span><span class="keyword">,</span> <span class="prfexp">pf_longest</span> <span class="keyword">|</span> p_line<span class="keyword">,</span> p_longest<span class="keyword">,</span> n<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+          <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_line := s2b <span class="keyword">(</span>pf_line_new<span class="keyword">)</span></span>
+        <span class="keyword">in</span>
+          loop <span class="keyword">(</span><span class="prfexp">pf_line</span><span class="keyword">,</span> <span class="prfexp">pf_longest</span> <span class="keyword">|</span> p_line<span class="keyword">,</span> p_longest<span class="keyword">,</span> max<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">(* endif *)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">end</span> <span class="comment">(* end of [loop] *)</span>
+  <span class="keyword">}</span>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> <span class="keyword">(</span>max <span class="keyword">&gt;</span> 0<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> print_string <span class="keyword">(</span>str<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+      <span class="keyword">extern</span> <span class="keyword">castfn</span> <span id="loc2607"><span class="dyncstdec">string_of_ptr <span class="keyword">(</span>p<span class="keyword">:</span> <span class="staexp">ptr</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">string</span></span></span>
+      <span class="keyword">val</span> str <span class="keyword">=</span> string_of_ptr <span class="keyword">(</span>p_longest<span class="keyword">)</span>
+    <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_longest := s2b <span class="keyword">(</span>pf_longest<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="comment">// empty
+</span>  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_longest := s2b <span class="keyword">(</span>pf_longest<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="comment">// empty
+</span>  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{$
+
+ats_int_type
+__getline (
+  ats_ptr_type s0, ats_int_type lim
+) {
+  int c, i; char *s = (char*)s0 ;
+  for (i = 0; i &lt; lim-1 &amp;&amp; (c=getchar()) != EOF &amp;&amp; c!='\n'; ++i)
+    s[i] = c;
+  if (c == '\n') { s[i] = c; ++i; }
+  s[i] = '\0';
+  return i;
+} // end of [__getline]
+
+ats_void_type
+__copy (
+  ats_ptr_type to, ats_ptr_type from
+) {
+  int i;
+  i = 0;
+  while ((((char*)to)[i] = ((char*)from)[i]) != '\0') ++i;
+  return ;
+} // end of [__copy]
+
+%}</span> <span class="comment">// end of [%{$]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [longest_line.dats] *)</span>
+</pre>
+</body>
+</html>

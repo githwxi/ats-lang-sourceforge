@@ -1,0 +1,142 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: Summer, 2009
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// book: AUP (2nd edition), pages 108 - 110
+</span><span class="comment">// section: 2.14: pready and pwrite system calls
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">T <span class="keyword">=</span> "libc/sys/SATS/types.sats"</span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="265"><span class="stacstdec">off_t <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2ftypes_2esats.html#4112"><span class="stacstuse">$T<span class="keyword">.</span>off_t</span></a></span></a></span>
+
+<span class="keyword">staload</span> <span class="staexp">STDIO <span class="keyword">=</span> "libc/SATS/stdio.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/errno.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/fcntl.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/unistd.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="471"><span class="dyncstdec">backward2 <span class="keyword">(</span>path<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#15243"><span class="stacstuse">string</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#15547"><span class="stacstuse">void</span></a></span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+ats_ptr_type __buf_tail
+  (ats_ptr_type p_buf, ats_int_type n) { return ((char*)p_buf) + n ; }
+/* end of [__buf_tail] */
+%}</span> <span class="comment">// end of [__buf_tail]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">BUFSZ 256</span>
+
+<span class="keyword">fun</span> loop_main <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf_fd<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span><a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2funistd_2esats.html#1866"><span class="stacstuse"><a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2funistd_2esats.html#1866"><span class="stacstuse">fildes_v</span></a></span></a> <span class="keyword">(</span>fd<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#14651"><span class="stacstuse">int</span></a> fd</span>
+  <span class="keyword">,</span> buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fstring_2esats.html#1763"><span class="stacstuse"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fstring_2esats.html#1763"><span class="stacstuse">bytes</span></a></span></a> BUFSZ</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#16076"><span class="stacstuse">natLt</span></a> BUFSZ</span>
+  <span class="keyword">,</span> bufc<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fstring_2esats.html#1763"><span class="stacstuse"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fstring_2esats.html#1763"><span class="stacstuse">bytes</span></a></span></a> 1</span>
+  <span class="keyword">,</span> ofs<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2finteger_2esats.html#15455"><span class="stacstuse">lint</span></a></span>
+  <span class="keyword">,</span> nerr<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#14678"><span class="stacstuse"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#14678"><span class="stacstuse">int</span></a></span></a></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#15547"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">if</span> ofs &gt;= 0L <span class="keyword">then</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> nread <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2funistd_2esats.html#9139"><span class="dyncstuse">pread</span></a> <span class="keyword">(</span><span class="prfexp">pf_fd</span> <span class="keyword">|</span> fd<span class="keyword">,</span> bufc<span class="keyword">,</span> 1<span class="keyword">,</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2ftypes_2esats.html#4172"><span class="dyncstuse">$T<span class="keyword">.</span>off_of_lint</span></a> ofs<span class="keyword">)</span>
+  <span class="keyword">val</span> nread <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fsizetype_2esats.html#12726"><span class="dyncstuse">int1_of_ssize1</span></a> <span class="keyword">(</span>nread<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+  <span class="keyword">|</span> _ <span class="keyword">when</span> nread <span class="keyword">=</span> 1 <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> b <span class="keyword">=</span> bufc<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">0</span><span class="keyword">]</span>
+      <span class="keyword">val</span> c <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fbyte_2esats.html#1695"><span class="dyncstuse">char_of_byte</span></a> <span class="keyword">(</span>b<span class="keyword">)</span>
+      <span class="keyword">val</span> ofs1 <span class="keyword">=</span> ofs - 1L
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> c &lt;&gt; '\n' <span class="keyword">then</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> n <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">(</span><a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2ferrno_2esats.html#5398"><span class="dyncstuse">errno_set</span></a> <span class="keyword">(</span>E2BIG<span class="keyword">)</span><span class="keyword">;</span> nerr := nerr + 1<span class="keyword">)</span> 
+        <span class="keyword">else</span> <span class="keyword">(</span>
+          buf<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">n-1</span><span class="keyword">]</span> := b<span class="keyword">;</span> loop_main <span class="keyword">(</span><span class="prfexp">pf_fd</span> <span class="keyword">|</span> fd<span class="keyword">,</span> buf<span class="keyword">,</span> n-1<span class="keyword">,</span> bufc<span class="keyword">,</span> ofs1<span class="keyword">,</span> nerr<span class="keyword">)</span>
+        <span class="keyword">)</span> <span class="comment">// end of [if]
+</span>      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span> <span class="comment">// c = '\n'
+</span>        <span class="keyword">extern</span> <span class="keyword">fun</span> <a name="1391"><span class="dyncstdec">__buf_tail <span class="keyword">(</span>buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fstring_2esats.html#1763"><span class="stacstuse"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fstring_2esats.html#1763"><span class="stacstuse">bytes</span></a></span></a> BUFSZ</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#16076"><span class="stacstuse">natLt</span></a> BUFSZ</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#15243"><span class="stacstuse">string</span></a></span></span></a>
+          <span class="keyword">=</span> "__buf_tail"
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fprintf_2esats.html#2494"><span class="dyncstuse">printf</span></a> <span class="keyword">(</span>"%s"<span class="keyword">,</span> <span class="keyword">@(</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fAUP_2fAUP_5f2_5f14_2edats.html#1391"><span class="dyncstuse">__buf_tail</span></a> <span class="keyword">(</span>buf<span class="keyword">,</span> n<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+        <span class="keyword">val</span> n <span class="keyword">=</span> BUFSZ - 1
+      <span class="keyword">in</span>
+        buf<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">n-1</span><span class="keyword">]</span> := b<span class="keyword">;</span> loop_main <span class="keyword">(</span><span class="prfexp">pf_fd</span> <span class="keyword">|</span> fd<span class="keyword">,</span> buf<span class="keyword">,</span> n-1<span class="keyword">,</span> bufc<span class="keyword">,</span> ofs1<span class="keyword">,</span> nerr<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">end</span> <span class="comment">(* end of [_ when nread = 1] *)</span>
+  <span class="keyword">|</span> _ <span class="keyword">when</span> nread <span class="keyword">=</span> ~1 <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      nerr := nerr + 1
+    <span class="keyword">end</span> <span class="comment">// end of [_ when ...] 
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2ferrno_2esats.html#5454"><span class="dyncstuse">errno_reset</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span> nerr := nerr + 1
+    <span class="keyword">end</span> <span class="comment">// end of [_]
+</span><span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+  <span class="comment">// loop exits successfully
+</span><span class="keyword">end</span> <span class="comment">// end of [loop_main] 
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fAUP_2fAUP_5f2_5f14_2edats.html#471"><span class="dyncstimp">backward2</span></a> <span class="keyword">(</span>path<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_fd</span> <span class="keyword">|</span> fd<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2ffcntl_2esats.html#3210"><span class="dyncstuse">open_flag_exn</span></a> <span class="keyword">(</span>path<span class="keyword">,</span> O_RDONLY<span class="keyword">)</span>
+  <span class="keyword">var</span> <span class="keyword">!</span>p_buf <span class="keyword">with</span> <span class="prfexp">pf_buf</span> <span class="keyword">=</span> <span class="keyword">@[</span><span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#14322"><span class="stacstuse">byte</span></a></span><span class="keyword">]</span><span class="keyword">[</span>BUFSZ<span class="keyword">]</span><span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_buf := <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fstring_2esats.html#2610"><span class="dyncstuse">bytes_v_of_b0ytes_v</span></a> <span class="keyword">(</span>pf_buf<span class="keyword">)</span></span>
+  <span class="keyword">var</span> <span class="keyword">!</span>p_bufc <span class="keyword">with</span> <span class="prfexp">pf_bufc</span> <span class="keyword">=</span> <span class="keyword">@[</span><span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#14322"><span class="stacstuse">byte</span></a></span><span class="keyword">]</span><span class="keyword">[</span>1<span class="keyword">]</span><span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_bufc := <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fstring_2esats.html#2610"><span class="dyncstuse">bytes_v_of_b0ytes_v</span></a> <span class="keyword">(</span>pf_bufc<span class="keyword">)</span></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p_buf<span class="keyword">-&gt;</span><span class="keyword">[</span><span class="prfexp">BUFSZ-1</span><span class="keyword">]</span> := <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fbyte_2esats.html#1865"><span class="dyncstuse">byte_of_int</span></a> <span class="keyword">(</span>0<span class="keyword">)</span>
+  <span class="keyword">val</span> ofs0 <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2ftypes_2esats.html#4172"><span class="dyncstuse">$T<span class="keyword">.</span>off_of_lint</span></a> <span class="keyword">(</span>0L<span class="keyword">)</span>
+  <span class="keyword">val</span> fsize <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2funistd_2esats.html#8969"><span class="dyncstuse">lseek_exn</span></a> <span class="keyword">(</span><span class="prfexp">pf_fd</span> <span class="keyword">|</span> fd<span class="keyword">,</span> ofs0<span class="keyword">,</span> $T<span class="keyword">.</span>SEEK_END<span class="keyword">)</span>
+  <span class="keyword">val</span> fsize1 <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2ftypes_2esats.html#4211"><span class="dyncstuse">$T<span class="keyword">.</span>lint_of_off</span></a> <span class="keyword">(</span>fsize<span class="keyword">)</span> - 1L
+  <span class="keyword">var</span> nerr<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#14678"><span class="stacstuse">int</span></a></span> <span class="keyword">=</span> 0
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> loop_main <span class="keyword">(</span><span class="prfexp">pf_fd</span> <span class="keyword">|</span> fd<span class="keyword">,</span> <span class="keyword">!</span>p_buf<span class="keyword">,</span> BUFSZ-1<span class="keyword">,</span> <span class="keyword">!</span>p_bufc<span class="keyword">,</span> fsize1<span class="keyword">,</span> nerr<span class="keyword">)</span>
+<span class="comment">// (*
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">(</span>nerr <span class="keyword">&gt;</span> 0<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">begin</span>
+    <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fprintf_2esats.html#2583"><span class="dyncstuse">prerrf</span></a> <span class="keyword">(</span>"nerr = %i\n"<span class="keyword">,</span> <span class="keyword">@(</span>nerr<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fstdio_2esats.html#20018"><span class="dyncstuse">$STDIO<span class="keyword">.</span>perror</span></a> "backward2"<span class="keyword">;</span> 
+  <span class="keyword">end</span> <span class="comment">// end of [val]  
+</span><span class="comment">// *)
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2ffcntl_2esats.html#3815"><span class="dyncstuse">close_exn</span></a> <span class="keyword">(</span><span class="prfexp">pf_fd</span> <span class="keyword">|</span> fd<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [backward2] 
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fdyn_2esats.html#6780"><span class="dyncstimp">main</span></a> <span class="keyword">(</span>argc<span class="keyword">,</span> argv<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert <span class="keyword">(</span>argc &gt;= 2<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fAUP_2fAUP_5f2_5f14_2edats.html#471"><span class="dyncstuse">backward2</span></a> <span class="keyword">(</span>argv<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">1</span><span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// nothing
+</span><span class="keyword">end</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [AUP_2_14.dats] *)</span>
+</pre>
+</body>
+</html>

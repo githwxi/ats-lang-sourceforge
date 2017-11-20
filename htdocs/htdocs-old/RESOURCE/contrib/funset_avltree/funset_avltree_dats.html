@@ -1,0 +1,606 @@
+<HTML>
+<HEAD>
+<STYLE TYPE="text/css">
+span.comment {color:787878;font-style:italic}
+span.extern  {color:A52A2A}
+span.keyword {color:000000;font-weight:bold}
+span.neuexp  {color:800080}
+span.staexp  {color:0000FF}
+span.dynexp  {color:E80000}
+span.prfexp  {color:009000}
+span.stacstdec  {text-decoration:none}
+span.stacstuse  {color:0000CF;text-decoration:underline}
+span.dyncstdec  {text-decoration:none}
+span.dyncstimp  {color:B80000;text-decoration:underline}
+span.dyncstuse  {color:B80000;text-decoration:underline}
+</STYLE>
+</HEAD>
+
+<BODY BGCOLOR="#E0E0E0" TEXT="#E80000">
+<PRE>
+<span class="comment">(*
+**
+** An implementation of functional sets based on AVL trees.
+**
+** Contributed by Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+** Time: October, 2008
+**
+*)</span>
+
+<span class="comment">//
+</span><span class="comment">// License: LGPL 3.0 (available at http://www.gnu.org/licenses/lgpl.txt)
+</span><span class="comment">//
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">ATS_DYNLOADFLAG 0</span> <span class="comment">// no dynamic loading
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abstype</span> <span class="staexp"><A name="335"><span class="stacstdec">set_t</span></span></A> <span class="keyword">(</span>elt<span class="keyword">:</span> t@ype+<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><A name="385"><span class="stacstdec">cmp <span class="keyword">(</span>elt<span class="keyword">:</span>t@ype<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>elt<span class="keyword">,</span> elt<span class="keyword">)</span> <span class="keyword">-&lt;</span>cloref<span class="keyword">&gt;</span> Sgn</span></span></A>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span>
+  <A name="453"><span class="dyncstdec">compare_elt_elt <span class="keyword">(</span>x1<span class="keyword">:</span> <span class="staexp">elt</span><span class="keyword">,</span> x2<span class="keyword">:</span> <span class="staexp">elt</span><span class="keyword">,</span> cmp<span class="keyword">:</span> <span class="staexp">cmp elt</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">Sgn</span></span></A>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">elt</span><span class="keyword">}</span> compare_elt_elt <span class="keyword">(</span>x1<span class="keyword">,</span> x2<span class="keyword">,</span> cmp<span class="keyword">)</span> <span class="keyword">=</span> cmp <span class="keyword">(</span>x1<span class="keyword">,</span> x2<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="keyword">}</span> <A name="605"><span class="dyncstdec">funset_empty <span class="staexp"><span class="keyword">{</span>elt<span class="keyword">:</span>t@ype<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">set_t <span class="keyword">(</span>elt<span class="keyword">)</span></span></span></A>
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="670"><span class="dyncstdec">funset_singleton <span class="keyword">(</span>x0<span class="keyword">:</span> <span class="staexp">elt</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">set_t <span class="keyword">(</span>elt<span class="keyword">)</span></span></span></A>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="keyword">}</span> <A name="747"><span class="dyncstdec">funset_is_empty <span class="staexp"><span class="keyword">{</span>elt<span class="keyword">:</span>t@ype<span class="keyword">}</span></span> <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></A>
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="keyword">}</span> <A name="812"><span class="dyncstdec">funset_isnot_empty <span class="staexp"><span class="keyword">{</span>elt<span class="keyword">:</span>t@ype<span class="keyword">}</span></span> <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></A>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// the time complexity of this function is O(n), where n is the size
+</span><span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="980"><span class="dyncstdec">funset_size <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">Nat</span></span></A> <span class="comment">// of the set
+</span>
+<span class="comment">(*
+// this function returns the height of the AVL tree representing [xs]
+// it is mainly for testing purpose
+extern fun{elt:t@ype} funset_height (xs: set_t elt):&lt;&gt; Nat
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="1245"><span class="dyncstdec">funset_is_member
+  <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">,</span> x0<span class="keyword">:</span> <span class="staexp">elt</span><span class="keyword">,</span> cmp<span class="keyword">:</span> <span class="staexp">cmp elt</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></A>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="1334"><span class="dyncstdec">funset_isnot_member
+  <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">,</span> x0<span class="keyword">:</span> <span class="staexp">elt</span><span class="keyword">,</span> cmp<span class="keyword">:</span> <span class="staexp">cmp elt</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></A>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="1426"><span class="dyncstdec">funset_insert
+  <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">,</span> x0<span class="keyword">:</span> <span class="staexp">elt</span><span class="keyword">,</span> cmp<span class="keyword">:</span> <span class="staexp">cmp elt</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">set_t <span class="keyword">(</span>elt<span class="keyword">)</span></span></span></A>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="1519"><span class="dyncstdec">funset_remove
+  <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">,</span> x0<span class="keyword">:</span> <span class="staexp">elt</span><span class="keyword">,</span> cmp<span class="keyword">:</span> <span class="staexp">cmp elt</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">set_t <span class="keyword">(</span>elt<span class="keyword">)</span></span></span></A>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="1612"><span class="dyncstdec">funset_choose <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">Option_vt <span class="keyword">(</span>elt<span class="keyword">)</span></span></span></A>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="1684"><span class="dyncstdec">funset_union
+  <span class="keyword">(</span>xs1<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">,</span> xs2<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">,</span> cmp<span class="keyword">:</span> <span class="staexp">cmp elt</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">set_t <span class="keyword">(</span>elt<span class="keyword">)</span></span></span></A>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="1784"><span class="dyncstdec">funset_intersect
+  <span class="keyword">(</span>xs1<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">,</span> xs2<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">,</span> cmp<span class="keyword">:</span> <span class="staexp">cmp elt</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">set_t <span class="keyword">(</span>elt<span class="keyword">)</span></span></span></A>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="1888"><span class="dyncstdec">funset_diff
+  <span class="keyword">(</span>xs1<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">,</span> xs2<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">,</span> cmp<span class="keyword">:</span> <span class="staexp">cmp elt</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">set_t <span class="keyword">(</span>elt<span class="keyword">)</span></span></span></A>
+
+<span class="comment">// computing the symmetric difference between two given sets
+</span><span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="2048"><span class="dyncstdec">funset_symmdiff
+  <span class="keyword">(</span>xs1<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">,</span> xs2<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">,</span> cmp<span class="keyword">:</span> <span class="staexp">cmp elt</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">set_t <span class="keyword">(</span>elt<span class="keyword">)</span></span></span></A>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="2172"><span class="dyncstdec">funset_is_subset
+  <span class="keyword">(</span>xs1<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">,</span> xs2<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">,</span> cmp<span class="keyword">:</span> <span class="staexp">cmp elt</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></A>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="2269"><span class="dyncstdec">funset_is_equal
+  <span class="keyword">(</span>xs1<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">,</span> xs2<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">,</span> cmp<span class="keyword">:</span> <span class="staexp">cmp elt</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></A>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="2386"><span class="dyncstdec">funset_foreach_clo <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v</span></span> <span class="keyword">|</span> xs<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">,</span> f<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><span class="keyword">(</span><span class="keyword">!</span>v <span class="keyword">|</span> elt<span class="keyword">)</span> <span class="keyword">-&lt;</span>clo<span class="keyword">&gt;</span> void</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></A>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="2500"><span class="dyncstdec">funset_foreach_cloref
+  <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">set_t elt</span><span class="keyword">,</span> f<span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>elt<span class="keyword">)</span> <span class="keyword">-&lt;</span>cloref<span class="keyword">&gt;</span> void</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></A>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span>
+  <A name="2623"><span class="dyncstdec">funset_make_list <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">List elt</span><span class="keyword">,</span> cmp<span class="keyword">:</span> <span class="staexp">cmp elt</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">set_t <span class="keyword">(</span>elt<span class="keyword">)</span></span></span></A>
+<span class="comment">// end of [extern]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><A name="2734"><span class="stacstdec">avltree <span class="keyword">(</span>elt<span class="keyword">:</span>t@ype+<span class="keyword">,</span> int<span class="comment">(*height*)</span><span class="keyword">,</span> int<span class="comment">(*size*)</span><span class="keyword">)</span></span></span></A> <span class="keyword">=</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">hl<span class="keyword">,</span>hr<span class="keyword">:</span>nat</span> <span class="keyword">|</span> <span class="staexp">hl &lt;= hr+1</span><span class="keyword">;</span> <span class="staexp">hr &lt;= hl+1</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">sl<span class="keyword">,</span>sr<span class="keyword">:</span>nat</span><span class="keyword">}</span>
+    B <span class="staexp"><span class="keyword">(</span>elt<span class="keyword">,</span> max<span class="keyword">(</span>hl<span class="keyword">,</span>hr<span class="keyword">)</span>+1<span class="keyword">,</span> sl+sr+1<span class="keyword">)</span></span> <span class="keyword">of</span>
+      <span class="staexp"><span class="keyword">(</span>int <span class="keyword">(</span>max<span class="keyword">(</span>hl<span class="keyword">,</span>hr<span class="keyword">)</span>+1<span class="keyword">)</span><span class="keyword">,</span> avltree <span class="keyword">(</span>elt<span class="keyword">,</span> hl<span class="keyword">,</span> sl<span class="keyword">)</span><span class="keyword">,</span> elt<span class="keyword">,</span> avltree <span class="keyword">(</span>elt<span class="keyword">,</span> hr<span class="keyword">,</span> sr<span class="keyword">)</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> E <span class="staexp"><span class="keyword">(</span>elt<span class="keyword">,</span> 0<span class="keyword">,</span> 0<span class="keyword">)</span></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><A name="2981"><span class="stacstdec">avltree_inc <span class="keyword">(</span>elt<span class="keyword">:</span>t@ype<span class="keyword">,</span> h<span class="keyword">:</span>int<span class="keyword">,</span> s<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">[</span>h1<span class="keyword">:</span>nat <span class="keyword">|</span> h &lt;= h1<span class="keyword">;</span> h1 &lt;= h+1<span class="keyword">]</span> avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h1<span class="keyword">,</span> s<span class="keyword">)</span></span></span></A>
+
+<span class="keyword">typedef</span> <span class="staexp"><A name="3083"><span class="stacstdec">avltree_dec <span class="keyword">(</span>elt<span class="keyword">:</span>t@ype<span class="keyword">,</span> h<span class="keyword">:</span>int<span class="keyword">,</span> s<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">[</span>h1<span class="keyword">:</span>nat <span class="keyword">|</span> h1 &lt;= h<span class="keyword">;</span> h &lt;= h1+1<span class="keyword">]</span> avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h1<span class="keyword">,</span> s<span class="keyword">)</span></span></span></A>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">assume</span> <span class="staexp">set_t <span class="keyword">(</span>elt<span class="keyword">:</span>t@ype<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>h<span class="keyword">,</span>s<span class="keyword">:</span>nat<span class="keyword">]</span> avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h<span class="keyword">,</span> s<span class="keyword">)</span></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span>
+  avltree_height <span class="staexp"><span class="keyword">{</span>h<span class="keyword">,</span>s<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h<span class="keyword">,</span> s<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int h</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> t <span class="keyword">of</span> <span class="keyword">|</span> B <span class="keyword">(</span>h<span class="keyword">,</span> _<span class="keyword">,</span> _<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> h <span class="keyword">|</span> E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> 0
+<span class="keyword">end</span> <span class="comment">// end of [avltree_height]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="keyword">}</span> funset_empty <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> E <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">elt</span><span class="keyword">}</span> funset_singleton <span class="keyword">(</span>x<span class="keyword">)</span> <span class="keyword">=</span> B <span class="keyword">(</span>1<span class="keyword">,</span> E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> x<span class="keyword">,</span> E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="keyword">}</span> funset_is_empty <span class="keyword">(</span>t<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> t <span class="keyword">of</span> <span class="keyword">|</span> B _ <span class="keyword">=&gt;</span> false <span class="keyword">|</span> E <span class="keyword">=&gt;</span> true
+<span class="comment">// end of [funset_is_empty]
+</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="keyword">}</span> funset_isnot_empty <span class="keyword">(</span>t<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> t <span class="keyword">of</span> <span class="keyword">|</span> B _ <span class="keyword">=&gt;</span> true <span class="keyword">|</span> E <span class="keyword">=&gt;</span> false
+<span class="comment">// end of [funset_isnot_empty]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">elt</span><span class="keyword">}</span> funset_size <span class="keyword">(</span>t<span class="keyword">)</span> <span class="keyword">=</span> size <span class="keyword">(</span>t<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> size <span class="staexp"><span class="keyword">{</span>h<span class="keyword">,</span>s<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>h<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h<span class="keyword">,</span> s<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int s</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> t <span class="keyword">of</span> B <span class="keyword">(</span>_<span class="keyword">,</span> tl<span class="keyword">,</span> _<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=&gt;</span> 1 + size <span class="keyword">(</span>tl<span class="keyword">)</span> + size <span class="keyword">(</span>tr<span class="keyword">)</span> <span class="keyword">|</span> E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> 0
+  <span class="keyword">end</span> <span class="comment">// end of [size]
+</span><span class="keyword">}</span> <span class="comment">// end of [funset_size]
+</span>
+<span class="comment">(*
+implement{elt} funset_height (t) = begin
+  case+ t of B (h, _, _, _) =&gt; h | E () =&gt; 0
+end // end of [funset_height]
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">elt</span><span class="keyword">}</span> funset_is_member <span class="keyword">(</span>t<span class="keyword">,</span> x0<span class="keyword">,</span> cmp<span class="keyword">)</span> <span class="keyword">=</span> mem <span class="keyword">(</span>t<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> mem <span class="staexp"><span class="keyword">{</span>h<span class="keyword">,</span>s<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>h<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h<span class="keyword">,</span> s<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref</span><span class="keyword">&gt;</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">case+</span> t <span class="keyword">of</span>
+    <span class="keyword">|</span> B <span class="keyword">(</span>_<span class="keyword">,</span> tl<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> sgn <span class="keyword">=</span> compare_elt_elt&lt;<span class="staexp">elt</span><span class="keyword">&gt;</span> <span class="keyword">(</span>x0<span class="keyword">,</span> x<span class="keyword">,</span> cmp<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        <span class="keyword">if</span> sgn <span class="keyword">&lt;</span> 0 <span class="keyword">then</span> mem tl <span class="keyword">else</span> <span class="keyword">if</span> sgn <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> mem tr <span class="keyword">else</span> true
+      <span class="keyword">end</span> <span class="comment">// end of [B]
+</span>    <span class="keyword">|</span> E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> false
+  <span class="comment">// end of [mem]
+</span><span class="keyword">}</span> <span class="comment">// end of [funset_is_member]
+</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">elt</span><span class="keyword">}</span> funset_isnot_member <span class="keyword">(</span>t<span class="keyword">,</span> x0<span class="keyword">,</span> cmp<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> funset_is_member&lt;<span class="staexp">elt</span><span class="keyword">&gt;</span> <span class="keyword">(</span>t<span class="keyword">,</span> x0<span class="keyword">,</span> cmp<span class="keyword">)</span> <span class="keyword">then</span> false <span class="keyword">else</span> true
+<span class="comment">// en dof [funset_isnot_member]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+** left rotation for restoring height invariant
+*)</span>
+<span class="keyword">fn</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span>
+  avltree_lrotate <span class="staexp"><span class="keyword">{</span>hl<span class="keyword">,</span>hr<span class="keyword">,</span>sl<span class="keyword">,</span>sr<span class="keyword">:</span>nat <span class="keyword">|</span> hl+2 == hr<span class="keyword">}</span></span>
+  <span class="keyword">(</span>tl<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> hl<span class="keyword">,</span> sl<span class="keyword">)</span></span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp">elt</span><span class="keyword">,</span> tr<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> hr<span class="keyword">,</span> sr<span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp">avltree_inc <span class="keyword">(</span>elt<span class="keyword">,</span> hr<span class="keyword">,</span> sl+sr+1<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val+</span> B <span class="keyword">(</span>hr<span class="keyword">,</span> trl<span class="keyword">,</span> xr<span class="keyword">,</span> trr<span class="keyword">)</span> <span class="keyword">=</span> tr
+  <span class="keyword">val</span> hrl <span class="keyword">=</span> avltree_height trl <span class="keyword">and</span> hrr <span class="keyword">=</span> avltree_height trr
+<span class="keyword">in</span>
+  <span class="keyword">if</span> hrl &lt;= hrr <span class="keyword">then</span> <span class="keyword">begin</span> <span class="comment">// hr = 1+hlr
+</span>    B <span class="keyword">(</span>hrl+2<span class="keyword">,</span> B <span class="keyword">(</span>hrl+1<span class="keyword">,</span> tl<span class="keyword">,</span> x<span class="keyword">,</span> trl<span class="keyword">)</span><span class="keyword">,</span> xr<span class="keyword">,</span> trr<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span> <span class="comment">// [hrl &gt; hrr]: deep rotation
+</span>    <span class="keyword">val+</span> B <span class="keyword">(</span>_<span class="comment">(*hrl*)</span><span class="keyword">,</span> trll<span class="keyword">,</span> xrl<span class="keyword">,</span> trlr<span class="keyword">)</span> <span class="keyword">=</span> trl
+  <span class="keyword">in</span>
+    B <span class="keyword">(</span>hr<span class="keyword">,</span> B <span class="keyword">(</span>hrl<span class="keyword">,</span> tl<span class="keyword">,</span> x<span class="keyword">,</span> trll<span class="keyword">)</span><span class="keyword">,</span> xrl<span class="keyword">,</span> B <span class="keyword">(</span>hrl<span class="keyword">,</span> trlr<span class="keyword">,</span> xr<span class="keyword">,</span> trr<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">// end of [avltree_lrotate]
+</span>
+<span class="comment">(*
+** right rotation for restoring height invariant
+*)</span>
+<span class="keyword">fn</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> avltree_rrotate <span class="staexp"><span class="keyword">{</span>hl<span class="keyword">,</span>hr<span class="keyword">,</span>sl<span class="keyword">,</span>sr<span class="keyword">:</span>nat <span class="keyword">|</span> hl == hr+2<span class="keyword">}</span></span>
+  <span class="keyword">(</span>tl<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> hl<span class="keyword">,</span> sl<span class="keyword">)</span></span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp">elt</span><span class="keyword">,</span> tr<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> hr<span class="keyword">,</span> sr<span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp">avltree_inc <span class="keyword">(</span>elt<span class="keyword">,</span> hl<span class="keyword">,</span> sl+sr+1<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val+</span> B <span class="keyword">(</span>hl<span class="keyword">,</span> tll<span class="keyword">,</span> xl<span class="keyword">,</span> tlr<span class="keyword">)</span> <span class="keyword">=</span> tl
+  <span class="keyword">val</span> hll <span class="keyword">=</span> avltree_height tll <span class="keyword">and</span> hlr <span class="keyword">=</span> avltree_height tlr
+<span class="keyword">in</span>
+  <span class="keyword">if</span> hll &gt;= hlr <span class="keyword">then</span> <span class="keyword">begin</span> <span class="comment">// hl = 1+hll
+</span>    B <span class="keyword">(</span>hlr+2<span class="keyword">,</span> tll<span class="keyword">,</span> xl<span class="keyword">,</span> B <span class="keyword">(</span>hlr+1<span class="keyword">,</span> tlr<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span> <span class="comment">// [hll &lt; hlr]: deep rotation
+</span>    <span class="keyword">val+</span> B <span class="keyword">(</span>_<span class="comment">(*hlr*)</span><span class="keyword">,</span> tlrl<span class="keyword">,</span> xlr<span class="keyword">,</span> tlrr<span class="keyword">)</span> <span class="keyword">=</span> tlr
+  <span class="keyword">in</span>
+    B <span class="keyword">(</span>hl<span class="keyword">,</span> B <span class="keyword">(</span>hlr<span class="keyword">,</span> tll<span class="keyword">,</span> xl<span class="keyword">,</span> tlrl<span class="keyword">)</span><span class="keyword">,</span> xlr<span class="keyword">,</span> B <span class="keyword">(</span>hlr<span class="keyword">,</span> tlrr<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">// end of [avltree_rrotate]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">elt</span><span class="keyword">}</span> funset_insert <span class="keyword">(</span>t<span class="keyword">,</span> x0<span class="keyword">,</span> cmp<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> insert <span class="staexp"><span class="keyword">{</span>h<span class="keyword">,</span>s<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>h<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h<span class="keyword">,</span> s<span class="keyword">)</span></span><span class="keyword">,</span> inserted<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int? &gt;&gt; int i</span><span class="keyword">)</span>
+    <span class="keyword">:&lt;</span><span class="staexp">cloref</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>two<span class="keyword">]</span> avltree_inc <span class="keyword">(</span>elt<span class="keyword">,</span> h<span class="keyword">,</span> s+i<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">case+</span> t <span class="keyword">of</span>
+    <span class="keyword">|</span> B <span class="keyword">(</span>_<span class="comment">(*h*)</span><span class="keyword">,</span> tl<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> sgn <span class="keyword">=</span> compare_elt_elt&lt;<span class="staexp">elt</span><span class="keyword">&gt;</span> <span class="keyword">(</span>x0<span class="keyword">,</span> x<span class="keyword">,</span> cmp<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        <span class="keyword">if</span> sgn <span class="keyword">&lt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> tl <span class="keyword">=</span> insert <span class="keyword">(</span>tl<span class="keyword">,</span> inserted<span class="keyword">)</span>
+          <span class="keyword">val</span> hl <span class="keyword">=</span> avltree_height <span class="keyword">(</span>tl<span class="keyword">)</span> <span class="keyword">and</span> hr <span class="keyword">=</span> avltree_height <span class="keyword">(</span>tr<span class="keyword">)</span>
+        <span class="keyword">in</span>
+          <span class="keyword">if</span> hl - hr &lt;= 1 <span class="keyword">then</span> <span class="keyword">begin</span>
+            B <span class="keyword">(</span>max<span class="keyword">(</span>hl<span class="keyword">,</span> hr<span class="keyword">)</span> + 1<span class="keyword">,</span> tl<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span> <span class="comment">// hl = hr+2
+</span>            avltree_rrotate <span class="keyword">(</span>tl<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>        <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> sgn <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> tr <span class="keyword">=</span> insert <span class="keyword">(</span>tr<span class="keyword">,</span> inserted<span class="keyword">)</span>
+          <span class="keyword">val</span> hl <span class="keyword">=</span> avltree_height <span class="keyword">(</span>tl<span class="keyword">)</span> <span class="keyword">and</span> hr <span class="keyword">=</span> avltree_height <span class="keyword">(</span>tr<span class="keyword">)</span>
+        <span class="keyword">in</span>
+          <span class="keyword">if</span> hr - hl &lt;= 1 <span class="keyword">then</span> <span class="keyword">begin</span>
+            B <span class="keyword">(</span>max<span class="keyword">(</span>hl<span class="keyword">,</span> hr<span class="keyword">)</span>+1<span class="keyword">,</span> tl<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span> <span class="comment">// hl+1 = hr
+</span>            avltree_lrotate <span class="keyword">(</span>tl<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>        <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+          inserted := 0<span class="keyword">;</span>  t <span class="comment">// no insertion
+</span>        <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>      <span class="keyword">end</span> <span class="comment">// end of [B]
+</span>    <span class="keyword">|</span> E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>inserted := 1<span class="keyword">;</span> B <span class="keyword">(</span>1<span class="keyword">,</span> E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> x0<span class="keyword">,</span> E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="comment">// end of [insert]
+</span>  <span class="keyword">var</span> inserted<span class="keyword">:</span> <span class="staexp">int</span> <span class="comment">// uninitialized
+</span><span class="keyword">in</span>
+  insert <span class="keyword">(</span>t<span class="keyword">,</span> inserted<span class="keyword">)</span> <span class="comment">// size = size (t) + inserted
+</span><span class="keyword">end</span> <span class="comment">// end of [funset_insert]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span>
+  avltree_takeout_min <span class="staexp"><span class="keyword">{</span>h<span class="keyword">,</span>s<span class="keyword">:</span>pos<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>h<span class="keyword">&gt;.</span></span>
+  <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h<span class="keyword">,</span> s<span class="keyword">)</span></span><span class="keyword">,</span> x0<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>elt? &gt;&gt; elt</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp">avltree_dec <span class="keyword">(</span>elt<span class="keyword">,</span> h<span class="keyword">,</span> s-1<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val+</span> B <span class="keyword">(</span>_<span class="keyword">,</span> tl<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=</span> t
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> tl <span class="keyword">of</span>
+  <span class="keyword">|</span> B _ <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> tl <span class="keyword">=</span> avltree_takeout_min&lt;<span class="staexp">elt</span><span class="keyword">&gt;</span> <span class="keyword">(</span>tl<span class="keyword">,</span> x0<span class="keyword">)</span>
+      <span class="keyword">val</span> hl <span class="keyword">=</span> avltree_height <span class="keyword">(</span>tl<span class="keyword">)</span> <span class="keyword">and</span> hr <span class="keyword">=</span> avltree_height <span class="keyword">(</span>tr<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> hr - hl &lt;= 1 <span class="keyword">then</span> <span class="keyword">begin</span>
+        B <span class="keyword">(</span>max<span class="keyword">(</span>hl<span class="keyword">,</span>hr<span class="keyword">)</span>+1<span class="keyword">,</span> tl<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span> <span class="comment">// hl+2 = hr
+</span>       avltree_lrotate <span class="keyword">(</span>tl<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [B]
+</span>  <span class="keyword">|</span> E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>x0 := x<span class="keyword">;</span> tr<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [avltree_takeout_min]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">elt</span><span class="keyword">}</span> funset_remove <span class="keyword">(</span>t<span class="keyword">,</span> x0<span class="keyword">,</span> cmp<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> remove <span class="staexp"><span class="keyword">{</span>h<span class="keyword">,</span>s<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>h<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h<span class="keyword">,</span> s<span class="keyword">)</span></span><span class="keyword">,</span> removed<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int? &gt;&gt; int i</span><span class="keyword">)</span>
+    <span class="keyword">:&lt;</span><span class="staexp">cloref</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>two <span class="keyword">|</span> i &lt;= s<span class="keyword">]</span> avltree_dec <span class="keyword">(</span>elt<span class="keyword">,</span> h<span class="keyword">,</span> s-i<span class="keyword">)</span></span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> t <span class="keyword">of</span>
+    <span class="keyword">|</span> B <span class="keyword">(</span>_<span class="comment">(*h*)</span><span class="keyword">,</span> tl<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> sgn <span class="keyword">=</span> compare_elt_elt&lt;<span class="staexp">elt</span><span class="keyword">&gt;</span> <span class="keyword">(</span>x0<span class="keyword">,</span> x<span class="keyword">,</span> cmp<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        <span class="keyword">if</span> sgn <span class="keyword">&lt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> tl <span class="keyword">=</span> remove <span class="keyword">(</span>tl<span class="keyword">,</span> removed<span class="keyword">)</span>
+          <span class="keyword">val</span> hl <span class="keyword">=</span> avltree_height tl <span class="keyword">and</span> hr <span class="keyword">=</span> avltree_height tr
+        <span class="keyword">in</span>
+          <span class="keyword">if</span> hr - hl &lt;= 1 <span class="keyword">then</span> <span class="keyword">begin</span>
+            B <span class="keyword">(</span>max<span class="keyword">(</span>hl<span class="keyword">,</span>hr<span class="keyword">)</span>+1<span class="keyword">,</span> tl<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span> <span class="comment">// hl+2 == hr
+</span>            avltree_lrotate <span class="keyword">(</span>tl<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>        <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> sgn <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> tr <span class="keyword">=</span> remove <span class="keyword">(</span>tr<span class="keyword">,</span> removed<span class="keyword">)</span>
+          <span class="keyword">val</span> hl <span class="keyword">=</span> avltree_height tl <span class="keyword">and</span> hr <span class="keyword">=</span> avltree_height tr
+        <span class="keyword">in</span>
+          <span class="keyword">if</span> hl - hr &lt;= 1 <span class="keyword">then</span> <span class="keyword">begin</span>
+            B <span class="keyword">(</span>max<span class="keyword">(</span>hl<span class="keyword">,</span>hr<span class="keyword">)</span>+1<span class="keyword">,</span> tl<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span> <span class="comment">// hl = hr+2
+</span>            avltree_rrotate <span class="keyword">(</span>tl<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>        <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> removed := 1
+        <span class="keyword">in</span>
+          <span class="keyword">case+</span> tr <span class="keyword">of</span>
+          <span class="keyword">|</span> B _ <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+              <span class="keyword">var</span> x_min<span class="keyword">:</span> <span class="staexp">elt</span>
+              <span class="keyword">val</span> tr <span class="keyword">=</span> avltree_takeout_min&lt;<span class="staexp">elt</span><span class="keyword">&gt;</span> <span class="keyword">(</span>tr<span class="keyword">,</span> x_min<span class="keyword">)</span>
+              <span class="keyword">val</span> hl <span class="keyword">=</span> avltree_height tl <span class="keyword">and</span> hr <span class="keyword">=</span> avltree_height tr
+            <span class="keyword">in</span>
+              <span class="keyword">if</span> hl - hr &lt;= 1 <span class="keyword">then</span> <span class="keyword">begin</span>
+                B <span class="keyword">(</span>max<span class="keyword">(</span>hl<span class="keyword">,</span>hr<span class="keyword">)</span>+1<span class="keyword">,</span> tl<span class="keyword">,</span> x_min<span class="keyword">,</span> tr<span class="keyword">)</span>
+              <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span> <span class="comment">// hl+2 = hr
+</span>                avltree_rrotate <span class="keyword">(</span>tl<span class="keyword">,</span> x_min<span class="keyword">,</span> tr<span class="keyword">)</span>
+              <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>            <span class="keyword">end</span> <span class="comment">// end of [B]
+</span>          <span class="keyword">|</span> E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> tl
+        <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>      <span class="keyword">end</span> <span class="comment">// end of [B]
+</span>    <span class="keyword">|</span> E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>removed := 0<span class="keyword">;</span> E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="comment">// end of [remove]
+</span>  <span class="keyword">var</span> removed<span class="keyword">:</span> <span class="staexp">int</span> <span class="comment">// uninitialized
+</span><span class="keyword">in</span>
+  remove <span class="keyword">(</span>t<span class="keyword">,</span> removed<span class="keyword">)</span> <span class="comment">// size = size (t) - removed
+</span><span class="keyword">end</span> <span class="comment">// end of [funset_remove]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+** left join: height(tl) &gt;= height(tr)
+*)</span>
+<span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span>
+  avltree_ljoin <span class="staexp"><span class="keyword">{</span>hl<span class="keyword">,</span>hr<span class="keyword">,</span>sl<span class="keyword">,</span>sr<span class="keyword">:</span>nat <span class="keyword">|</span> hl &gt;= hr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>hl<span class="keyword">&gt;.</span></span>
+  <span class="keyword">(</span>tl<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> hl<span class="keyword">,</span> sl<span class="keyword">)</span></span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp">elt</span><span class="keyword">,</span> tr<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> hr<span class="keyword">,</span> sr<span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp">avltree_inc <span class="keyword">(</span>elt<span class="keyword">,</span> hl<span class="keyword">,</span> sl+sr+1<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> hl <span class="keyword">=</span> avltree_height <span class="keyword">(</span>tl<span class="keyword">)</span> <span class="keyword">and</span> hr <span class="keyword">=</span> avltree_height <span class="keyword">(</span>tr<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> hl - hr &gt;= 2 <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">val+</span> B <span class="keyword">(</span>_<span class="keyword">,</span> tll<span class="keyword">,</span> xl<span class="keyword">,</span> tlr<span class="keyword">)</span> <span class="keyword">=</span> tl
+    <span class="keyword">val</span> tlr <span class="keyword">=</span> avltree_ljoin&lt;<span class="staexp">elt</span><span class="keyword">&gt;</span> <span class="keyword">(</span>tlr<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span>
+    <span class="keyword">val</span> hll <span class="keyword">=</span> avltree_height <span class="keyword">(</span>tll<span class="keyword">)</span> <span class="keyword">and</span> hlr <span class="keyword">=</span> avltree_height <span class="keyword">(</span>tlr<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="keyword">if</span> hlr - hll &lt;= 1 <span class="keyword">then</span> <span class="keyword">begin</span>
+      B <span class="keyword">(</span>max<span class="keyword">(</span>hll<span class="keyword">,</span>hlr<span class="keyword">)</span>+1<span class="keyword">,</span> tll<span class="keyword">,</span> xl<span class="keyword">,</span> tlr<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span> <span class="comment">// hll+2 = hlr
+</span>      avltree_lrotate <span class="keyword">(</span>tll<span class="keyword">,</span> xl<span class="keyword">,</span> tlr<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+    B <span class="keyword">(</span>hl+1<span class="keyword">,</span> tl<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">// end of [avltree_ljoin]
+</span>
+<span class="comment">(*
+** right join: height(tl) &lt;= height(tr)
+*)</span>
+<span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span>
+  avltree_rjoin <span class="staexp"><span class="keyword">{</span>hl<span class="keyword">,</span>hr<span class="keyword">,</span>sl<span class="keyword">,</span>sr<span class="keyword">:</span>nat <span class="keyword">|</span> hl &lt;= hr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>hr<span class="keyword">&gt;.</span></span>
+  <span class="keyword">(</span>tl<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> hl<span class="keyword">,</span> sl<span class="keyword">)</span></span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp">elt</span><span class="keyword">,</span> tr<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> hr<span class="keyword">,</span> sr<span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp">avltree_inc <span class="keyword">(</span>elt<span class="keyword">,</span> hr<span class="keyword">,</span> sl+sr+1<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> hl <span class="keyword">=</span> avltree_height <span class="keyword">(</span>tl<span class="keyword">)</span> <span class="keyword">and</span> hr <span class="keyword">=</span> avltree_height <span class="keyword">(</span>tr<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> hr - hl &gt;= 2 <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">val+</span> B <span class="keyword">(</span>_<span class="keyword">,</span> trl<span class="keyword">,</span> xr<span class="keyword">,</span> trr<span class="keyword">)</span> <span class="keyword">=</span> tr
+    <span class="keyword">val</span> trl <span class="keyword">=</span> avltree_rjoin&lt;<span class="staexp">elt</span><span class="keyword">&gt;</span> <span class="keyword">(</span>tl<span class="keyword">,</span> x<span class="keyword">,</span> trl<span class="keyword">)</span>
+    <span class="keyword">val</span> hrl <span class="keyword">=</span> avltree_height <span class="keyword">(</span>trl<span class="keyword">)</span> <span class="keyword">and</span> hrr <span class="keyword">=</span> avltree_height <span class="keyword">(</span>trr<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="keyword">if</span> hrl - hrr &lt;= 1 <span class="keyword">then</span> <span class="keyword">begin</span>
+      B <span class="keyword">(</span>max<span class="keyword">(</span>hrl<span class="keyword">,</span>hrr<span class="keyword">)</span>+1<span class="keyword">,</span> trl<span class="keyword">,</span> xr<span class="keyword">,</span> trr<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span> <span class="comment">// hrl = hrr+2
+</span>      avltree_rrotate <span class="keyword">(</span>trl<span class="keyword">,</span> xr<span class="keyword">,</span> trr<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+    B <span class="keyword">(</span>hr+1<span class="keyword">,</span> tl<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">// end of [avltree_rjoin]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> avltree_join <span class="staexp"><span class="keyword">{</span>hl<span class="keyword">,</span>hr<span class="keyword">,</span>sl<span class="keyword">,</span>sr<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>tl<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> hl<span class="keyword">,</span> sl<span class="keyword">)</span></span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp">elt</span><span class="keyword">,</span> tr<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> hr<span class="keyword">,</span> sr<span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>h<span class="keyword">:</span>int <span class="keyword">|</span> hl &lt;= h<span class="keyword">;</span> hr &lt;= h<span class="keyword">;</span> h &lt;= max<span class="keyword">(</span>hl<span class="keyword">,</span>hr<span class="keyword">)</span>+1<span class="keyword">]</span> avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h<span class="keyword">,</span> sl+sr+1<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> hl <span class="keyword">=</span> avltree_height tl <span class="keyword">and</span> hr <span class="keyword">=</span> avltree_height tr
+<span class="keyword">in</span>
+  <span class="keyword">if</span> hl &gt;= hr <span class="keyword">then</span> avltree_ljoin <span class="keyword">(</span>tl<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">else</span> avltree_rjoin <span class="keyword">(</span>tl<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [avltree_join]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> avltree_concat <span class="staexp"><span class="keyword">{</span>hl<span class="keyword">,</span>hr<span class="keyword">,</span>sl<span class="keyword">,</span>sr<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>tl<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> hl<span class="keyword">,</span> sl<span class="keyword">)</span></span><span class="keyword">,</span> tr<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> hr<span class="keyword">,</span> sr<span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>h<span class="keyword">:</span>nat <span class="keyword">|</span> h &lt;= max<span class="keyword">(</span>hl<span class="keyword">,</span>hr<span class="keyword">)</span>+1<span class="keyword">]</span> avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h<span class="keyword">,</span> sl+sr<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>tl<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> tr
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> tl
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">var</span> x_min<span class="keyword">:</span> <span class="staexp">elt</span> <span class="comment">// uninitialized
+</span>      <span class="keyword">val</span> tr <span class="keyword">=</span> avltree_takeout_min&lt;<span class="staexp">elt</span><span class="keyword">&gt;</span> <span class="keyword">(</span>tr<span class="keyword">,</span> x_min<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      avltree_join <span class="keyword">(</span>tl<span class="keyword">,</span> x_min<span class="keyword">,</span> tr<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_, _]
+</span><span class="keyword">end</span> <span class="comment">// end of [avltree_concat]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><A name="11982"><span class="stacstdec">avltree <span class="keyword">=</span> avltree <span class="keyword">(</span>void<span class="keyword">,</span> 0<span class="keyword">,</span> 0<span class="keyword">)</span></span></span></A>
+
+<span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>t@ype</span><span class="keyword">}</span>
+  avltree_split_at <span class="staexp"><span class="keyword">{</span>h<span class="keyword">,</span>s<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>h<span class="keyword">&gt;.</span></span> <span class="keyword">(</span>
+    t<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h<span class="keyword">,</span> s<span class="keyword">)</span></span><span class="keyword">,</span> x0<span class="keyword">:</span> <span class="staexp">elt</span>
+  <span class="keyword">,</span> tl0<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>avltree? &gt;&gt; avltree <span class="keyword">(</span>elt<span class="keyword">,</span> hl<span class="keyword">,</span> sl<span class="keyword">)</span></span>
+  <span class="keyword">,</span> tr0<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>avltree? &gt;&gt; avltree <span class="keyword">(</span>elt<span class="keyword">,</span> hr<span class="keyword">,</span> sr<span class="keyword">)</span></span>
+  <span class="keyword">,</span> cmp<span class="keyword">:</span> <span class="staexp">cmp elt</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>two<span class="keyword">;</span> hl<span class="keyword">,</span>hr<span class="keyword">,</span>sl<span class="keyword">,</span>sr<span class="keyword">:</span>nat <span class="keyword">|</span> hl &lt;= h<span class="keyword">;</span> hr &lt;= h<span class="keyword">;</span> sl+sr+i == s<span class="keyword">]</span> int i</span> <span class="keyword">=</span>
+  <span class="keyword">case</span> t <span class="keyword">of</span>
+  <span class="keyword">|</span> B <span class="keyword">(</span>_<span class="comment">(*h*)</span><span class="keyword">,</span> tl<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> sgn <span class="keyword">=</span> compare_elt_elt&lt;<span class="staexp">elt</span><span class="keyword">&gt;</span> <span class="keyword">(</span>x0<span class="keyword">,</span> x<span class="keyword">,</span> cmp<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> sgn <span class="keyword">&lt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> i <span class="keyword">=</span> avltree_split_at <span class="keyword">(</span>tl<span class="keyword">,</span> x0<span class="keyword">,</span> tl0<span class="keyword">,</span> tr0<span class="keyword">,</span> cmp<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        tr0 := avltree_join <span class="keyword">(</span>tr0<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span><span class="keyword">;</span> i
+      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> sgn <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> i <span class="keyword">=</span> avltree_split_at <span class="keyword">(</span>tr<span class="keyword">,</span> x0<span class="keyword">,</span> tl0<span class="keyword">,</span> tr0<span class="keyword">,</span> cmp<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        tl0 := avltree_join <span class="keyword">(</span>tl<span class="keyword">,</span> x<span class="keyword">,</span> tl0<span class="keyword">)</span><span class="keyword">;</span> i
+      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+        tl0 := tl<span class="keyword">;</span> tr0 := tr<span class="keyword">;</span> 1 <span class="comment">// [x] is found in [t]
+</span>      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [B]
+</span>  <span class="keyword">|</span> E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>tl0 := E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span> tr0 := E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span> 0<span class="keyword">)</span>
+<span class="comment">// end of [avltree_split_at]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">elt</span><span class="keyword">}</span> funset_choose <span class="keyword">(</span>t<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> t <span class="keyword">of</span>
+  <span class="keyword">|</span> B <span class="keyword">(</span>_<span class="comment">(*h*)</span><span class="keyword">,</span> _<span class="comment">(*tl*)</span><span class="keyword">,</span> x<span class="keyword">,</span> _<span class="comment">(*tr*)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> Some_vt x <span class="keyword">|</span> E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [funset_choose]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">elt</span><span class="keyword">}</span> funset_union <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">,</span> cmp<span class="keyword">)</span> <span class="keyword">=</span> uni <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> uni <span class="staexp"><span class="keyword">{</span>h1<span class="keyword">,</span>h2<span class="keyword">,</span>s1<span class="keyword">,</span>s2<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>h1<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span>t1<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h1<span class="keyword">,</span> s1<span class="keyword">)</span></span><span class="keyword">,</span> t2<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h2<span class="keyword">,</span> s2<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref</span><span class="keyword">&gt;</span>
+    <span class="staexp"><span class="keyword">[</span>h<span class="keyword">,</span>s<span class="keyword">:</span>nat <span class="keyword">|</span> s1 &lt;= s<span class="keyword">;</span> s2 &lt;= s<span class="keyword">;</span> s &lt;= s1+s2<span class="keyword">]</span> avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h<span class="keyword">,</span> s<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> t2 <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> t1 <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val+</span> B <span class="keyword">(</span>_<span class="comment">(*h1*)</span><span class="keyword">,</span> t1l<span class="keyword">,</span> x1<span class="keyword">,</span> t1r<span class="keyword">)</span> <span class="keyword">=</span> t1
+        <span class="keyword">var</span> t2l0<span class="keyword">:</span> <span class="staexp">avltree?</span> <span class="keyword">and</span> t2r0<span class="keyword">:</span> <span class="staexp">avltree?</span>
+        <span class="keyword">val+</span> i <span class="keyword">=</span> avltree_split_at <span class="keyword">(</span>t2<span class="keyword">,</span> x1<span class="keyword">,</span> t2l0<span class="keyword">,</span> t2r0<span class="keyword">,</span> cmp<span class="keyword">)</span>
+        <span class="keyword">val</span> t12l <span class="keyword">=</span> uni <span class="keyword">(</span>t1l<span class="keyword">,</span> t2l0<span class="keyword">)</span> <span class="keyword">and</span> t12r <span class="keyword">=</span> uni <span class="keyword">(</span>t1r<span class="keyword">,</span> t2r0<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        avltree_join <span class="keyword">(</span>t12l<span class="keyword">,</span> x1<span class="keyword">,</span> t12r<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [_, _]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [uni]
+</span>  <span class="comment">// end of [uni] // [union] is a keyword
+</span><span class="keyword">}</span> <span class="comment">// end of [funset_union]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">elt</span><span class="keyword">}</span> funset_intersect <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">,</span> cmp<span class="keyword">)</span> <span class="keyword">=</span> inter <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> inter <span class="staexp"><span class="keyword">{</span>h1<span class="keyword">,</span>h2<span class="keyword">,</span>s1<span class="keyword">,</span>s2<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>h1<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span>t1<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h1<span class="keyword">,</span> s1<span class="keyword">)</span></span><span class="keyword">,</span> t2<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h2<span class="keyword">,</span> s2<span class="keyword">)</span></span><span class="keyword">)</span>
+    <span class="keyword">:&lt;</span><span class="staexp">cloref</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">[</span>h<span class="keyword">,</span>s<span class="keyword">:</span>nat <span class="keyword">|</span> s &lt;= s1<span class="keyword">;</span> s &lt;= s2<span class="keyword">]</span> avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h<span class="keyword">,</span> s<span class="keyword">)</span></span> <span class="keyword">=</span>
+    <span class="keyword">begin</span> <span class="keyword">case+</span> <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val+</span> B <span class="keyword">(</span>_<span class="comment">(*h1*)</span><span class="keyword">,</span> t1l<span class="keyword">,</span> x1<span class="keyword">,</span> t1r<span class="keyword">)</span> <span class="keyword">=</span> t1
+        <span class="keyword">var</span> t2l0<span class="keyword">:</span> <span class="staexp">avltree?</span> <span class="keyword">and</span> t2r0<span class="keyword">:</span> <span class="staexp">avltree?</span>
+        <span class="keyword">val+</span> i <span class="keyword">=</span> avltree_split_at <span class="keyword">(</span>t2<span class="keyword">,</span> x1<span class="keyword">,</span> t2l0<span class="keyword">,</span> t2r0<span class="keyword">,</span> cmp<span class="keyword">)</span>
+        <span class="keyword">val</span> t12l <span class="keyword">=</span> inter <span class="keyword">(</span>t1l<span class="keyword">,</span> t2l0<span class="keyword">)</span> <span class="keyword">and</span> t12r <span class="keyword">=</span> inter <span class="keyword">(</span>t1r<span class="keyword">,</span> t2r0<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        <span class="keyword">if</span> i <span class="keyword">=</span> 0 <span class="keyword">then</span> avltree_concat <span class="keyword">(</span>t12l<span class="keyword">,</span> t12r<span class="keyword">)</span> <span class="keyword">else</span> avltree_join <span class="keyword">(</span>t12l<span class="keyword">,</span> x1<span class="keyword">,</span> t12r<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [_, _]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [inter]
+</span>  <span class="comment">// end of [inter]
+</span><span class="keyword">}</span> <span class="comment">// end of [funset_intersect]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">elt</span><span class="keyword">}</span> funset_diff <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">,</span> cmp<span class="keyword">)</span> <span class="keyword">=</span> diff <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> diff <span class="staexp"><span class="keyword">{</span>h1<span class="keyword">,</span>h2<span class="keyword">,</span>s1<span class="keyword">,</span>s2<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>h1<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span>t1<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h1<span class="keyword">,</span> s1<span class="keyword">)</span></span><span class="keyword">,</span> t2<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h2<span class="keyword">,</span> s2<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref</span><span class="keyword">&gt;</span>
+    <span class="staexp"><span class="keyword">[</span>h<span class="keyword">,</span>s<span class="keyword">:</span>nat <span class="keyword">|</span> s &lt;= s1<span class="keyword">]</span> avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h<span class="keyword">,</span> s<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> t1 <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val+</span> B <span class="keyword">(</span>_<span class="comment">(*h1*)</span><span class="keyword">,</span> t1l<span class="keyword">,</span> x1<span class="keyword">,</span> t1r<span class="keyword">)</span> <span class="keyword">=</span> t1
+        <span class="keyword">var</span> t2l0<span class="keyword">:</span> <span class="staexp">avltree?</span> <span class="keyword">and</span> t2r0<span class="keyword">:</span> <span class="staexp">avltree?</span>
+        <span class="keyword">val+</span> i <span class="keyword">=</span> avltree_split_at <span class="keyword">(</span>t2<span class="keyword">,</span> x1<span class="keyword">,</span> t2l0<span class="keyword">,</span> t2r0<span class="keyword">,</span> cmp<span class="keyword">)</span>
+        <span class="keyword">val</span> t12l <span class="keyword">=</span> diff <span class="keyword">(</span>t1l<span class="keyword">,</span> t2l0<span class="keyword">)</span> <span class="keyword">and</span> t12r <span class="keyword">=</span> diff <span class="keyword">(</span>t1r<span class="keyword">,</span> t2r0<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> avltree_concat <span class="keyword">(</span>t12l<span class="keyword">,</span> t12r<span class="keyword">)</span> <span class="keyword">else</span> avltree_join <span class="keyword">(</span>t12l<span class="keyword">,</span> x1<span class="keyword">,</span> t12r<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [_, _]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [diff]
+</span>  <span class="comment">// end of [diff]
+</span><span class="keyword">}</span> <span class="comment">// end of [funset_diff]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">elt</span><span class="keyword">}</span> funset_symmdiff <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">,</span> cmp<span class="keyword">)</span> <span class="keyword">=</span> symmdiff <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> symmdiff <span class="staexp"><span class="keyword">{</span>h1<span class="keyword">,</span>h2<span class="keyword">,</span>s1<span class="keyword">,</span>s2<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>h1<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span>t1<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h1<span class="keyword">,</span> s1<span class="keyword">)</span></span><span class="keyword">,</span> t2<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h2<span class="keyword">,</span> s2<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref</span><span class="keyword">&gt;</span>
+    <span class="staexp"><span class="keyword">[</span>h<span class="keyword">,</span>s<span class="keyword">:</span>nat <span class="keyword">|</span> s &lt;= s1+s2<span class="keyword">]</span> avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h<span class="keyword">,</span> s<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> t2 <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> t1 <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val+</span> B <span class="keyword">(</span>_<span class="comment">(*h1*)</span><span class="keyword">,</span> t1l<span class="keyword">,</span> x1<span class="keyword">,</span> t1r<span class="keyword">)</span> <span class="keyword">=</span> t1
+        <span class="keyword">var</span> t2l0<span class="keyword">:</span> <span class="staexp">avltree?</span> <span class="keyword">and</span> t2r0<span class="keyword">:</span> <span class="staexp">avltree?</span>
+        <span class="keyword">val+</span> i <span class="keyword">=</span> avltree_split_at <span class="keyword">(</span>t2<span class="keyword">,</span> x1<span class="keyword">,</span> t2l0<span class="keyword">,</span> t2r0<span class="keyword">,</span> cmp<span class="keyword">)</span>
+        <span class="keyword">val</span> t12l <span class="keyword">=</span> symmdiff <span class="keyword">(</span>t1l<span class="keyword">,</span> t2l0<span class="keyword">)</span> <span class="keyword">and</span> t12r <span class="keyword">=</span> symmdiff <span class="keyword">(</span>t1r<span class="keyword">,</span> t2r0<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> avltree_concat <span class="keyword">(</span>t12l<span class="keyword">,</span> t12r<span class="keyword">)</span> <span class="keyword">else</span> avltree_join <span class="keyword">(</span>t12l<span class="keyword">,</span> x1<span class="keyword">,</span> t12r<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [_, _]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [symmdiff]
+</span>  <span class="comment">// end of [diff]
+</span><span class="keyword">}</span> <span class="comment">// end of [funset_symmdiff]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">elt</span><span class="keyword">}</span> funset_is_subset <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">,</span> cmp<span class="keyword">)</span> <span class="keyword">=</span> test <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> test <span class="staexp"><span class="keyword">{</span>h1<span class="keyword">,</span>h2<span class="keyword">,</span>s1<span class="keyword">,</span>s2<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>h1<span class="keyword">&gt;.</span></span> <span class="keyword">(</span>
+      t1<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h1<span class="keyword">,</span> s1<span class="keyword">)</span></span><span class="keyword">,</span> t2<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h2<span class="keyword">,</span> s2<span class="keyword">)</span></span>
+    <span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">cloref</span><span class="keyword">&gt;</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> true <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> false <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val+</span> B<span class="keyword">(</span>_<span class="comment">(*h1*)</span><span class="keyword">,</span> t1l<span class="keyword">,</span> x1<span class="keyword">,</span> t1r<span class="keyword">)</span> <span class="keyword">=</span> t1
+        <span class="keyword">var</span> t2l0<span class="keyword">:</span> <span class="staexp">avltree?</span> <span class="keyword">and</span> t2r0<span class="keyword">:</span> <span class="staexp">avltree?</span>
+        <span class="keyword">val+</span> i <span class="keyword">=</span> avltree_split_at <span class="keyword">(</span>t2<span class="keyword">,</span> x1<span class="keyword">,</span> t2l0<span class="keyword">,</span> t2r0<span class="keyword">,</span> cmp<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span>
+          <span class="keyword">(</span>test <span class="keyword">(</span>t1l<span class="keyword">,</span> t2l0<span class="keyword">)</span> andalso test <span class="keyword">(</span>t1r<span class="keyword">,</span> t2r0<span class="keyword">)</span><span class="keyword">)</span>
+        <span class="keyword">else</span> false
+      <span class="keyword">end</span> <span class="comment">// end of [_, _]
+</span>  <span class="keyword">end</span> <span class="comment">// end of [test]    
+</span><span class="keyword">}</span> <span class="comment">// end of [funset_is_subset]
+</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">elt</span><span class="keyword">}</span> funset_is_equal <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">,</span> cmp<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> funset_is_subset&lt;<span class="staexp">elt</span><span class="keyword">&gt;</span> <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">,</span> cmp<span class="keyword">)</span> <span class="keyword">then</span>
+    funset_is_subset&lt;<span class="staexp">elt</span><span class="keyword">&gt;</span> <span class="keyword">(</span>t2<span class="keyword">,</span> t1<span class="keyword">,</span> cmp<span class="keyword">)</span> <span class="keyword">else</span> false
+  <span class="comment">// end of [if]
+</span><span class="comment">(* end of [funset_is_equal] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// infix order traversal
+</span><span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">elt</span><span class="keyword">}</span> funset_foreach_clo
+  <span class="staexp"><span class="keyword">{</span>v<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> t<span class="keyword">,</span> f<span class="keyword">)</span> <span class="keyword">=</span> aux <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> f<span class="keyword">,</span> t<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">viewtypedef</span> <span class="staexp"><A name="16948"><span class="stacstdec">clo_type <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">!</span>v <span class="keyword">|</span> elt<span class="keyword">)</span> <span class="keyword">-&lt;</span>clo<span class="keyword">&gt;</span> void</span></span></A>
+  <span class="keyword">fun</span> aux <span class="staexp"><span class="keyword">{</span>h<span class="keyword">,</span>s<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>h<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v</span></span> <span class="keyword">|</span> f<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>clo_type</span><span class="keyword">,</span> t<span class="keyword">:</span> <span class="staexp">avltree <span class="keyword">(</span>elt<span class="keyword">,</span> h<span class="keyword">,</span> s<span class="keyword">)</span></span><span class="keyword">)</span>
+    <span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> t <span class="keyword">of</span>
+    <span class="keyword">|</span> B <span class="keyword">(</span>_<span class="comment">(*h*)</span><span class="keyword">,</span> tl<span class="keyword">,</span> x<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="comment">(* inorder traversal *)</span>
+        aux <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> f<span class="keyword">,</span> tl<span class="keyword">)</span><span class="keyword">;</span> f <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> x<span class="keyword">)</span><span class="keyword">;</span> aux <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> f<span class="keyword">,</span> tr<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [B]
+</span>    <span class="keyword">|</span> E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [aux]
+</span><span class="keyword">}</span> <span class="comment">// end of [funset_foreach_clo]
+</span>
+<span class="comment">// infix order traversal
+</span><span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">elt</span><span class="keyword">}</span>
+  funset_foreach_cloref <span class="keyword">(</span>t<span class="keyword">,</span> f<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> f <span class="keyword">=</span> __cast <span class="keyword">(</span>f<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span> <span class="keyword">extern</span> <span class="keyword">castfn</span> <A name="17425"><span class="dyncstdec">__cast
+    <span class="keyword">(</span>f<span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>elt<span class="keyword">)</span> <span class="keyword">-&lt;</span>cloref<span class="keyword">&gt;</span> void</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">!</span>unit_v <span class="keyword">|</span> elt<span class="keyword">)</span> <span class="keyword">-&lt;</span>cloref<span class="keyword">&gt;</span> void</span></span></A>
+  <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">typedef</span> <span class="staexp"><A name="17526"><span class="stacstdec">clo_type <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">!</span>unit_v <span class="keyword">|</span> elt<span class="keyword">)</span> <span class="keyword">-&lt;</span>clo<span class="keyword">&gt;</span> void</span></span></A>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf_f</span> <span class="keyword">|</span> p_f<span class="keyword">)</span> <span class="keyword">=</span> cloref_get_view_ptr <span class="staexp"><span class="keyword">{</span>clo_type<span class="keyword">}</span></span> <span class="keyword">(</span>f<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp">pf <span class="keyword">=</span> unit_v <span class="keyword">(</span><span class="keyword">)</span></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> funset_foreach_clo&lt;<span class="staexp">elt</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">{</span>unit_v<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> t<span class="keyword">,</span> <span class="keyword">!</span>p_f<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf</span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [funset_foreach_cloref]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">elt</span><span class="keyword">}</span>
+  funset_make_list <span class="keyword">(</span>xs<span class="keyword">,</span> cmp<span class="keyword">)</span> <span class="keyword">=</span> loop <span class="keyword">(</span>xs<span class="keyword">,</span> funset_empty <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">typedef</span> <span class="staexp"><A name="17896"><span class="stacstdec">res_t <span class="keyword">=</span> set_t <span class="keyword">(</span>elt<span class="keyword">)</span></span></span></A>
+  <span class="keyword">fun</span> loop <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span>xs<span class="keyword">:</span>  <span class="staexp">list <span class="keyword">(</span>elt<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp">res_t</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref</span><span class="keyword">&gt;</span> <span class="staexp">res_t</span> <span class="keyword">=</span> <span class="keyword">case+</span> xs <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>x<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=&gt;</span> loop <span class="keyword">(</span>xs<span class="keyword">,</span> funset_insert <span class="keyword">(</span>res<span class="keyword">,</span> x<span class="keyword">,</span> cmp<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> res
+<span class="keyword">}</span> <span class="comment">// end of [funset_make_list]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [funset_avltree.dats] *)</span>
+</PRE>
+</BODY>
+</HTML>

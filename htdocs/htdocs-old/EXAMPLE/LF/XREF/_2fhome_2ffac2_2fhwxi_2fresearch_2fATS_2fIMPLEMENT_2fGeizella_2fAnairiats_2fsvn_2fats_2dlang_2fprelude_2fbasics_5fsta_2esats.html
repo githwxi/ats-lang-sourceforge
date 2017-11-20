@@ -1,0 +1,954 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of the GNU LESSER GENERAL PUBLIC LICENSE as published by the
+** Free Software Foundation; either version 2.1, or (at your option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">//
+</span><span class="comment">// author of the file: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">//
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#include</span> <span class="neuexp">"prelude/params.hats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#if</span> <span class="neuexp">VERBOSE_PRELUDE</span> <span class="keyword">#then</span>
+<span class="keyword">#print</span> <span class="neuexp">"Loading [basic_sta.sats] starts!\n"</span>
+<span class="keyword">#endif</span> <span class="comment">// end of [VERBOSE_PRELUDE]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* some integer constants *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">power_2_4 0x10</span>
+<span class="keyword">#define</span> <span class="neuexp">power_2_5 0x20</span>
+<span class="keyword">#define</span> <span class="neuexp">power_2_6 0x40</span>
+<span class="keyword">#define</span> <span class="neuexp">power_2_7 0x80</span>
+<span class="keyword">#define</span> <span class="neuexp">power_2_8 0x100</span>
+<span class="keyword">#define</span> <span class="neuexp">power_2_10 0x400</span>
+<span class="keyword">#define</span> <span class="neuexp">power_2_15 0x8000</span>
+<span class="keyword">#define</span> <span class="neuexp">power_2_16 0x10000</span>
+<span class="keyword">#define</span> <span class="neuexp">power_2_20 0x100000</span>
+<span class="keyword">#define</span> <span class="neuexp">power_2_31 0x80000000</span>
+<span class="keyword">#define</span> <span class="neuexp">power_2_32 0x100000000</span>
+<span class="keyword">#define</span> <span class="neuexp">power_2_63 0x8000000000000000</span>
+<span class="keyword">#define</span> <span class="neuexp">power_2_64 0x10000000000000000</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// some unindexed types
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="2150"><span class="stacstdec">bool_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_bool_type"</span></a></span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="2196"><span class="stacstdec">byte_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_byte_type"</span></a></span> <span class="comment">// sizeof (byte) = 1
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="2285"><span class="stacstdec">char_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_char_type"</span></a></span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="2331"><span class="stacstdec">schar_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_schar_type"</span></a></span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="2379"><span class="stacstdec">uchar_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_uchar_type"</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abstype</span> <span class="staexp"><a name="2448"><span class="stacstdec">clo_t0ype</span></a></span> <span class="comment">// ats_clo_type
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="2505"><span class="stacstdec">double_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_double_type"</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">absviewtype</span> <span class="staexp"><a name="2580"><span class="stacstdec">exception_viewtype</span></a></span> <span class="comment">// boxed type
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="2644"><span class="stacstdec">int_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_int_type"</span></a></span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="2688"><span class="stacstdec">uint_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_uint_type"</span></a></span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="2735"><span class="stacstdec">int_short_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_sint_type"</span></a></span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="2786"><span class="stacstdec">uint_short_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_usint_type"</span></a></span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="2840"><span class="stacstdec">int_short_short_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_sint_type"</span></a></span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="2897"><span class="stacstdec">uint_short_short_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_ussint_type"</span></a></span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="2958"><span class="stacstdec">int_long_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_lint_type"</span></a></span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="3008"><span class="stacstdec">uint_long_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_ulint_type"</span></a></span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="3061"><span class="stacstdec">int_long_long_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_llint_type"</span></a></span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="3117"><span class="stacstdec">uint_long_long_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_ullint_type"</span></a></span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="3176"><span class="stacstdec">intmax_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_intmax_type"</span></a></span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="3226"><span class="stacstdec">uintmax_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_uintmax_type"</span></a></span>
+
+<span class="comment">// integer types guaranteed to be of one word size
+</span><span class="keyword">abstype</span> <span class="staexp"><a name="3329"><span class="stacstdec">intptr_type</span></a></span> <span class="comment">// ats_intptr_type
+</span><span class="keyword">abstype</span> <span class="staexp"><a name="3368"><span class="stacstdec">uintptr_type</span></a></span> <span class="comment">// ats_uintptr_type
+</span>
+<span class="comment">// integer types with fixed size
+</span><span class="keyword">abst@ype</span> <span class="staexp"><a name="3444"><span class="stacstdec">int8_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_int8_type"</span></a></span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="3490"><span class="stacstdec">uint8_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_uint8_type"</span></a></span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="3539"><span class="stacstdec">int16_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_int16_type"</span></a></span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="3587"><span class="stacstdec">uint16_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_uint16_type"</span></a></span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="3638"><span class="stacstdec">int32_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_int32_type"</span></a></span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="3686"><span class="stacstdec">uint32_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_uint32_type"</span></a></span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="3737"><span class="stacstdec">int64_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_int64_type"</span></a></span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="3785"><span class="stacstdec">uint64_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_uint64_type"</span></a></span>
+
+<span class="comment">// integer types for sizes
+</span><span class="keyword">abst@ype</span> <span class="staexp"><a name="3863"><span class="stacstdec">size_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_size_type"</span></a></span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="3909"><span class="stacstdec">ssize_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_ssize_type"</span></a></span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="3957"><span class="stacstdec">ptrdiff_t0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_ptrdiff_type"</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abstype</span> <span class="staexp"><a name="4030"><span class="stacstdec">ptr_type</span></a></span> <span class="comment">// unindexed type for pointers
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abstype</span> <span class="staexp"><a name="4100"><span class="stacstdec">string_type</span></a></span> <span class="comment">// boxed type
+</span><span class="keyword">abst@ype</span> <span class="staexp"><a name="4135"><span class="stacstdec">strbuf_t0ype</span></a></span> <span class="comment">// a type of variable size
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="4206"><span class="stacstdec">void_t0ype <span class="keyword">=</span>
+  <span class="keyword">$extype</span> "ats_void_type"</span></a></span> <span class="comment">// sizeof (void) = 1
+</span><span class="comment">// end of [void_t0ype]
+</span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="4299"><span class="stacstdec">empty_t0ype <span class="keyword">=</span>
+  <span class="keyword">$extype</span> "ats_empty_type"</span></a></span> <span class="comment">// sizeof (empty) = 0
+</span><span class="comment">// end of [empty_t0ype]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// some built-in static constants for integer operations
+</span>
+<span class="keyword">sta</span> <span class="staexp">neg_int_int <span class="keyword">:</span> int <span class="keyword">-&gt;</span> int</span> <span class="comment">(* integer negation *)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="4525"><span class="stacstdec"><span class="keyword">~</span> <span class="keyword">=</span> neg_int_int</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">add_int_int_int <span class="keyword">:</span> <span class="keyword">(</span>int<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">-&gt;</span> int</span> <span class="comment">(* addition *)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="4604"><span class="stacstdec">+ <span class="keyword">=</span> add_int_int_int</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">sub_int_int_int<span class="keyword">:</span> <span class="keyword">(</span>int<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">-&gt;</span> int</span> <span class="comment">(* subtraction *)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="4689"><span class="stacstdec">- <span class="keyword">=</span> sub_int_int_int</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">nsub_int_int_int<span class="keyword">:</span> <span class="keyword">(</span>int<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">-&gt;</span> int</span> <span class="comment">(* subtraction on nats *)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="4783"><span class="stacstdec">nsub <span class="keyword">=</span> nsub_int_int_int</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">mul_int_int_int <span class="keyword">:</span> <span class="keyword">(</span>int<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">-&gt;</span> int</span> <span class="comment">(* multiplication *)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="4876"><span class="stacstdec">* <span class="keyword">=</span> mul_int_int_int</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">div_int_int_int <span class="keyword">:</span> <span class="keyword">(</span>int<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">-&gt;</span> int</span> <span class="comment">(* division *)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="4959"><span class="stacstdec">/ <span class="keyword">=</span> div_int_int_int</span></a></span>
+
+<span class="comment">(*
+sta mod_int_int_int : (int, int) -&gt; int (* modulo operation *)
+stadef mod = mod_int_int_int
+*)</span>
+<span class="comment">// [y] is required to be a constant
+</span><span class="keyword">stadef</span> <span class="staexp"><a name="5121"><span class="stacstdec">mod <span class="keyword">(</span>x<span class="keyword">:</span>int<span class="keyword">,</span> y<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> x - y * <span class="keyword">(</span>x / y<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">abs_int_int <span class="keyword">:</span> int <span class="keyword">-&gt;</span> int</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="5195"><span class="stacstdec">abs <span class="keyword">=</span> abs_int_int</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">max_int_int_int <span class="keyword">:</span> <span class="keyword">(</span>int<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">-&gt;</span> int</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="5261"><span class="stacstdec">max <span class="keyword">=</span> max_int_int_int</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">min_int_int_int <span class="keyword">:</span> <span class="keyword">(</span>int<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">-&gt;</span> int</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="5331"><span class="stacstdec">min <span class="keyword">=</span> min_int_int_int</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">int_of_bool <span class="keyword">:</span> bool <span class="keyword">-&gt;</span> int <span class="keyword">and</span> bool_of_int <span class="keyword">:</span> int <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">sta</span> <span class="staexp">int_of_char <span class="keyword">:</span> char <span class="keyword">-&gt;</span> int <span class="keyword">and</span> char_of_int <span class="keyword">:</span> int <span class="keyword">-&gt;</span> char</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// The built-in boolean constants
+</span>
+<span class="keyword">sta</span> <span class="staexp">true_bool <span class="keyword">:</span> bool <span class="keyword">and</span> false_bool <span class="keyword">:</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="5581"><span class="stacstdec">true <span class="keyword">=</span> true_bool</span></a></span> <span class="keyword">and</span> <span class="staexp"><a name="5602"><span class="stacstdec">false <span class="keyword">=</span> false_bool</span></a></span>
+
+<span class="comment">// some built-in static constants for boolean operations
+</span>
+<span class="keyword">sta</span> <span class="staexp">neg_bool_bool <span class="keyword">:</span> bool <span class="keyword">-&gt;</span> bool</span> <span class="comment">(* boolean negation *)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="5743"><span class="stacstdec"><span class="keyword">~</span> <span class="keyword">=</span> neg_bool_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">mul_bool_bool_bool <span class="keyword">:</span> <span class="keyword">(</span>bool<span class="keyword">,</span> bool<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span> <span class="comment">(* conjunction *)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="5833"><span class="stacstdec">&amp;&amp; <span class="keyword">=</span> mul_bool_bool_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">add_bool_bool_bool <span class="keyword">:</span> <span class="keyword">(</span>bool<span class="keyword">,</span> bool<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span> <span class="comment">(* disjunction *)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="5929"><span class="stacstdec">|| <span class="keyword">=</span> add_bool_bool_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">gt_bool_bool_bool <span class="keyword">:</span> <span class="keyword">(</span>bool<span class="keyword">,</span> bool<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="6006"><span class="stacstdec"><span class="keyword">&gt;</span> <span class="keyword">=</span> gt_bool_bool_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">gte_bool_bool_bool <span class="keyword">:</span> <span class="keyword">(</span>bool<span class="keyword">,</span> bool<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="6082"><span class="stacstdec">&gt;= <span class="keyword">=</span> gte_bool_bool_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">lt_bool_bool_bool <span class="keyword">:</span> <span class="keyword">(</span>bool<span class="keyword">,</span> bool<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="6159"><span class="stacstdec"><span class="keyword">&lt;</span> <span class="keyword">=</span> lt_bool_bool_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">lte_bool_bool_bool <span class="keyword">:</span> <span class="keyword">(</span>bool<span class="keyword">,</span> bool<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="6235"><span class="stacstdec">&lt;= <span class="keyword">=</span> lte_bool_bool_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">eq_bool_bool_bool <span class="keyword">:</span> <span class="keyword">(</span>bool<span class="keyword">,</span> bool<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="6312"><span class="stacstdec">== <span class="keyword">=</span> eq_bool_bool_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">neq_bool_bool_bool <span class="keyword">:</span> <span class="keyword">(</span>bool<span class="keyword">,</span> bool<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="6389"><span class="stacstdec">&lt;&gt; <span class="keyword">=</span> neq_bool_bool_bool</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// some built-in static constants for char comparisons
+</span>
+<span class="keyword">sta</span> <span class="staexp">sub_char_char_int <span class="keyword">:</span> <span class="keyword">(</span>char<span class="keyword">,</span> char<span class="keyword">)</span> <span class="keyword">-&gt;</span> int</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="6542"><span class="stacstdec">- <span class="keyword">=</span> sub_char_char_int</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">gt_char_char_bool <span class="keyword">:</span> <span class="keyword">(</span>char<span class="keyword">,</span> char<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="6617"><span class="stacstdec"><span class="keyword">&gt;</span> <span class="keyword">=</span> gt_char_char_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">gte_char_char_bool <span class="keyword">:</span> <span class="keyword">(</span>char<span class="keyword">,</span> char<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="6693"><span class="stacstdec">&gt;= <span class="keyword">=</span> gte_char_char_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">lt_char_char_bool <span class="keyword">:</span> <span class="keyword">(</span>char<span class="keyword">,</span> char<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="6770"><span class="stacstdec"><span class="keyword">&lt;</span> <span class="keyword">=</span> lt_char_char_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">lte_char_char_bool <span class="keyword">:</span> <span class="keyword">(</span>char<span class="keyword">,</span> char<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="6846"><span class="stacstdec">&lt;= <span class="keyword">=</span> lte_char_char_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">eq_char_char_bool <span class="keyword">:</span> <span class="keyword">(</span>char<span class="keyword">,</span> char<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="6923"><span class="stacstdec">== <span class="keyword">=</span> eq_char_char_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">neq_char_char_bool <span class="keyword">:</span> <span class="keyword">(</span>char<span class="keyword">,</span> char<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="7000"><span class="stacstdec">&lt;&gt; <span class="keyword">=</span> neq_char_char_bool</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// some built-in static constants for integer comparisons
+</span>
+<span class="keyword">sta</span> <span class="staexp">gt_int_int_bool <span class="keyword">:</span> <span class="keyword">(</span>int<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="7153"><span class="stacstdec"><span class="keyword">&gt;</span> <span class="keyword">=</span> gt_int_int_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">gte_int_int_bool <span class="keyword">:</span> <span class="keyword">(</span>int<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="7223"><span class="stacstdec">&gt;= <span class="keyword">=</span> gte_int_int_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">lt_int_int_bool <span class="keyword">:</span> <span class="keyword">(</span>int<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="7294"><span class="stacstdec"><span class="keyword">&lt;</span> <span class="keyword">=</span> lt_int_int_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">lte_int_int_bool <span class="keyword">:</span> <span class="keyword">(</span>int<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="7364"><span class="stacstdec">&lt;= <span class="keyword">=</span> lte_int_int_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">eq_int_int_bool <span class="keyword">:</span> <span class="keyword">(</span>int<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="7435"><span class="stacstdec">== <span class="keyword">=</span> eq_int_int_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">neq_int_int_bool <span class="keyword">:</span> <span class="keyword">(</span>int<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="7506"><span class="stacstdec">&lt;&gt; <span class="keyword">=</span> neq_int_int_bool</span></a></span>
+
+<span class="comment">// some built-in static constants for pointer arithmetic
+</span>
+<span class="keyword">sta</span> <span class="staexp">null_addr <span class="keyword">:</span> addr</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="7615"><span class="stacstdec">null <span class="keyword">=</span> null_addr</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">add_addr_int_addr <span class="keyword">:</span> <span class="keyword">(</span>addr<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">-&gt;</span> addr</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="7684"><span class="stacstdec">+ <span class="keyword">=</span> add_addr_int_addr</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">sub_addr_int_addr <span class="keyword">:</span> <span class="keyword">(</span>addr<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">-&gt;</span> addr</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="7758"><span class="stacstdec">- <span class="keyword">=</span> sub_addr_int_addr</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">sub_addr_addr_int <span class="keyword">:</span> <span class="keyword">(</span>addr<span class="keyword">,</span> addr<span class="keyword">)</span> <span class="keyword">-&gt;</span> int</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="7832"><span class="stacstdec">- <span class="keyword">=</span> sub_addr_addr_int</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">gt_addr_addr_bool <span class="keyword">:</span> <span class="keyword">(</span>addr<span class="keyword">,</span> addr<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="7907"><span class="stacstdec"><span class="keyword">&gt;</span> <span class="keyword">=</span> gt_addr_addr_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">gte_addr_addr_bool <span class="keyword">:</span> <span class="keyword">(</span>addr<span class="keyword">,</span> addr<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="7983"><span class="stacstdec">&gt;= <span class="keyword">=</span> gte_addr_addr_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">lt_addr_addr_bool <span class="keyword">:</span> <span class="keyword">(</span>addr<span class="keyword">,</span> addr<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="8060"><span class="stacstdec"><span class="keyword">&lt;</span> <span class="keyword">=</span> lt_addr_addr_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">lte_addr_addr_bool <span class="keyword">:</span> <span class="keyword">(</span>addr<span class="keyword">,</span> addr<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="8136"><span class="stacstdec">&lt;= <span class="keyword">=</span> lte_addr_addr_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">eq_addr_addr_bool <span class="keyword">:</span> <span class="keyword">(</span>addr<span class="keyword">,</span> addr<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="8213"><span class="stacstdec">== <span class="keyword">=</span> eq_addr_addr_bool</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">neq_addr_addr_bool <span class="keyword">:</span> <span class="keyword">(</span>addr<span class="keyword">,</span> addr<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="8290"><span class="stacstdec">&lt;&gt; <span class="keyword">=</span> neq_addr_addr_bool</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+** subclass relation
+*)</span>
+<span class="keyword">sta</span> <span class="staexp">lte_cls_cls_bool <span class="keyword">:</span> <span class="keyword">(</span>cls<span class="keyword">,</span> cls<span class="keyword">)</span> <span class="keyword">-&gt;</span> bool</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="8412"><span class="stacstdec">&lt;= <span class="keyword">=</span> lte_cls_cls_bool</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+
+// some built-in static constants for rationals
+// not yet supported and may never be supported
+
+sta ~ : rat -&gt; rat (* rational negation *)
+sta + : (rat, rat) -&gt; rat (* addition *)
+and - : (rat, rat) -&gt; rat (* subtraction *)
+and * : (rat, rat) -&gt; rat (* multiplication *)
+and / : (rat, int) -&gt; rat (* division *)
+and / : (rat, rat) -&gt; rat (* division *)
+
+sta &gt; : (rat, rat) -&gt; bool
+sta &gt; : (rat, int) -&gt; bool
+and &gt;= : (rat, rat) -&gt; bool
+and &lt; : (rat, rat) -&gt; bool
+and &lt;= : (rat, rat) -&gt; bool
+and &lt;&gt; : (rat, rat) -&gt; bool
+and == : (rat, rat) -&gt; bool
+
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="9046"><span class="stacstdec">bottom_t0ype_uni <span class="keyword">=</span> <span class="keyword">{</span>a<span class="keyword">:</span>t@ype<span class="keyword">}</span> a</span></a></span>
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="9089"><span class="stacstdec">bottom_t0ype_exi <span class="keyword">=</span> <span class="keyword">[</span>a<span class="keyword">:</span>t@ype <span class="keyword">|</span> false<span class="keyword">]</span> a</span></a></span>
+
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="9141"><span class="stacstdec">bottom_viewt0ype_uni <span class="keyword">=</span> <span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span> a</span></a></span>
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="9192"><span class="stacstdec">bottom_viewt0ype_exi <span class="keyword">=</span> <span class="keyword">[</span>a<span class="keyword">:</span>viewt@ype <span class="keyword">|</span> false<span class="keyword">]</span> a</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// some built-in type/viewtype/prop/view constructors
+</span>
+<span class="keyword">absview</span> <span class="staexp"><a name="9324"><span class="stacstdec">at_viewt0ype_addr_view</span></a></span> <span class="keyword">(</span>viewt@ype+<span class="keyword">,</span> addr<span class="keyword">)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="9373"><span class="stacstdec">@ <span class="keyword">=</span> at_viewt0ype_addr_view</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abstype</span> <span class="staexp"><a name="9430"><span class="stacstdec">ref_viewt0ype_type</span></a></span> <span class="keyword">(</span>viewt@ype<span class="keyword">)</span> <span class="comment">// boxed type
+</span><span class="keyword">stadef</span> <span class="staexp"><a name="9482"><span class="stacstdec">ref <span class="keyword">=</span> ref_viewt0ype_type</span></a></span>
+
+<span class="keyword">abstype</span> <span class="staexp"><a name="9516"><span class="stacstdec">refconst_t0ype_type</span></a></span> <span class="keyword">(</span>t@ype<span class="keyword">)</span> <span class="comment">// boxed type
+</span><span class="keyword">stadef</span> <span class="staexp"><a name="9565"><span class="stacstdec">refconst <span class="keyword">=</span> refconst_t0ype_type</span></a></span>
+
+<span class="comment">(*
+
+// HX-2009: should this be added?
+abstype refopt_viewt0ype_bool_type (viewt@ype, bool)
+stadef refopt = refopt_viewt0ype_bool_type
+
+typedef Refopt (a: viewt@ype) = [b:bool] refopt (a, b)
+
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// for taking out a component in a record
+</span><span class="keyword">abst@ype</span>
+<span class="staexp"><a name="9864"><span class="stacstdec">without_viewt0ype_t0ype</span></a></span> <span class="keyword">(</span>viewt@ype<span class="keyword">)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="9907"><span class="stacstdec">without <span class="keyword">=</span> without_viewt0ype_t0ype</span></a></span>
+
+<span class="comment">// sta vbox_view_prop : view -&gt; prop
+</span><span class="keyword">absprop</span> <span class="staexp"><a name="9987"><span class="stacstdec">vbox_view_prop</span></a></span> <span class="keyword">(</span>view<span class="keyword">)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="10016"><span class="stacstdec">vbox <span class="keyword">=</span> vbox_view_prop</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+absviewt@ype opt_viewt0ype_int_viewt0ype
+  (a:viewt@ype+, i:int) = union (i) { value= a }
+stadef opt = value_viewt0ype_int_viewt0ype
+*)</span>
+
+<span class="keyword">absviewt@ype</span>
+<span class="staexp"><a name="10213"><span class="stacstdec">opt_viewt0ype_bool_viewt0ype <span class="keyword">(</span>a<span class="keyword">:</span>viewt@ype+<span class="keyword">,</span> opt<span class="keyword">:</span>bool<span class="keyword">)</span> <span class="keyword">=</span> a</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="10278"><span class="stacstdec">opt <span class="keyword">=</span> opt_viewt0ype_bool_viewt0ype</span></a></span>
+<span class="comment">//
+</span><span class="comment">// HX-2010-03-23: resulting in incorrect erasure
+</span><span class="comment">// stadef Opt (a:viewt@ype) = [b:bool] opt (a, b)
+</span><span class="comment">//
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+// HX-2008:
+// this not yet supported and it may never
+datasort stamp = (* abstract *) // be supported
+// sta vfrac : (stamp, view, rat) -&gt; view
+absview vfrac (stamp, view, rat)
+// sta vtfrac : (stamp, viewtype, rat) -&gt; viewtype
+absviewtype vtfrac (stamp, viewtype, rat)
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: build-in dependent type constructors
+</span><span class="comment">//
+</span><span class="keyword">abstype</span>
+<span class="staexp"><a name="10796"><span class="stacstdec">array0_viewt0ype_type</span></a></span> <span class="keyword">(</span>elt<span class="keyword">:</span>viewt@ype<span class="keyword">)</span>
+<span class="keyword">abstype</span>
+<span class="staexp"><a name="10842"><span class="stacstdec">array_viewt0ype_int_type</span></a></span> <span class="keyword">(</span>elt<span class="keyword">:</span>viewt@ype<span class="keyword">,</span> sz<span class="keyword">:</span>int<span class="keyword">)</span>
+
+<span class="keyword">abstype</span>
+<span class="staexp"><a name="10900"><span class="stacstdec">matrix0_viewt0ype_type</span></a></span> <span class="keyword">(</span>elt<span class="keyword">:</span>viewt@ype<span class="keyword">)</span>
+<span class="keyword">abstype</span>
+<span class="staexp"><a name="10947"><span class="stacstdec">matrix_viewt0ype_int_int_type</span></a></span> <span class="keyword">(</span>elt<span class="keyword">:</span>viewt@ype<span class="keyword">,</span> nrow<span class="keyword">:</span>int<span class="keyword">,</span> ncol<span class="keyword">:</span>int<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="11044"><span class="stacstdec">bool_bool_t0ype <span class="keyword">(</span>bool<span class="keyword">)</span> <span class="keyword">=</span> bool_t0ype</span></a></span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="11090"><span class="stacstdec">char_char_t0ype <span class="keyword">(</span>char<span class="keyword">)</span> <span class="keyword">=</span> char_t0ype</span></a></span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="11136"><span class="stacstdec">int_int_t0ype <span class="keyword">(</span>int<span class="keyword">)</span> <span class="keyword">=</span> int_t0ype</span></a></span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="11177"><span class="stacstdec">uint_int_t0ype <span class="keyword">(</span>int<span class="keyword">)</span> <span class="keyword">=</span> uint_t0ype</span></a></span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="11221"><span class="stacstdec">lint_int_t0ype <span class="keyword">(</span>int<span class="keyword">)</span> <span class="keyword">=</span> int_long_t0ype</span></a></span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="11268"><span class="stacstdec">ulint_int_t0ype <span class="keyword">(</span>int<span class="keyword">)</span> <span class="keyword">=</span> uint_long_t0ype</span></a></span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="11318"><span class="stacstdec">llint_int_t0ype <span class="keyword">(</span>int<span class="keyword">)</span> <span class="keyword">=</span> int_long_long_t0ype</span></a></span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="11371"><span class="stacstdec">ullint_int_t0ype <span class="keyword">(</span>int<span class="keyword">)</span> <span class="keyword">=</span> uint_long_long_t0ype</span></a></span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="11427"><span class="stacstdec">size_int_t0ype <span class="keyword">(</span>i<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> size_t0ype</span></a></span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="11472"><span class="stacstdec">ssize_int_t0ype <span class="keyword">(</span>i<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> ssize_t0ype</span></a></span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="11520"><span class="stacstdec">ptrdiff_int_t0ype <span class="keyword">(</span>i<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> ptrdiff_t0ype</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abstype</span> <span class="staexp"><a name="11592"><span class="stacstdec">ptr_addr_type</span></a></span> <span class="keyword">(</span>addr<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abstype</span> <span class="staexp"><a name="11643"><span class="stacstdec">string_int_type</span></a></span> <span class="keyword">(</span>int<span class="keyword">)</span>
+<span class="keyword">abstype</span> <span class="staexp"><a name="11673"><span class="stacstdec">stropt_int_type</span></a></span> <span class="keyword">(</span>int<span class="keyword">)</span>
+<span class="keyword">abst@ype</span>
+<span class="staexp"><a name="11704"><span class="stacstdec">strbuf_int_int_t0ype</span></a></span> <span class="keyword">(</span>bsz<span class="keyword">:</span> int<span class="keyword">,</span> len<span class="keyword">:</span> int<span class="keyword">)</span> <span class="comment">// of variable size
+</span><span class="keyword">absviewtype</span>
+<span class="staexp"><a name="11778"><span class="stacstdec">strptr_addr_int_viewtype</span></a></span> <span class="keyword">(</span>addr<span class="keyword">,</span> int<span class="keyword">)</span> <span class="comment">// for linear strings
+</span><span class="keyword">absviewtype</span> <span class="staexp"><a name="11849"><span class="stacstdec">strptr_addr_viewtype</span></a></span> <span class="keyword">(</span>addr<span class="keyword">)</span> <span class="comment">// for linear strings
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// The following definitions are needed in the ATS constraint solver
+</span>
+<span class="comment">// absolute value function relation
+</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="12035"><span class="stacstdec">abs_int_int_bool <span class="keyword">(</span>x<span class="keyword">:</span> int<span class="keyword">,</span> v<span class="keyword">:</span> int<span class="keyword">)</span><span class="keyword">:</span> bool <span class="keyword">=</span>
+  <span class="keyword">(</span>x &gt;= 0 &amp;&amp; x == v<span class="keyword">)</span> || <span class="keyword">(</span>x &lt;= 0 &amp;&amp; <span class="keyword">~</span>x == v<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="12129"><span class="stacstdec">abs_r <span class="keyword">=</span> abs_int_int_bool</span></a></span>
+
+<span class="comment">// in-between relation
+</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="12186"><span class="stacstdec">btw_int_int_int_bool <span class="keyword">(</span>x<span class="keyword">:</span> int<span class="keyword">,</span> y<span class="keyword">:</span> int<span class="keyword">,</span> z<span class="keyword">:</span>int<span class="keyword">)</span><span class="keyword">:</span> bool <span class="keyword">=</span>
+  <span class="keyword">(</span>x &lt;= y &amp;&amp; y <span class="keyword">&lt;</span> z<span class="keyword">)</span></span></a></span>
+
+<span class="comment">// int_of_bool conversion
+</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="12294"><span class="stacstdec">int_of_bool_bool <span class="keyword">(</span>b<span class="keyword">:</span> bool<span class="keyword">,</span> v<span class="keyword">:</span> int<span class="keyword">)</span><span class="keyword">:</span> bool <span class="keyword">=</span>
+  <span class="keyword">(</span>b &amp;&amp; v == 1<span class="keyword">)</span> || <span class="keyword">(</span><span class="keyword">~</span>b &amp;&amp; v == 0<span class="keyword">)</span></span></a></span>
+
+<span class="comment">// subtraction relation on natural numbers
+</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="12423"><span class="stacstdec">nsub_int_int_int_bool <span class="keyword">(</span>x<span class="keyword">:</span> int<span class="keyword">,</span> y<span class="keyword">:</span> int<span class="keyword">,</span> v<span class="keyword">:</span> int<span class="keyword">)</span><span class="keyword">:</span> bool <span class="keyword">=</span>
+  <span class="keyword">(</span>x &gt;= y &amp;&amp; v == x - y<span class="keyword">)</span> || <span class="keyword">(</span>x &lt;= y &amp;&amp; v == 0<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="12533"><span class="stacstdec">nsub_r <span class="keyword">=</span> nsub_int_int_int_bool</span></a></span>
+
+<span class="comment">// maximum function relation
+</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="12602"><span class="stacstdec">max_int_int_int_bool <span class="keyword">(</span>x<span class="keyword">:</span> int<span class="keyword">,</span> y<span class="keyword">:</span> int<span class="keyword">,</span> v<span class="keyword">:</span> int<span class="keyword">)</span><span class="keyword">:</span> bool <span class="keyword">=</span>
+  <span class="keyword">(</span>x &gt;= y &amp;&amp; x == v<span class="keyword">)</span> || <span class="keyword">(</span>x &lt;= y &amp;&amp; y == v<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="12707"><span class="stacstdec">max_r <span class="keyword">=</span> max_int_int_int_bool</span></a></span>
+
+<span class="comment">// minimum function relation
+</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="12774"><span class="stacstdec">min_int_int_int_bool <span class="keyword">(</span>x<span class="keyword">:</span> int<span class="keyword">,</span> y<span class="keyword">:</span> int<span class="keyword">,</span> v<span class="keyword">:</span> int<span class="keyword">)</span><span class="keyword">:</span> bool <span class="keyword">=</span>
+  <span class="keyword">(</span>x &gt;= y &amp;&amp; y == v<span class="keyword">)</span> || <span class="keyword">(</span>x &lt;= y &amp;&amp; x == v<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="12879"><span class="stacstdec">min_r <span class="keyword">=</span> min_int_int_int_bool</span></a></span>
+
+<span class="comment">// sign function relation
+</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="12943"><span class="stacstdec">sgn_int_int_bool <span class="keyword">(</span>x<span class="keyword">:</span> int<span class="keyword">,</span> v<span class="keyword">:</span> int<span class="keyword">)</span><span class="keyword">:</span> bool <span class="keyword">=</span>
+  <span class="keyword">(</span>x <span class="keyword">&gt;</span> 0 &amp;&amp; v == 1<span class="keyword">)</span> || <span class="keyword">(</span>x == 0 &amp;&amp; v == 0<span class="keyword">)</span> || <span class="keyword">(</span>x <span class="keyword">&lt;</span> 0 &amp;&amp; v == ~1<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="13057"><span class="stacstdec">sgn_r <span class="keyword">=</span> sgn_int_int_bool</span></a></span>
+
+<span class="comment">// division relation
+</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="13112"><span class="stacstdec">ndiv_int_int_int_bool <span class="keyword">(</span>x<span class="keyword">:</span> int<span class="keyword">,</span> y<span class="keyword">:</span> int<span class="keyword">,</span> q<span class="keyword">:</span> int<span class="keyword">)</span><span class="keyword">:</span> bool <span class="keyword">=</span>
+  <span class="keyword">(</span>q * y &lt;= x &amp;&amp; x <span class="keyword">&lt;</span> q * y + y<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="13207"><span class="stacstdec">ndiv_r <span class="keyword">=</span> ndiv_int_int_int_bool</span></a></span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="13246"><span class="stacstdec">div_int_int_int_bool <span class="keyword">(</span>x<span class="keyword">:</span> int<span class="keyword">,</span> y<span class="keyword">:</span> int<span class="keyword">,</span> q<span class="keyword">:</span> int<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">(</span>x &gt;= 0 &amp;&amp; y <span class="keyword">&gt;</span> 0 &amp;&amp; ndiv_int_int_int_bool <span class="keyword">(</span>x<span class="keyword">,</span> y<span class="keyword">,</span> q<span class="keyword">)</span><span class="keyword">)</span> ||
+  <span class="keyword">(</span>x &gt;= 0 &amp;&amp; y <span class="keyword">&lt;</span> 0 &amp;&amp; ndiv_int_int_int_bool <span class="keyword">(</span>x<span class="keyword">,</span> <span class="keyword">~</span>y<span class="keyword">,</span> <span class="keyword">~</span>q<span class="keyword">)</span><span class="keyword">)</span> ||
+  <span class="keyword">(</span>x &lt;= 0 &amp;&amp; y <span class="keyword">&gt;</span> 0 &amp;&amp; ndiv_int_int_int_bool <span class="keyword">(</span><span class="keyword">~</span>x<span class="keyword">,</span> y<span class="keyword">,</span> <span class="keyword">~</span>q<span class="keyword">)</span><span class="keyword">)</span> ||
+  <span class="keyword">(</span>x &lt;= 0 &amp;&amp; y <span class="keyword">&lt;</span> 0 &amp;&amp; ndiv_int_int_int_bool <span class="keyword">(</span><span class="keyword">~</span>x<span class="keyword">,</span> <span class="keyword">~</span>y<span class="keyword">,</span> q<span class="keyword">)</span><span class="keyword">)</span></span></a></span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="13537"><span class="stacstdec">div_r <span class="keyword">=</span> div_int_int_int_bool</span></a></span>
+
+<span class="comment">// modulo relation // not handled yet
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="13634"><span class="stacstdec">size_int_int_bool <span class="keyword">(</span>sz<span class="keyword">:</span> int<span class="keyword">,</span> n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> n &gt;= 0</span></a></span>
+
+<span class="keyword">sta</span> <span class="staexp">sizeof_viewt0ype_int <span class="keyword">:</span> viewt@ype <span class="keyword">-&gt;</span> int</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="13730"><span class="stacstdec">sizeof <span class="keyword">=</span> sizeof_viewt0ype_int</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// introduce some short names
+</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="13820"><span class="stacstdec">array0 <span class="keyword">=</span> array0_viewt0ype_type</span></a></span> <span class="comment">// with dynamic size
+</span><span class="keyword">stadef</span> <span class="staexp"><a name="13879"><span class="stacstdec">array <span class="keyword">=</span> array_viewt0ype_int_type</span></a></span> <span class="comment">// without dynamic size
+</span><span class="keyword">stadef</span> <span class="staexp"><a name="13943"><span class="stacstdec">matrix0 <span class="keyword">=</span> matrix0_viewt0ype_type</span></a></span> <span class="comment">// with dynamic size
+</span><span class="keyword">stadef</span> <span class="staexp"><a name="14004"><span class="stacstdec">matrix <span class="keyword">=</span> matrix_viewt0ype_int_int_type</span></a></span> <span class="comment">// without dynamic size
+</span>
+<span class="comment">(* this order is significant! *)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="14108"><span class="stacstdec">bool <span class="keyword">=</span> bool_bool_t0ype</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="14138"><span class="stacstdec">bool <span class="keyword">=</span> bool_t0ype</span></a></span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="14164"><span class="stacstdec">byte <span class="keyword">=</span> byte_t0ype</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* this order is significant! *)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="14244"><span class="stacstdec">char <span class="keyword">=</span> char_char_t0ype</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="14274"><span class="stacstdec">char <span class="keyword">=</span> char_t0ype</span></a></span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="14300"><span class="stacstdec">schar <span class="keyword">=</span> schar_t0ype</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="14327"><span class="stacstdec">uchar <span class="keyword">=</span> uchar_t0ype</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="14376"><span class="stacstdec">double <span class="keyword">=</span> double_t0ype</span></a></span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="14406"><span class="stacstdec">exn <span class="keyword">=</span> exception_viewtype</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* this order is significant! *)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="14493"><span class="stacstdec">int <span class="keyword">=</span> int_int_t0ype</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="14520"><span class="stacstdec">int <span class="keyword">=</span> int_t0ype</span></a></span>
+
+<span class="comment">(* this order is significant! *)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="14577"><span class="stacstdec">uint <span class="keyword">=</span> uint_int_t0ype</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="14606"><span class="stacstdec">uint <span class="keyword">=</span> uint_t0ype</span></a></span>
+
+<span class="comment">(* this order is significant! *)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="14665"><span class="stacstdec">size_t <span class="keyword">=</span> size_int_t0ype</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="14696"><span class="stacstdec">size_t <span class="keyword">=</span> size_t0ype</span></a></span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="14724"><span class="stacstdec">ssize_t <span class="keyword">=</span> ssize_int_t0ype</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="14757"><span class="stacstdec">ssize_t <span class="keyword">=</span> ssize_t0ype</span></a></span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="14787"><span class="stacstdec">ptrdiff_t <span class="keyword">=</span> ptrdiff_int_t0ype</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="14824"><span class="stacstdec">ptrdiff_t <span class="keyword">=</span> ptrdiff_t0ype</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="14879"><span class="stacstdec">ptr <span class="keyword">=</span> ptr_addr_type</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="14906"><span class="stacstdec">ptr <span class="keyword">=</span> ptr_type</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="14950"><span class="stacstdec">strbuf <span class="keyword">=</span> strbuf_int_int_t0ype</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="14987"><span class="stacstdec">strbuf <span class="keyword">(</span>bsz<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>len<span class="keyword">:</span>int <span class="keyword">|</span> 0 &lt;= len<span class="keyword">]</span> strbuf <span class="keyword">(</span>bsz<span class="keyword">,</span> len<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="15053"><span class="stacstdec">string <span class="keyword">=</span> string_int_type</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="15085"><span class="stacstdec">string <span class="keyword">=</span> string_type</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="15113"><span class="stacstdec">stropt <span class="keyword">=</span> stropt_int_type</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="15145"><span class="stacstdec">strptr <span class="keyword">=</span> strptr_addr_viewtype</span></a></span> <span class="comment">// for linear strings
+</span><span class="keyword">stadef</span> <span class="staexp"><a name="15204"><span class="stacstdec">strptr0 <span class="keyword">=</span> <span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> strptr <span class="keyword">(</span>l<span class="keyword">)</span></span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="15241"><span class="stacstdec">strptr1 <span class="keyword">=</span> <span class="keyword">[</span>l<span class="keyword">:</span>addr <span class="keyword">|</span> l <span class="keyword">&gt;</span> null<span class="keyword">]</span> strptr <span class="keyword">(</span>l<span class="keyword">)</span></span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="15289"><span class="stacstdec">strptrlen <span class="keyword">=</span> strptr_addr_int_viewtype</span></a></span> <span class="comment">// for linear strings with length
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="15389"><span class="stacstdec">void <span class="keyword">=</span> void_t0ype</span></a></span> <span class="comment">// sizeof(void) = 1
+</span><span class="keyword">stadef</span> <span class="staexp"><a name="15434"><span class="stacstdec">empty <span class="keyword">=</span> empty_t0ype</span></a></span> <span class="comment">// sizeof(empty) = 0
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="15506"><span class="stacstdec">unit</span></a></span> <span class="keyword">=</span> unit <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">)</span></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="15533"><span class="stacstdec">Bool <span class="keyword">=</span> <span class="keyword">[</span>b<span class="keyword">:</span>bool<span class="keyword">]</span> bool b</span></a></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="15565"><span class="stacstdec">Char <span class="keyword">=</span> <span class="keyword">[</span>c<span class="keyword">:</span>char<span class="keyword">]</span> char c</span></a></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="15597"><span class="stacstdec">Int <span class="keyword">=</span> <span class="keyword">[</span>i<span class="keyword">:</span>int<span class="keyword">]</span> int i</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="15625"><span class="stacstdec">intLt <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i <span class="keyword">&lt;</span> n<span class="keyword">]</span> int i</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="15671"><span class="stacstdec">intLte <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &lt;= n<span class="keyword">]</span> int i</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="15719"><span class="stacstdec">intGt <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i <span class="keyword">&gt;</span> n<span class="keyword">]</span> int i</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="15765"><span class="stacstdec">intGte <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &gt;= n<span class="keyword">]</span> int i</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="15813"><span class="stacstdec">intBtw <span class="keyword">(</span>lb<span class="keyword">:</span>int<span class="keyword">,</span> ub<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>i<span class="keyword">:</span> int <span class="keyword">|</span> lb &lt;= i<span class="keyword">;</span> i <span class="keyword">&lt;</span> ub<span class="keyword">]</span> int i</span></a></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="15881"><span class="stacstdec">Nat <span class="keyword">=</span> <span class="keyword">[</span>n<span class="keyword">:</span>int <span class="keyword">|</span> n &gt;= 0<span class="keyword">]</span> int n</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="15918"><span class="stacstdec">natLt <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> 0 &lt;=i<span class="keyword">;</span> i <span class="keyword">&lt;</span> n<span class="keyword">]</span> int i</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="15971"><span class="stacstdec">natLte <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> 0 &lt;= i<span class="keyword">;</span> i &lt;= n<span class="keyword">]</span> int i</span></a></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="16028"><span class="stacstdec">Pos <span class="keyword">=</span> intGt 0</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="16050"><span class="stacstdec">Neg <span class="keyword">=</span> intLt 0</span></a></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="16073"><span class="stacstdec">Sgn <span class="keyword">=</span> <span class="keyword">[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> ~1 &lt;= i<span class="keyword">;</span> i &lt;= 1<span class="keyword">]</span> int i</span></a></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="16120"><span class="stacstdec">Ptr <span class="keyword">=</span> <span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> ptr <span class="keyword">(</span>l<span class="keyword">)</span></span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="16151"><span class="stacstdec">Ptr1 <span class="keyword">=</span> <span class="keyword">[</span>l<span class="keyword">:</span>addr <span class="keyword">|</span> l <span class="keyword">&gt;</span> null<span class="keyword">]</span> ptr <span class="keyword">(</span>l<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="16195"><span class="stacstdec">String <span class="keyword">=</span> <span class="keyword">[</span>n<span class="keyword">:</span>int <span class="keyword">|</span> n &gt;= 0<span class="keyword">]</span> string n</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="16238"><span class="stacstdec">Stropt <span class="keyword">=</span> <span class="keyword">[</span>n<span class="keyword">:</span>int<span class="keyword">]</span> stropt n</span></a></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="16273"><span class="stacstdec">uInt <span class="keyword">=</span> <span class="keyword">[</span>n<span class="keyword">:</span>int <span class="keyword">|</span> n &gt;=0<span class="keyword">]</span> uint n</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="16333"><span class="stacstdec">sizeof_t <span class="keyword">(</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">)</span> <span class="keyword">=</span>
+  size_int_t0ype <span class="keyword">(</span>sizeof_viewt0ype_int a<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="16409"><span class="stacstdec">Size <span class="keyword">=</span> <span class="keyword">[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &gt;= 0<span class="keyword">]</span> size_t i</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="16450"><span class="stacstdec">sizeLt <span class="keyword">(</span>n<span class="keyword">:</span> int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> 0 &lt;= i<span class="keyword">;</span> i <span class="keyword">&lt;</span> n<span class="keyword">]</span> size_t <span class="keyword">(</span>i<span class="keyword">)</span></span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="16511"><span class="stacstdec">sizeLte <span class="keyword">(</span>n<span class="keyword">:</span> int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> 0 &lt;= i<span class="keyword">;</span> i &lt;= n<span class="keyword">]</span> size_t <span class="keyword">(</span>i<span class="keyword">)</span></span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="16574"><span class="stacstdec">sizeGt <span class="keyword">(</span>n<span class="keyword">:</span> int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i <span class="keyword">&gt;</span> n<span class="keyword">]</span> size_t <span class="keyword">(</span>i<span class="keyword">)</span></span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="16627"><span class="stacstdec">sizeGte <span class="keyword">(</span>n<span class="keyword">:</span> int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &gt;= n<span class="keyword">]</span> size_t <span class="keyword">(</span>i<span class="keyword">)</span></span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="16682"><span class="stacstdec">sizeBtw <span class="keyword">(</span>lb<span class="keyword">:</span>int<span class="keyword">,</span> ub<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>i<span class="keyword">:</span> int <span class="keyword">|</span> lb &lt;= i<span class="keyword">;</span> i <span class="keyword">&lt;</span> ub<span class="keyword">]</span> size_t i</span></a></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="16754"><span class="stacstdec">SSize <span class="keyword">=</span> <span class="keyword">[</span>i<span class="keyword">:</span>int<span class="keyword">]</span> ssize_t i</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="16788"><span class="stacstdec">ssizeBtw <span class="keyword">(</span>lb<span class="keyword">:</span>int<span class="keyword">,</span> ub<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>i<span class="keyword">:</span> int <span class="keyword">|</span> lb &lt;= i<span class="keyword">;</span> i <span class="keyword">&lt;</span> ub<span class="keyword">]</span> ssize_t i</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// for memory deallocation (with/without GC)
+</span>
+<span class="keyword">absview</span> <span class="staexp"><a name="16929"><span class="stacstdec">free_gc_addr_view</span></a></span> <span class="keyword">(</span>l<span class="keyword">:</span>addr<span class="keyword">)</span>
+<span class="keyword">absview</span> <span class="staexp"><a name="16964"><span class="stacstdec">free_ngc_addr_view</span></a></span> <span class="keyword">(</span>l<span class="keyword">:</span>addr<span class="keyword">)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="16999"><span class="stacstdec">free_gc_v <span class="keyword">=</span> free_gc_addr_view</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="17036"><span class="stacstdec">free_ngc_v <span class="keyword">=</span> free_ngc_addr_view</span></a></span>
+
+<span class="comment">//
+</span>
+<span class="keyword">absview</span> <span class="staexp"><a name="17081"><span class="stacstdec">free_gc_viewt0ype_addr_view</span></a></span> <span class="keyword">(</span>a<span class="keyword">:</span>viewt@ype+<span class="keyword">,</span> l<span class="keyword">:</span>addr<span class="keyword">)</span>
+<span class="keyword">absview</span> <span class="staexp"><a name="17140"><span class="stacstdec">free_ngc_viewt0ype_addr_view</span></a></span> <span class="keyword">(</span>a<span class="keyword">:</span>viewt@ype+<span class="keyword">,</span> l<span class="keyword">:</span>addr<span class="keyword">)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="17199"><span class="stacstdec">free_gc_v <span class="keyword">=</span> free_gc_viewt0ype_addr_view</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="17246"><span class="stacstdec">free_ngc_v <span class="keyword">=</span> free_ngc_viewt0ype_addr_view</span></a></span>
+
+<span class="comment">//
+</span>
+<span class="keyword">absview</span> <span class="staexp"><a name="17301"><span class="stacstdec">free_gc_viewt0ype_addr_int_view</span></a></span> <span class="keyword">(</span>a<span class="keyword">:</span>viewt@ype+<span class="keyword">,</span> n<span class="keyword">:</span>int<span class="keyword">,</span> l<span class="keyword">:</span>addr<span class="keyword">)</span>
+<span class="keyword">absview</span> <span class="staexp"><a name="17371"><span class="stacstdec">free_ngc_viewt0ype_addr_int_view</span></a></span> <span class="keyword">(</span>a<span class="keyword">:</span>viewt@ype+<span class="keyword">,</span> n<span class="keyword">:</span>int<span class="keyword">,</span> l<span class="keyword">:</span> addr<span class="keyword">)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="17442"><span class="stacstdec">free_gc_v <span class="keyword">=</span> free_gc_viewt0ype_addr_int_view</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="17493"><span class="stacstdec">free_ngc_v <span class="keyword">=</span> free_ngc_viewt0ype_addr_int_view</span></a></span>
+
+<span class="comment">//
+</span>
+<span class="keyword">viewdef</span> <span class="staexp"><a name="17552"><span class="stacstdec">free_gc_v <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">,</span> l<span class="keyword">:</span>addr<span class="keyword">)</span> <span class="keyword">=</span> free_gc_v <span class="keyword">(</span>byte<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span></span></a></span>
+<span class="keyword">viewdef</span> <span class="staexp"><a name="17611"><span class="stacstdec">free_ngc_v <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">,</span> l<span class="keyword">:</span>addr<span class="keyword">)</span> <span class="keyword">=</span> free_ngc_v <span class="keyword">(</span>byte<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span></span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX:
+</span><span class="comment">// values of viewtype [junkptr] need to be freed by calling [free];
+</span><span class="comment">// note that the viewtype [junkptr] may be just defined as follows:
+</span><span class="comment">// [a:viewt@ype; l:addr] (free_gc_v (a, 1, l), a? @ l | ptr l)
+</span><span class="comment">//
+</span><span class="keyword">absviewtype</span> <span class="staexp"><a name="17909"><span class="stacstdec">junkptr_viewtype</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="17933"><span class="stacstdec">junkptr <span class="keyword">=</span> junkptr_viewtype</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: This definition should not be changed!
+</span><span class="comment">//
+</span><span class="keyword">viewtypedef</span>
+<span class="staexp"><a name="18045"><span class="stacstdec">arraysize_viewt0ype_int_viewt0ype <span class="keyword">(</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">,</span> n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>free_gc_v <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span><span class="keyword">,</span> <span class="keyword">@[</span>a<span class="keyword">]</span><span class="keyword">[</span>n<span class="keyword">]</span> @ l <span class="keyword">|</span> ptr l<span class="keyword">,</span> size_t n<span class="keyword">)</span></span></a></span>
+<span class="comment">// end of [viewtypedef]
+</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="18198"><span class="stacstdec">arraysize <span class="keyword">=</span> arraysize_viewt0ype_int_viewt0ype</span></a></span>
+
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="18257"><span class="stacstdec">Arraysize
+  <span class="keyword">(</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>n<span class="keyword">:</span>int <span class="keyword">|</span> n &gt;= 0<span class="keyword">]</span> arraysize <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span></a></span>
+<span class="comment">// end of [Arraysize]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: closure, closure pointer and closure reference
+</span><span class="comment">//
+</span><span class="keyword">absviewt@ype</span>
+<span class="staexp"><a name="18435"><span class="stacstdec">clo_viewt0ype_viewt0ype</span></a></span> <span class="keyword">(</span>_fun<span class="keyword">:</span> viewt@ype+<span class="keyword">)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="18485"><span class="stacstdec">clo <span class="keyword">=</span> clo_viewt0ype_viewt0ype</span></a></span>
+
+<span class="keyword">absviewtype</span>
+<span class="staexp"><a name="18528"><span class="stacstdec">cloptr_viewt0ype_viewtype</span></a></span> <span class="keyword">(</span>_fun<span class="keyword">:</span> viewt@ype+<span class="keyword">)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="18580"><span class="stacstdec">cloptr <span class="keyword">=</span> cloptr_viewt0ype_viewtype</span></a></span>
+
+<span class="keyword">abstype</span> <span class="staexp"><a name="18624"><span class="stacstdec">cloref_t0ype_type</span></a></span> <span class="keyword">(</span>t@ype<span class="keyword">)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="18657"><span class="stacstdec">cloref <span class="keyword">=</span> cloref_t0ype_type</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: for handling read-only data
+</span><span class="comment">//
+</span><span class="comment">(*
+absviewt@ype
+READ_viewt0ype_viewt0ype (a: viewt@ype+) = a
+*)</span>
+<span class="keyword">viewtypedef</span>
+<span class="staexp"><a name="18822"><span class="stacstdec">READ_viewt0ype_viewt0ype <span class="keyword">(</span>a<span class="keyword">:</span> viewt@ype<span class="keyword">)</span> <span class="keyword">=</span> a</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="18873"><span class="stacstdec">READ <span class="keyword">=</span> READ_viewt0ype_viewt0ype</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: for print-format strings
+</span><span class="comment">//
+</span><span class="keyword">abstype</span> <span class="staexp"><a name="18972"><span class="stacstdec">printf_c_types_type</span></a></span> <span class="keyword">(</span>types<span class="keyword">)</span> <span class="comment">// boxed type: string
+</span><span class="keyword">stadef</span> <span class="staexp"><a name="19029"><span class="stacstdec">printf_c <span class="keyword">=</span> printf_c_types_type</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: for handling variadic functions
+</span><span class="comment">//
+</span><span class="keyword">absviewt@ype</span>
+<span class="staexp"><a name="19139"><span class="stacstdec">va_list_viewt0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_va_list_viewtype"</span></a></span>
+
+<span class="keyword">absviewt@ype</span>
+<span class="staexp"><a name="19204"><span class="stacstdec">va_list_types_viewt0ype <span class="keyword">(</span>types<span class="keyword">)</span> <span class="keyword">=</span> va_list_viewt0ype</span></a></span>
+
+<span class="comment">(* this order is significant! *)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="19297"><span class="stacstdec">va_list <span class="keyword">=</span> va_list_types_viewt0ype</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="19338"><span class="stacstdec">va_list <span class="keyword">=</span> va_list_viewt0ype</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datasort</span> <span class="staexp">file_mode <span class="keyword">=</span>
+  <span class="keyword">|</span> file_mode_r <span class="comment">(* read *)</span>
+  <span class="keyword">|</span> file_mode_w <span class="comment">(* write *)</span>
+  <span class="keyword">|</span> file_mode_rw</span> <span class="comment">(* read and write *)</span>
+<span class="comment">// end of [file_mode]
+</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="19532"><span class="stacstdec">r <span class="keyword">=</span> file_mode_r <span class="keyword">(</span><span class="keyword">)</span></span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="19558"><span class="stacstdec">w <span class="keyword">=</span> file_mode_w <span class="keyword">(</span><span class="keyword">)</span></span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="19584"><span class="stacstdec">rw <span class="keyword">=</span> file_mode_rw <span class="keyword">(</span><span class="keyword">)</span></span></a></span>
+
+<span class="comment">//
+</span><span class="comment">// [ats_FILE_viewtype] is defined in [libc/CATS/stdio.cats]
+</span><span class="comment">//
+</span><span class="keyword">absviewt@ype</span>
+<span class="staexp"><a name="19685"><span class="stacstdec">FILE_viewt0ype <span class="keyword">(</span>file_mode<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">$extype</span> "ats_FILE_viewtype"</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="19749"><span class="stacstdec">FILE <span class="keyword">=</span> FILE_viewt0ype</span></a></span>
+
+<span class="comment">//
+</span><span class="comment">// HX-2010-05-02:
+</span><span class="comment">// this is easy to use but unsafe and should probably be DEPRECATED?
+</span><span class="comment">//
+</span><span class="comment">// [FILEref_type] is [ref (FILE m)] for some [m]
+</span><span class="keyword">abstype</span> <span class="staexp"><a name="19922"><span class="stacstdec">FILEref_type</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="19942"><span class="stacstdec">FILEref <span class="keyword">=</span> FILEref_type</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// some common datatypes
+</span>
+<span class="keyword">datatype</span>
+<span class="staexp"><a name="20022"><span class="stacstdec">box_t0ype_type <span class="keyword">(</span>a<span class="keyword">:</span>t@ype+<span class="keyword">)</span></span></a></span> <span class="keyword">=</span> box <span class="staexp"><span class="keyword">(</span>a<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">a</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="20070"><span class="stacstdec">box <span class="keyword">=</span> box_t0ype_type</span></a></span>
+
+<span class="keyword">dataviewtype</span>
+<span class="staexp"><a name="20105"><span class="stacstdec">box_viewt0ype_viewtype <span class="keyword">(</span>a<span class="keyword">:</span>viewt@ype+<span class="keyword">)</span></span></a></span> <span class="keyword">=</span> box_vt <span class="staexp"><span class="keyword">(</span>a<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">a</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="20168"><span class="stacstdec">box_vt <span class="keyword">=</span> box_viewt0ype_viewtype</span></a></span>
+
+<span class="comment">//
+</span>
+<span class="comment">// [list0_t0ype_type] is co-variant
+</span><span class="keyword">datatype</span> <span class="staexp"><a name="20250"><span class="stacstdec">list0_t0ype_type <span class="keyword">(</span>a<span class="keyword">:</span> t@ype+<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> list0_cons <span class="staexp"><span class="keyword">(</span>a<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>a<span class="keyword">,</span> list0_t0ype_type a<span class="keyword">)</span></span> <span class="keyword">|</span> list0_nil <span class="staexp"><span class="keyword">(</span>a<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">)</span></span>
+<span class="comment">// end of [list0_t0ype_type]
+</span><span class="keyword">stadef</span> <span class="staexp"><a name="20385"><span class="stacstdec">list0 <span class="keyword">=</span> list0_t0ype_type</span></a></span>
+
+<span class="keyword">datatype</span> <span class="comment">// t@ype+: covariant
+</span><span class="staexp"><a name="20441"><span class="stacstdec">list_t0ype_int_type <span class="keyword">(</span>a<span class="keyword">:</span>t@ype+<span class="keyword">,</span> int<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">n<span class="keyword">:</span>int</span> <span class="keyword">|</span> <span class="staexp">n &gt;= 0</span><span class="keyword">}</span>
+    list_cons <span class="staexp"><span class="keyword">(</span>a<span class="keyword">,</span> n+1<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>a<span class="keyword">,</span> list_t0ype_int_type <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> list_nil <span class="staexp"><span class="keyword">(</span>a<span class="keyword">,</span> 0<span class="keyword">)</span></span>
+<span class="comment">// end of [datatype]
+</span><span class="keyword">stadef</span> <span class="staexp"><a name="20606"><span class="stacstdec">list <span class="keyword">=</span> list_t0ype_int_type</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="20641"><span class="stacstdec">List <span class="keyword">(</span>a<span class="keyword">:</span>t@ype<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>n<span class="keyword">:</span>int <span class="keyword">|</span> n &gt;= 0<span class="keyword">]</span> list <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span></a></span>
+
+<span class="comment">//
+</span>
+<span class="keyword">datatype</span> <span class="staexp"><a name="20701"><span class="stacstdec">option0_t0ype_type <span class="keyword">(</span>a<span class="keyword">:</span> t@ype<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> option0_some <span class="staexp"><span class="keyword">(</span>a<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>a<span class="keyword">)</span></span> <span class="keyword">|</span> option0_none <span class="staexp"><span class="keyword">(</span>a<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">)</span></span>
+<span class="comment">// end of [datatype]
+</span><span class="keyword">stadef</span> <span class="staexp"><a name="20814"><span class="stacstdec">option0 <span class="keyword">=</span> option0_t0ype_type</span></a></span>
+
+<span class="keyword">datatype</span> <span class="comment">// t@ype+: covariant
+</span><span class="staexp"><a name="20874"><span class="stacstdec">option_t0ype_bool_type <span class="keyword">(</span>a<span class="keyword">:</span>t@ype+<span class="keyword">,</span> bool<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> None <span class="staexp"><span class="keyword">(</span>a<span class="keyword">,</span> false<span class="keyword">)</span></span> <span class="keyword">|</span> Some <span class="staexp"><span class="keyword">(</span>a<span class="keyword">,</span> true<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">a</span>
+<span class="comment">// end of [datatype]
+</span><span class="keyword">stadef</span> <span class="staexp"><a name="20986"><span class="stacstdec">option <span class="keyword">=</span> option_t0ype_bool_type</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="21026"><span class="stacstdec">Option <span class="keyword">(</span>a<span class="keyword">:</span>t@ype<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>b<span class="keyword">:</span>bool<span class="keyword">]</span> option <span class="keyword">(</span>a<span class="keyword">,</span> b<span class="keyword">)</span></span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// some common dataviewtypes
+</span>
+<span class="keyword">dataviewtype</span> <span class="comment">// viewt@ype+: covariant
+</span><span class="staexp"><a name="21158"><span class="stacstdec">list_viewt0ype_int_viewtype <span class="keyword">(</span>a<span class="keyword">:</span>viewt@ype+<span class="keyword">,</span> int<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">n<span class="keyword">:</span>int</span> <span class="keyword">|</span> <span class="staexp">n &gt;= 0</span><span class="keyword">}</span>
+    list_vt_cons <span class="staexp"><span class="keyword">(</span>a<span class="keyword">,</span> n+1<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>a<span class="keyword">,</span> list_viewt0ype_int_viewtype <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> list_vt_nil <span class="staexp"><span class="keyword">(</span>a<span class="keyword">,</span> 0<span class="keyword">)</span></span>
+<span class="comment">// end of [list_viewt0ype_int_viewtype]
+</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="21369"><span class="stacstdec">list_vt <span class="keyword">=</span> list_viewt0ype_int_viewtype</span></a></span>
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="21419"><span class="stacstdec">List_vt <span class="keyword">(</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>n<span class="keyword">:</span>int <span class="keyword">|</span> n &gt;=0<span class="keyword">]</span> list_vt <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">dataviewtype</span> <span class="comment">// viewt@ype+: covariant
+</span><span class="staexp"><a name="21513"><span class="stacstdec">option_viewt0ype_bool_viewtype <span class="keyword">(</span>a<span class="keyword">:</span>viewt@ype+<span class="keyword">,</span> bool<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> None_vt <span class="staexp"><span class="keyword">(</span>a<span class="keyword">,</span> false<span class="keyword">)</span></span> <span class="keyword">|</span> Some_vt <span class="staexp"><span class="keyword">(</span>a<span class="keyword">,</span> true<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">a</span>
+<span class="comment">// end of [option_viewt0ype_bool_viewtype]
+</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="21666"><span class="stacstdec">option_vt <span class="keyword">=</span> option_viewt0ype_bool_viewtype</span></a></span>
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="21721"><span class="stacstdec">Option_vt <span class="keyword">(</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>b<span class="keyword">:</span>bool<span class="keyword">]</span> option_vt <span class="keyword">(</span>a<span class="keyword">,</span> b<span class="keyword">)</span></span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: some useful props and views
+</span><span class="comment">//
+</span><span class="keyword">dataprop</span> <span class="prfexp"><span class="staexp"><a name="21844"><span class="stacstdec">unit_p</span></a></span> <span class="keyword">=</span> unit_p <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">)</span></span></span>
+<span class="keyword">dataview</span> <span class="prfexp"><span class="staexp"><a name="21875"><span class="stacstdec">unit_v</span></a></span> <span class="keyword">=</span> unit_v <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">)</span></span></span>
+
+<span class="comment">//
+</span>
+<span class="keyword">dataview</span>
+<span class="prfexp"><span class="staexp"><a name="21911"><span class="stacstdec">option_view_bool_view
+  <span class="keyword">(</span>a<span class="keyword">:</span>view+<span class="keyword">,</span> bool<span class="keyword">)</span></span></a></span> <span class="keyword">=</span> Some_v <span class="staexp"><span class="keyword">(</span>a<span class="keyword">,</span> true<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">a</span> <span class="keyword">|</span> None_v <span class="staexp"><span class="keyword">(</span>a<span class="keyword">,</span> false<span class="keyword">)</span></span></span>
+<span class="comment">// end of [option_view_bool_view]
+</span><span class="keyword">stadef</span> <span class="staexp"><a name="22036"><span class="stacstdec">option_v <span class="keyword">=</span> option_view_bool_view</span></a></span>
+<span class="keyword">viewdef</span> <span class="staexp"><a name="22077"><span class="stacstdec">ptropt_v <span class="keyword">(</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">,</span> l<span class="keyword">:</span>addr<span class="keyword">)</span> <span class="keyword">=</span> option_v <span class="keyword">(</span>a @ l<span class="keyword">,</span> l <span class="keyword">&gt;</span> null<span class="keyword">)</span></span></a></span>
+
+<span class="comment">//
+</span>
+<span class="keyword">dataview</span>
+<span class="prfexp"><span class="staexp"><a name="22151"><span class="stacstdec">disj_view_view_int_view
+  <span class="keyword">(</span>v0<span class="keyword">:</span> view<span class="keyword">,</span> v1<span class="keyword">:</span> view<span class="keyword">,</span> int<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> InsLeft_v <span class="staexp"><span class="keyword">(</span>v0<span class="keyword">,</span> v1<span class="keyword">,</span> 0<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">v0</span> <span class="keyword">|</span> InsRight_v <span class="staexp"><span class="keyword">(</span>v0<span class="keyword">,</span> v1<span class="keyword">,</span> 1<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">v1</span></span>
+<span class="comment">// end of [dataview or_view_view_int_view]
+</span><span class="keyword">stadef</span> <span class="staexp"><a name="22318"><span class="stacstdec">disj_v <span class="keyword">=</span> disj_view_view_int_view</span></a></span>
+
+<span class="comment">//
+</span>
+<span class="comment">//
+</span><span class="comment">// HX: subview relation that only allows *reading*
+</span><span class="comment">//
+</span><span class="keyword">absprop</span> <span class="staexp"><a name="22421"><span class="stacstdec">vsubr_p</span></a></span> <span class="keyword">(</span>v1<span class="keyword">:</span>view+<span class="keyword">,</span> v2<span class="keyword">:</span> view-<span class="keyword">)</span> <span class="comment">// v2 -&lt;prf&gt; [v:iew] @(v1, v)
+</span><span class="keyword">stadef</span> <span class="staexp"><a name="22488"><span class="stacstdec">&lt;= <span class="keyword">(</span>v1<span class="keyword">:</span>view<span class="keyword">,</span> v2<span class="keyword">:</span>view<span class="keyword">)</span> <span class="keyword">=</span> vsubr_p <span class="keyword">(</span>v1<span class="keyword">,</span> v2<span class="keyword">)</span></span></a></span>
+
+<span class="comment">//
+</span><span class="comment">// HX: subview relation that allows *reading* and *writing*
+</span><span class="comment">//
+</span><span class="keyword">absprop</span> <span class="staexp"><a name="22604"><span class="stacstdec">vsubw_p</span></a></span> <span class="keyword">(</span>v1<span class="keyword">:</span>view<span class="keyword">,</span> v2<span class="keyword">:</span> view<span class="keyword">)</span> <span class="comment">// v2 -&lt;prf&gt; @(v1, v1 -&lt;lin,prf&gt; v2)
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">absviewt@ype</span> <span class="staexp"><a name="22704"><span class="stacstdec">crypt_viewt0ype_viewt0ype <span class="keyword">(</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">)</span> <span class="keyword">=</span> a</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="22755"><span class="stacstdec">crypt <span class="keyword">=</span> crypt_viewt0ype_viewt0ype</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX:
+</span><span class="comment">// [lazy T] : supspended computation with a value of type T
+</span><span class="comment">//
+</span><span class="keyword">abstype</span> <span class="staexp"><a name="22891"><span class="stacstdec">lazy_t0ype_type</span></a></span> <span class="keyword">(</span>t@ype+<span class="keyword">)</span> <span class="comment">// boxed type
+</span><span class="keyword">stadef</span> <span class="staexp"><a name="22937"><span class="stacstdec">lazy <span class="keyword">=</span> lazy_t0ype_type</span></a></span>
+
+<span class="comment">//
+</span><span class="comment">// HX: [lazy_vt VT] :
+</span><span class="comment">// supspended computation with a linear value of viewtype VT
+</span><span class="comment">//
+</span><span class="keyword">absviewtype</span> <span class="staexp"><a name="23062"><span class="stacstdec">lazy_viewt0ype_viewtype</span></a></span> <span class="keyword">(</span>viewt@ype+<span class="keyword">)</span> <span class="comment">// boxed linear type
+</span><span class="keyword">stadef</span> <span class="staexp"><a name="23127"><span class="stacstdec">lazy_vt <span class="keyword">=</span> lazy_viewt0ype_viewtype</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// lazy streams
+</span><span class="keyword">datatype</span> <span class="staexp"><a name="23208"><span class="stacstdec">stream_con <span class="keyword">(</span>a<span class="keyword">:</span>t@ype+<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> stream_nil <span class="staexp"><span class="keyword">(</span>a<span class="keyword">)</span></span> <span class="keyword">|</span> stream_cons <span class="staexp"><span class="keyword">(</span>a<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>a<span class="keyword">,</span> stream a<span class="keyword">)</span></span>
+
+<span class="keyword">where</span> <span class="staexp"><a name="23293"><span class="stacstdec">stream <span class="keyword">(</span>a<span class="keyword">:</span>t@ype<span class="keyword">)</span> <span class="keyword">=</span> lazy <span class="keyword">(</span>stream_con a<span class="keyword">)</span></span></a></span>
+
+<span class="comment">// lazy linear streams
+</span><span class="keyword">dataviewtype</span> <span class="staexp"><a name="23369"><span class="stacstdec">stream_vt_con <span class="keyword">(</span>a<span class="keyword">:</span>viewt@ype+<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> stream_vt_nil <span class="staexp"><span class="keyword">(</span>a<span class="keyword">)</span></span> <span class="keyword">|</span> stream_vt_cons <span class="staexp"><span class="keyword">(</span>a<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>a<span class="keyword">,</span> stream_vt a<span class="keyword">)</span></span>
+<span class="comment">// end of [stream_vt_con]
+</span>
+<span class="keyword">where</span> <span class="staexp"><a name="23496"><span class="stacstdec">stream_vt <span class="keyword">(</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">)</span> <span class="keyword">=</span> lazy_vt <span class="keyword">(</span>stream_vt_con a<span class="keyword">)</span></span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#if</span> <span class="neuexp">VERBOSE_PRELUDE</span> <span class="keyword">#then</span>
+<span class="keyword">#print</span> <span class="neuexp">"Loading [basic_sta.sats] finishes!\n"</span>
+<span class="keyword">#endif</span> <span class="comment">// end of [VERBOSE_PRELUDE]
+</span>
+<span class="comment">(* end of [basics_sta.sats] *)</span>
+</pre>
+</body>
+</html>

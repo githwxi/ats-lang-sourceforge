@@ -1,0 +1,157 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: October, 2010
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// book: AUP (2nd edition), pages 520 - 524
+</span><span class="comment">// section 8.1.1: How Sockets Work
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">SOCKETNAME "MySocket"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anon*)</span> <span class="keyword">=</span> "prelude/DATS/array.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/errno.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/stdio.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/stdlib.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/unistd.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/types.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/sockaddr.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/socket.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/un.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/socket_un.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: this is really an overkill ...
+</span><span class="comment">//
+</span><span class="keyword">fun</span> fprint_bytes_size
+  <span class="staexp"><span class="keyword">{</span>n1<span class="keyword">,</span>n2<span class="keyword">:</span>nat <span class="keyword">|</span> n2 &lt;= n1<span class="keyword">}</span></span> 
+  <span class="keyword">(</span>out<span class="keyword">:</span> <span class="staexp">FILEref</span><span class="keyword">,</span> buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><span class="keyword">(</span><span class="keyword">@[</span>byte<span class="keyword">]</span><span class="keyword">[</span>n1<span class="keyword">]</span><span class="keyword">)</span></span><span class="keyword">,</span> n2<span class="keyword">:</span> <span class="staexp">size_t n2</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> p_buf <span class="keyword">=</span> <span class="keyword">&amp;</span>buf
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> eqsize_byte_one <span class="keyword">(</span><span class="keyword">)</span></span> <span class="comment">// sizeof byte == 1
+</span>  <span class="keyword">prval</span> <span class="prfexp">pfmul <span class="keyword">=</span> mul_make <span class="staexp"><span class="keyword">{</span>n2<span class="keyword">,</span>sizeof<span class="keyword">(</span>byte<span class="keyword">)</span><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span></span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> mul_elim <span class="staexp"><span class="keyword">{</span>n2<span class="keyword">,</span>1<span class="keyword">}</span></span> <span class="keyword">(</span>pfmul<span class="keyword">)</span></span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span>pf1<span class="keyword">,</span> pf2<span class="keyword">)</span> <span class="keyword">=</span> array_v_split <span class="staexp"><span class="keyword">{</span>byte<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n1<span class="keyword">,</span>n2<span class="keyword">}</span></span> <span class="keyword">(</span>pfmul<span class="keyword">,</span> view@ <span class="keyword">(</span>buf<span class="keyword">)</span><span class="keyword">)</span></span>
+  <span class="keyword">prval</span> <span class="prfexp">pfu <span class="keyword">=</span> unit_v <span class="keyword">(</span><span class="keyword">)</span></span>
+  <span class="keyword">typedef</span> <span class="staexp"><a name="1090"><span class="stacstdec">env <span class="keyword">=</span> FILEref</span></a></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> array_ptr_foreach_fun_tsz__main <span class="staexp"><span class="keyword">{</span>byte<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>unit_v<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>env<span class="keyword">}</span></span>
+    <span class="keyword">(</span><span class="prfexp">pfu</span> <span class="keyword">|</span> <span class="keyword">!</span>p_buf<span class="keyword">,</span> <span class="keyword">lam</span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> x<span class="keyword">,</span> out<span class="keyword">)</span> <span class="keyword">=&lt;&gt;</span> <span class="keyword">$effmask_ref</span> <span class="keyword">(</span>fprint_byte <span class="keyword">(</span>out<span class="keyword">,</span> x<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">,</span> n2<span class="keyword">,</span> sizeof&lt;<span class="staexp">byte</span><span class="keyword">&gt;</span><span class="keyword">,</span> out<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pfu</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> view@ <span class="keyword">(</span>buf<span class="keyword">)</span> := array_v_unsplit <span class="staexp"><span class="keyword">{</span>byte<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n2<span class="keyword">,</span>n1-n2<span class="keyword">}</span></span> <span class="keyword">(</span>pfmul<span class="keyword">,</span> pf1<span class="keyword">,</span> pf2<span class="keyword">)</span></span>
+<span class="keyword">in</span>
+  <span class="comment">// nothing
+</span><span class="keyword">end</span> <span class="comment">// end of [print_buf_size]
+</span>
+<span class="keyword">fun</span> print_bytes_size
+  <span class="staexp"><span class="keyword">{</span>n1<span class="keyword">,</span>n2<span class="keyword">:</span>nat <span class="keyword">|</span> n2 &lt;= n1<span class="keyword">}</span></span> 
+  <span class="keyword">(</span>buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><span class="keyword">(</span><span class="keyword">@[</span>byte<span class="keyword">]</span><span class="keyword">[</span>n1<span class="keyword">]</span><span class="keyword">)</span></span><span class="keyword">,</span> n2<span class="keyword">:</span> <span class="staexp">size_t n2</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> fprint_bytes_size <span class="keyword">(</span>stdout_ref<span class="keyword">,</span> buf<span class="keyword">,</span> n2<span class="keyword">)</span>
+<span class="comment">// end of [print_bytes_size]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+main <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+<span class="comment">//
+</span>  <span class="keyword">var</span> sa<span class="keyword">:</span> <span class="staexp">sockaddr_un</span>
+  <span class="keyword">val</span> _err <span class="keyword">=</span> unlink <span class="keyword">(</span>SOCKETNAME<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> sockaddr_un_init <span class="keyword">(</span>sa<span class="keyword">,</span> AF_UNIX<span class="keyword">,</span> SOCKETNAME<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> pid <span class="keyword">=</span> fork_err <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> ipid <span class="keyword">=</span> int_of_pid <span class="keyword">(</span>pid<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+    <span class="keyword">|</span> _ <span class="keyword">when</span> ipid <span class="keyword">=</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// child
+</span>        <span class="keyword">var</span> <span class="keyword">!</span>p_buf <span class="keyword">with</span> <span class="prfexp">pf_buf</span> <span class="keyword">=</span> <span class="keyword">@[</span><span class="staexp">byte</span><span class="keyword">]</span><span class="keyword">[</span>64<span class="keyword">]</span><span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">fd<span class="keyword">:</span>int</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pfskt</span> <span class="keyword">|</span> fd<span class="keyword">)</span> <span class="keyword">=</span> socket_family_type_exn <span class="keyword">(</span>AF_UNIX<span class="keyword">,</span> SOCK_STREAM<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> loop <span class="keyword">(</span><span class="prfexp">pfskt</span> <span class="keyword">|</span> fd<span class="keyword">,</span> sa<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+          <span class="keyword">fun</span> loop <span class="keyword">(</span>
+              <span class="prfexp">pfskt<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> init<span class="keyword">)</span> &gt;&gt; socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> conn<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> sa<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sockaddr_un</span>
+            <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+            <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> sockaddr_un_trans <span class="keyword">(</span>view@ sa<span class="keyword">)</span></span>
+            <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pfopt</span> <span class="keyword">|</span> err<span class="keyword">)</span> <span class="keyword">=</span> connect_err <span class="keyword">(</span><span class="prfexp">pfskt</span> <span class="keyword">|</span> fd<span class="keyword">,</span> sa<span class="keyword">,</span> socklen_un<span class="keyword">)</span>
+            <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> sockaddr_trans_un <span class="keyword">(</span>view@ sa<span class="keyword">)</span></span>
+          <span class="keyword">in</span>
+            <span class="keyword">if</span> err &gt;= 0 <span class="keyword">then</span> <span class="keyword">let</span>
+              <span class="keyword">prval</span> <span class="prfexp">connect_v_succ pf <span class="keyword">=</span> pfopt</span><span class="keyword">;</span> <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pfskt := pf</span>
+            <span class="keyword">in</span>
+              <span class="comment">// nothing
+</span>            <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+              <span class="keyword">prval</span> <span class="prfexp">connect_v_fail pf <span class="keyword">=</span> pfopt</span><span class="keyword">;</span> <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pfskt := pf</span>
+              <span class="keyword">val</span> errno <span class="keyword">=</span> errno_get <span class="keyword">(</span><span class="keyword">)</span>
+            <span class="keyword">in</span>
+              <span class="keyword">if</span> <span class="keyword">(</span>errno <span class="keyword">=</span> ENOENT<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+                <span class="keyword">val</span> _leftover <span class="keyword">=</span> sleep <span class="keyword">(</span>1<span class="keyword">)</span> <span class="keyword">in</span> loop <span class="keyword">(</span><span class="prfexp">pfskt</span> <span class="keyword">|</span> fd<span class="keyword">,</span> sa<span class="keyword">)</span>
+              <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+                <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> exit <span class="keyword">(</span>EXIT_FAILURE<span class="keyword">)</span> <span class="keyword">in</span> loop <span class="keyword">(</span><span class="prfexp">pfskt</span> <span class="keyword">|</span> fd<span class="keyword">,</span> sa<span class="keyword">)</span>
+              <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>            <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>          <span class="keyword">end</span> <span class="comment">// end of [loop]
+</span>        <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> socket_write_substring <span class="keyword">(</span><span class="prfexp">pfskt</span> <span class="keyword">|</span> fd<span class="keyword">,</span> "Hello!"<span class="keyword">,</span> 0<span class="keyword">,</span> 6<span class="keyword">)</span>
+        <span class="keyword">var</span> <span class="keyword">!</span>p_buf <span class="keyword">with</span> <span class="prfexp">pf_buf</span> <span class="keyword">=</span> <span class="keyword">@[</span><span class="staexp">byte</span><span class="keyword">]</span><span class="keyword">[</span>64<span class="keyword">]</span><span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_buf := bytes_v_of_b0ytes_v <span class="keyword">(</span>pf_buf<span class="keyword">)</span></span>
+        <span class="keyword">val</span> nread <span class="keyword">=</span> socket_read_exn <span class="keyword">(</span><span class="prfexp">pfskt</span> <span class="keyword">|</span> fd<span class="keyword">,</span> <span class="keyword">!</span>p_buf<span class="keyword">,</span> 64<span class="keyword">)</span>        
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>print "Client got: "<span class="keyword">;</span> print_bytes_size <span class="keyword">(</span><span class="keyword">!</span>p_buf<span class="keyword">,</span> nread<span class="keyword">)</span><span class="keyword">;</span> print_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> socket_close_exn <span class="keyword">(</span><span class="prfexp">pfskt</span> <span class="keyword">|</span> fd<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        exit <span class="keyword">(</span>EXIT_SUCCESS<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [ipid = 0]
+</span>    <span class="keyword">|</span> _ <span class="keyword">when</span> ipid <span class="keyword">&gt;</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// parent
+</span>        <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">fd<span class="keyword">:</span>int</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pfskt</span> <span class="keyword">|</span> fd<span class="keyword">)</span> <span class="keyword">=</span> socket_family_type_exn <span class="keyword">(</span>AF_UNIX<span class="keyword">,</span> SOCK_STREAM<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> bind_un_exn <span class="keyword">(</span><span class="prfexp">pfskt</span> <span class="keyword">|</span> fd<span class="keyword">,</span> sa<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> listen_exn <span class="keyword">(</span><span class="prfexp">pfskt</span> <span class="keyword">|</span> fd<span class="keyword">,</span> SOMAXCONN<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pfskt_c</span> <span class="keyword">|</span> fd_c<span class="keyword">)</span> <span class="keyword">=</span> accept_null_exn <span class="keyword">(</span><span class="prfexp">pfskt</span> <span class="keyword">|</span> fd<span class="keyword">)</span>
+        <span class="keyword">var</span> <span class="keyword">!</span>p_buf <span class="keyword">with</span> <span class="prfexp">pf_buf</span> <span class="keyword">=</span> <span class="keyword">@[</span><span class="staexp">byte</span><span class="keyword">]</span><span class="keyword">[</span>64<span class="keyword">]</span><span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_buf := bytes_v_of_b0ytes_v <span class="keyword">(</span>pf_buf<span class="keyword">)</span></span>
+        <span class="keyword">val</span> nread <span class="keyword">=</span> socket_read_exn <span class="keyword">(</span><span class="prfexp">pfskt_c</span> <span class="keyword">|</span> fd_c<span class="keyword">,</span> <span class="keyword">!</span>p_buf<span class="keyword">,</span> 64<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>print "Server got: "<span class="keyword">;</span> print_bytes_size <span class="keyword">(</span><span class="keyword">!</span>p_buf<span class="keyword">,</span> nread<span class="keyword">)</span><span class="keyword">;</span> print_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> socket_write_substring <span class="keyword">(</span><span class="prfexp">pfskt_c</span> <span class="keyword">|</span> fd_c<span class="keyword">,</span> "Goodbye!"<span class="keyword">,</span> 0<span class="keyword">,</span> 8<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> socket_close_exn <span class="keyword">(</span><span class="prfexp">pfskt</span> <span class="keyword">|</span> fd<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> socket_close_exn <span class="keyword">(</span><span class="prfexp">pfskt_c</span> <span class="keyword">|</span> fd_c<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        exit <span class="keyword">(</span>EXIT_SUCCESS<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [ipid &gt; 0]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// [fork] failed
+</span>        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> perror <span class="keyword">(</span>"fork"<span class="keyword">)</span> <span class="keyword">in</span> exit <span class="keyword">(</span>EXIT_FAILURE<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">}</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [AUP_8_1_1.dats] *)</span>
+</pre>
+</body>
+</html>

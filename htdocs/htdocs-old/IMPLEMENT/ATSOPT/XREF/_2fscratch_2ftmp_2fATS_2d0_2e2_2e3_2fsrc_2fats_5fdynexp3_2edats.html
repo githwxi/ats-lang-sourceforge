@@ -1,0 +1,1034 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: December 2007
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* The third translation does type-checking *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Eff <span class="keyword">=</span> "ats_effect.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Err <span class="keyword">=</span> "ats_error.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Lst <span class="keyword">=</span> "ats_list.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_stadyncst2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp3.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">nil list_nil</span>
+<span class="keyword">#define</span> <span class="neuexp">cons list_cons</span>
+<span class="keyword">#define</span> <span class="neuexp">:: list_cons</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> $Loc<span class="keyword">.</span>prerr_location</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> p3at_ann
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> p3t<span class="keyword">,</span> s2e_ann<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  p3at_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> p3at_node<span class="keyword">=</span> P3Tann <span class="keyword">(</span>p3t<span class="keyword">,</span> s2e_ann<span class="keyword">)</span>
+<span class="keyword">,</span> p3at_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> p3at_typ_lft<span class="keyword">=</span> None <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [p3at_ann]
+</span>
+<span class="keyword">implement</span> p3at_any
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  p3at_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> p3at_node<span class="keyword">=</span> P3Tany d2v
+<span class="keyword">,</span> p3at_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> p3at_typ_lft<span class="keyword">=</span> None <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [p3at_any]
+</span>
+<span class="keyword">implement</span> p3at_as
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> refknd<span class="keyword">,</span> d2v<span class="keyword">,</span> p3t<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  p3at_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> p3at_node<span class="keyword">=</span> P3Tas <span class="keyword">(</span>refknd<span class="keyword">,</span> d2v<span class="keyword">,</span> p3t<span class="keyword">)</span>
+<span class="keyword">,</span> p3at_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> p3at_typ_lft<span class="keyword">=</span> None <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [p3at_as]
+</span>
+<span class="keyword">implement</span> p3at_bool <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> b<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  p3at_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> p3at_node<span class="keyword">=</span> P3Tbool b
+<span class="keyword">,</span> p3at_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> p3at_typ_lft<span class="keyword">=</span> None <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> p3at_char <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> chr<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  p3at_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> p3at_node<span class="keyword">=</span> P3Tchar chr
+<span class="keyword">,</span> p3at_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> p3at_typ_lft<span class="keyword">=</span> None <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> p3at_con
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> freeknd<span class="keyword">,</span> d2c<span class="keyword">,</span> npf<span class="keyword">,</span> p3ts_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  p3at_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> p3at_node<span class="keyword">=</span> P3Tcon <span class="keyword">(</span>freeknd<span class="keyword">,</span> d2c<span class="keyword">,</span> npf<span class="keyword">,</span> p3ts_arg<span class="keyword">)</span>
+<span class="keyword">,</span> p3at_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> p3at_typ_lft<span class="keyword">=</span> None <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [p3at_con]
+</span>
+<span class="keyword">implement</span> p3at_empty <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  p3at_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> p3at_node<span class="keyword">=</span> P3Tempty <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">,</span> p3at_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> p3at_typ_lft<span class="keyword">=</span> None <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> p3at_exist
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> s2vs<span class="keyword">,</span> p3t<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  p3at_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> p3at_node<span class="keyword">=</span> P3Texist <span class="keyword">(</span>s2vs<span class="keyword">,</span> p3t<span class="keyword">)</span>
+<span class="keyword">,</span> p3at_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> p3at_typ_lft<span class="keyword">=</span> None <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [p3at_exist]
+</span>
+<span class="keyword">implement</span> p3at_float
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> f<span class="comment">(*string*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  p3at_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> p3at_node<span class="keyword">=</span> P3Tfloat f
+<span class="keyword">,</span> p3at_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> p3at_typ_lft<span class="keyword">=</span> None <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [p3at_float]
+</span>
+<span class="keyword">implement</span> p3at_int
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> str<span class="keyword">,</span> int<span class="comment">(*intinf*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  p3at_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> p3at_node<span class="keyword">=</span> P3Tint <span class="keyword">(</span>str<span class="keyword">,</span> int<span class="keyword">)</span>
+<span class="keyword">,</span> p3at_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> p3at_typ_lft<span class="keyword">=</span> None <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [p3at_int]
+</span>
+<span class="keyword">implement</span> p3at_lst
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e_elt<span class="keyword">,</span> s2e_lst<span class="keyword">,</span> p3ts<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  p3at_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> p3at_node<span class="keyword">=</span> P3Tlst <span class="keyword">(</span>s2e_elt<span class="keyword">,</span> p3ts<span class="keyword">)</span>
+<span class="keyword">,</span> p3at_typ<span class="keyword">=</span> s2e_lst
+<span class="keyword">,</span> p3at_typ_lft<span class="keyword">=</span> None <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [p3at_lst]
+</span>
+<span class="keyword">implement</span> p3at_rec
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> knd<span class="keyword">,</span> npf<span class="keyword">,</span> lp3ts<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  p3at_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> p3at_node<span class="keyword">=</span> P3Trec <span class="keyword">(</span>knd<span class="keyword">,</span> npf<span class="keyword">,</span> lp3ts<span class="keyword">)</span>
+<span class="keyword">,</span> p3at_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> p3at_typ_lft<span class="keyword">=</span> None <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [p3at_rec]
+</span>
+<span class="keyword">implement</span> p3at_string
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> str<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  p3at_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> p3at_node<span class="keyword">=</span> P3Tstring str
+<span class="keyword">,</span> p3at_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> p3at_typ_lft<span class="keyword">=</span> None <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [p3at_string]
+</span>
+<span class="keyword">implement</span> p3at_var
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> refknd<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  p3at_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> p3at_node<span class="keyword">=</span> P3Tvar <span class="keyword">(</span>refknd<span class="keyword">,</span> d2v<span class="keyword">)</span>
+<span class="keyword">,</span> p3at_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> p3at_typ_lft<span class="keyword">=</span> None <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [p3at_var]
+</span>
+<span class="keyword">implement</span> p3at_vbox
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  p3at_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> p3at_node<span class="keyword">=</span> P3Tvbox <span class="keyword">(</span>d2v<span class="keyword">)</span>
+<span class="keyword">,</span> p3at_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> p3at_typ_lft<span class="keyword">=</span> None <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [p3at_vbox]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">typedef</span> <span class="staexp">"p3at_t" <span class="keyword">=</span> p3at</span>
+
+<span class="extern">%{$
+
+ats_void_type
+ats_dynexp3_p3at_typ_set (
+  ats_ptr_type p3t, ats_ptr_type s2e) {
+  ((p3at_t)p3t)-&gt;atslab_p3at_typ = s2e ; return ;
+}
+
+ats_void_type
+ats_dynexp3_p3at_typ_lft_set (
+  ats_ptr_type p3t, ats_ptr_type os2e) {
+  ((p3at_t)p3t)-&gt;atslab_p3at_typ_lft = os2e ; return ;
+}
+
+%}</span> <span class="comment">// end of [%{$]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> d3exp_eff_union <span class="keyword">(</span>s2fe<span class="keyword">:</span> <span class="staexp">s2eff</span><span class="keyword">,</span> d3e<span class="keyword">:</span> <span class="staexp">d3exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2eff</span> <span class="keyword">=</span>
+  s2eff_union_s2eff <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3e<span class="keyword">.</span>d3exp_eff<span class="keyword">)</span>
+
+<span class="keyword">fun</span> d3expopt_eff_union
+  <span class="keyword">(</span>s2fe<span class="keyword">:</span> <span class="staexp">s2eff</span><span class="keyword">,</span> od3e<span class="keyword">:</span> <span class="staexp">d3expopt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2eff</span> <span class="keyword">=</span> <span class="keyword">case+</span> od3e <span class="keyword">of</span>
+  <span class="keyword">|</span> Some d3e <span class="keyword">=&gt;</span> d3exp_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3e<span class="keyword">)</span> <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2fe
+<span class="comment">// end of [d3expopt_eff_union]
+</span>
+<span class="keyword">fun</span> d3explst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">:</span> <span class="staexp">s2eff</span><span class="keyword">,</span> d3es<span class="keyword">:</span> <span class="staexp">d3explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2eff</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> d3es <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>d3e<span class="keyword">,</span> d3es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d3explst_eff_union <span class="keyword">(</span>d3exp_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3e<span class="keyword">)</span><span class="keyword">,</span> d3es<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2fe <span class="comment">// end of [nil]
+</span><span class="comment">// end of [d3explst_eff_union]
+</span>
+<span class="keyword">fun</span> d3explstlst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">:</span> <span class="staexp">s2eff</span><span class="keyword">,</span> d3ess<span class="keyword">:</span> <span class="staexp">d3explstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2eff</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> d3ess <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>d3es<span class="keyword">,</span> d3ess<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d3explstlst_eff_union <span class="keyword">(</span>d3explst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3es<span class="keyword">)</span><span class="keyword">,</span> d3ess<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2fe <span class="comment">// end of [nil]
+</span><span class="comment">// end of [d3explstlst_eff_union]
+</span>
+<span class="keyword">fun</span> labd3explst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">:</span> <span class="staexp">s2eff</span><span class="keyword">,</span> ld3es<span class="keyword">:</span> <span class="staexp">labd3explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2eff</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> ld3es <span class="keyword">of</span>
+  <span class="keyword">|</span> LABD3EXPLSTcons <span class="keyword">(</span>_<span class="comment">(*lab*)</span><span class="keyword">,</span> d3e<span class="keyword">,</span> ld3es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      labd3explst_eff_union <span class="keyword">(</span>d3exp_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3e<span class="keyword">)</span><span class="keyword">,</span> ld3es<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [LABD3EXPLSTcons]
+</span>  <span class="keyword">|</span> LABD3EXPLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2fe <span class="comment">// end of [LABD3EXPLSTnil]
+</span><span class="comment">// end of [labd3explst_eff_union]
+</span>
+<span class="keyword">fn</span> d3lab1_eff_union <span class="keyword">(</span>s2fe<span class="keyword">:</span> <span class="staexp">s2eff</span><span class="keyword">,</span> d3l<span class="keyword">:</span> <span class="staexp">d3lab1</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2eff</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> d3l<span class="keyword">.</span>d3lab1_node <span class="keyword">of</span>
+  <span class="keyword">|</span> D3LAB1ind <span class="keyword">(</span>d3ess<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> d3explstlst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3ess<span class="keyword">)</span>
+  <span class="keyword">|</span> D3LAB1lab _ <span class="keyword">=&gt;</span> s2fe
+<span class="comment">// end of [d3lab1_eff_union]
+</span>
+<span class="keyword">fun</span> d3lab1lst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">:</span> <span class="staexp">s2eff</span><span class="keyword">,</span> d3ls<span class="keyword">:</span> <span class="staexp">d3lab1lst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2eff</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> d3ls <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>d3l<span class="keyword">,</span> d3ls<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d3lab1lst_eff_union <span class="keyword">(</span>d3lab1_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3l<span class="keyword">)</span><span class="keyword">,</span> d3ls<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2fe <span class="comment">// end of [nil]
+</span><span class="comment">// end of [d3lab1lst_eff_union]
+</span>
+<span class="keyword">fun</span> c3laulst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">:</span> <span class="staexp">s2eff</span><span class="keyword">,</span> c3ls<span class="keyword">:</span> <span class="staexp">c3laulst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2eff</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> c3ls <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>c3l<span class="keyword">,</span> c3ls<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      c3laulst_eff_union <span class="keyword">(</span>d3exp_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> c3l<span class="keyword">.</span>c3lau_exp<span class="keyword">)</span><span class="keyword">,</span> c3ls<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2fe <span class="comment">// end of [nil]
+</span><span class="comment">// end of [c3laulst_eff_union]
+</span>
+<span class="keyword">fun</span> sc3laulst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">:</span> <span class="staexp">s2eff</span><span class="keyword">,</span> sc3ls<span class="keyword">:</span> <span class="staexp">sc3laulst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2eff</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> sc3ls <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>sc3l<span class="keyword">,</span> sc3ls<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      sc3laulst_eff_union <span class="keyword">(</span>d3exp_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> sc3l<span class="keyword">.</span>sc3lau_exp<span class="keyword">)</span><span class="keyword">,</span> sc3ls<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2fe <span class="comment">// end of [nil]
+</span><span class="comment">// end of [sc3laulst_eff_union]
+</span>
+<span class="keyword">fun</span> v3aldeclst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">:</span> <span class="staexp">s2eff</span><span class="keyword">,</span> d3cs<span class="keyword">:</span> <span class="staexp">v3aldeclst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2eff</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> d3cs <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>d3c<span class="keyword">,</span> d3cs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      v3aldeclst_eff_union <span class="keyword">(</span>d3exp_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3c<span class="keyword">.</span>v3aldec_def<span class="keyword">)</span><span class="keyword">,</span> d3cs<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2fe <span class="comment">// end of [nil]
+</span><span class="comment">// end of [v3aldeclst_eff_union]
+</span>
+<span class="keyword">fun</span> v3ardeclst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">:</span> <span class="staexp">s2eff</span><span class="keyword">,</span> d3cs<span class="keyword">:</span> <span class="staexp">v3ardeclst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2eff</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> d3cs <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>d3c<span class="keyword">,</span> d3cs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> d3c<span class="keyword">.</span>v3ardec_ini <span class="keyword">of</span>
+    <span class="keyword">|</span> Some d3e <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        v3ardeclst_eff_union <span class="keyword">(</span>d3exp_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3e<span class="keyword">)</span><span class="keyword">,</span> d3cs<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [Some]
+</span>    <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> v3ardeclst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3cs<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2fe <span class="comment">// end of [nil]
+</span><span class="comment">// end of [v3ardeclst_eff_union]
+</span>
+<span class="keyword">fun</span> d3ec_eff_union <span class="keyword">(</span>s2fe<span class="keyword">:</span> <span class="staexp">s2eff</span><span class="keyword">,</span> d3c<span class="keyword">:</span> <span class="staexp">d3ec</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2eff</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> d3c<span class="keyword">.</span>d3ec_node <span class="keyword">of</span>
+  <span class="keyword">|</span> D3Cextval <span class="keyword">(</span>_<span class="comment">(*name*)</span><span class="keyword">,</span> d3e_def<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      s2eff_union_s2eff <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3e_def<span class="keyword">.</span>d3exp_eff<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D3Cextval]
+</span>  <span class="keyword">|</span> D3Cextcode _ <span class="keyword">=&gt;</span> S2EFFall <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> D3Cvaldecs <span class="keyword">(</span>valknd<span class="keyword">,</span> d3cs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> valknd <span class="keyword">of</span>
+      <span class="keyword">|</span> $Syn<span class="keyword">.</span>VALKINDprval <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2fe <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> v3aldeclst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3cs<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D3Cvaldecs]
+</span>  <span class="keyword">|</span> D3Cvardecs <span class="keyword">(</span>d3cs<span class="keyword">)</span> <span class="keyword">=&gt;</span> v3ardeclst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3cs<span class="keyword">)</span>
+  <span class="keyword">|</span> D3Cimpdec <span class="keyword">(</span>d3c<span class="keyword">)</span> <span class="keyword">=&gt;</span> d3exp_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3c<span class="keyword">.</span>i3mpdec_def<span class="keyword">)</span>
+  <span class="keyword">|</span> D3Clocal <span class="keyword">(</span>d3cs_head<span class="keyword">,</span> d3cs_body<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3eclst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3cs_head<span class="keyword">)</span>
+      <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3eclst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3cs_body<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      s2fe
+    <span class="keyword">end</span> <span class="comment">// end of [D3Clocal]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> s2fe <span class="comment">// end of [_]
+</span><span class="keyword">end</span> <span class="comment">// end of [d3ec_eff_union]
+</span>
+<span class="keyword">and</span> d3eclst_eff_union
+  <span class="keyword">(</span>s2fe<span class="keyword">:</span> <span class="staexp">s2eff</span><span class="keyword">,</span> d3cs<span class="keyword">:</span> <span class="staexp">d3eclst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2eff</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> d3cs <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>d3c<span class="keyword">,</span> d3cs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d3eclst_eff_union <span class="keyword">(</span>d3ec_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3c<span class="keyword">)</span><span class="keyword">,</span> d3cs<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2fe <span class="comment">// end of [nil]
+</span><span class="keyword">end</span> <span class="comment">// end of [d3eclst_eff_union]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d3exp_ann_type <span class="keyword">(</span>loc<span class="keyword">,</span> d3e<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> d3e<span class="keyword">.</span>d3exp_eff<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eann_type <span class="keyword">(</span>d3e<span class="keyword">,</span> s2e<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3exp_app_dyn
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e_app<span class="keyword">,</span> s2fe_app<span class="keyword">,</span> d3e_fun<span class="keyword">,</span> npf<span class="keyword">,</span> d3es_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> s2eff_union_s2eff <span class="keyword">(</span>s2fe_app<span class="keyword">,</span> d3e_fun<span class="keyword">.</span>d3exp_eff<span class="keyword">)</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3explst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3es_arg<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e_app
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eapp_dyn <span class="keyword">(</span>d3e_fun<span class="keyword">,</span> npf<span class="keyword">,</span> d3es_arg<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_app_dyn]
+</span>
+<span class="keyword">implement</span> d3exp_app_sta <span class="keyword">(</span>loc<span class="keyword">,</span> s2e_app<span class="keyword">,</span> d3e_fun<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> d3e_fun<span class="keyword">.</span>d3exp_eff<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e_app
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eapp_sta d3e_fun
+<span class="keyword">}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d3exp_arrinit
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e_arr<span class="keyword">,</span> s2e_elt<span class="keyword">,</span> od3e_asz<span class="keyword">,</span> d3es_elt<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3expopt_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> od3e_asz<span class="keyword">)</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3explst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3es_elt<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e_arr
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Earrinit <span class="keyword">(</span>s2e_elt<span class="keyword">,</span> od3e_asz<span class="keyword">,</span> d3es_elt<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_arrinit]
+</span>
+<span class="keyword">implement</span> d3exp_arrsize <span class="keyword">(</span>loc<span class="keyword">,</span> s2e_arr<span class="keyword">,</span> s2e_elt<span class="keyword">,</span> d3es_elt<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3explst_eff_union <span class="keyword">(</span>S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3es_elt<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e_arr
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Earrsize <span class="keyword">(</span>s2e_elt<span class="keyword">,</span> d3es_elt<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_arrsize]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d3exp_assgn_ptr <span class="keyword">(</span>loc<span class="keyword">,</span> d3e_ptr<span class="keyword">,</span> d3ls<span class="keyword">,</span> d3e_val<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3e_ptr<span class="keyword">.</span>d3exp_eff
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3lab1lst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3ls<span class="keyword">)</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3exp_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3e_val<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2exp_void_t0ype <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eassgn_ptr <span class="keyword">(</span>d3e_ptr<span class="keyword">,</span> d3ls<span class="keyword">,</span> d3e_val<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_assgn_ptr]
+</span>
+<span class="keyword">implement</span> d3exp_assgn_var
+  <span class="keyword">(</span>loc<span class="keyword">,</span> d2v<span class="keyword">,</span> d3ls<span class="keyword">,</span> d3e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3lab1lst_eff_union <span class="keyword">(</span>S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3ls<span class="keyword">)</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3exp_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3e<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2exp_void_t0ype <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eassgn_var <span class="keyword">(</span>d2v<span class="keyword">,</span> d3ls<span class="keyword">,</span> d3e<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_assgn_var]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> d3exp_bool
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> b<span class="comment">(*bool*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Ebool b
+<span class="keyword">}</span> <span class="comment">// end of [d3exp_bool]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> d3exp_caseof
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e_case<span class="keyword">,</span> casknd<span class="keyword">,</span> d3es<span class="keyword">,</span> c3ls<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3explst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3es<span class="keyword">)</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> c3laulst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> c3ls<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e_case
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Ecaseof <span class="keyword">(</span>casknd<span class="keyword">,</span> d3es<span class="keyword">,</span> c3ls<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_caseof]
+</span>
+<span class="keyword">implement</span> d3exp_char
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> c<span class="comment">(*char*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Echar c
+<span class="keyword">}</span> <span class="comment">// end of [d3exp_char]
+</span>
+<span class="keyword">implement</span> d3exp_con <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> d2c<span class="keyword">,</span> npf<span class="keyword">,</span> d3es_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> isuni <span class="keyword">=</span> aux d3es_arg <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">fun</span> aux <span class="keyword">(</span>d3es<span class="keyword">:</span> <span class="staexp">d3explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">case+</span> d3es <span class="keyword">of</span>
+      <span class="keyword">|</span> list_cons <span class="keyword">(</span>d3e<span class="keyword">,</span> d3es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          <span class="keyword">case+</span> d3e<span class="keyword">.</span>d3exp_node <span class="keyword">of</span> D3Etop <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> true <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> aux d3es
+        <span class="keyword">end</span>
+      <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> false
+  <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>  <span class="keyword">var</span> s2e<span class="keyword">:</span> <span class="staexp">s2exp</span> <span class="keyword">=</span> s2e
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+    <span class="keyword">if</span> isuni <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> s2es_arg <span class="keyword">=</span> d3explst_typ_get d3es_arg
+    <span class="keyword">in</span>
+      s2e := s2exp_datcontyp <span class="keyword">(</span>d2c<span class="keyword">,</span> s2es_arg<span class="keyword">)</span>
+    <span class="keyword">end</span> 
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3explst_eff_union <span class="keyword">(</span>S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3es_arg<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Econ <span class="keyword">(</span>d2c<span class="keyword">,</span> npf<span class="keyword">,</span> d3es_arg<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_con]
+</span>
+<span class="keyword">implement</span> d3exp_crypt <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> knd<span class="keyword">,</span> d3e<span class="keyword">)</span> <span class="keyword">=</span>  <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> d3e<span class="keyword">.</span>d3exp_eff<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Ecrypt <span class="keyword">(</span>knd<span class="keyword">,</span> d3e<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d3exp_cst <span class="keyword">(</span>loc<span class="keyword">,</span> d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> d2cst_typ_get d2c
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Ecst d2c
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3exp_cstsp <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> cst<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Ecstsp cst
+<span class="keyword">}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+d3exp_dynload <span class="keyword">(</span>loc<span class="keyword">,</span> fil<span class="keyword">)</span> <span class="keyword">=</span>  <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFall <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2exp_void_t0ype <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Edynload <span class="keyword">(</span>fil<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span>
+d3exp_effmask <span class="keyword">(</span>loc<span class="keyword">,</span> effs<span class="keyword">,</span> d3e<span class="keyword">)</span> <span class="keyword">=</span>  <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> d3e<span class="keyword">.</span>d3exp_typ
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eeffmask <span class="keyword">(</span>effs<span class="keyword">,</span> d3e<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span>
+d3exp_empty <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=</span>  <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eempty <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span>
+d3exp_extval <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> code<span class="keyword">)</span> <span class="keyword">=</span>  <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eextval <span class="keyword">(</span>code<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [d3exp_extval]
+</span>
+<span class="keyword">implement</span>
+d3exp_fix <span class="keyword">(</span>
+  loc<span class="keyword">,</span> s2e_fix<span class="keyword">,</span> knd<span class="keyword">,</span> d2v<span class="keyword">,</span> d3e_def
+<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e_fix
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Efix <span class="keyword">(</span>knd<span class="keyword">,</span> d2v<span class="keyword">,</span> d3e_def<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [d3exp_fix]
+</span>
+<span class="keyword">implement</span>
+d3exp_float <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> str<span class="keyword">)</span> <span class="keyword">=</span>  <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Efloat str
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span>
+d3exp_floatsp <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> str<span class="keyword">)</span> <span class="keyword">=</span>  <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Efloatsp str
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span>
+d3exp_foldat <span class="keyword">(</span>loc<span class="keyword">,</span> d3e<span class="keyword">)</span> <span class="keyword">=</span>  <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2exp_void_t0ype <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Efoldat d3e
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span>
+d3exp_freeat <span class="keyword">(</span>loc<span class="keyword">,</span> d3e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2exp_void_t0ype <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Efreeat d3e
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span>
+d3exp_if <span class="keyword">(</span>
+  loc<span class="keyword">,</span> s2e<span class="keyword">,</span> d3e_cond<span class="keyword">,</span> d3e_then<span class="keyword">,</span> d3e_else
+<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3e_cond<span class="keyword">.</span>d3exp_eff
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3exp_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3e_then<span class="keyword">)</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3exp_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3e_else<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eif <span class="keyword">(</span>d3e_cond<span class="keyword">,</span> d3e_then<span class="keyword">,</span> d3e_else<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_if]
+</span>
+<span class="keyword">implement</span>
+d3exp_int <span class="keyword">(</span>loc<span class="keyword">,</span> s2e_int<span class="keyword">,</span> str<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e_int
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eint <span class="keyword">(</span>str<span class="keyword">,</span> int<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [d3exp_int]
+</span>
+<span class="keyword">implement</span>
+d3exp_intsp <span class="keyword">(</span>loc<span class="keyword">,</span> s2e_int<span class="keyword">,</span> str<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e_int
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eintsp <span class="keyword">(</span>str<span class="keyword">,</span> int<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [d3exp_int]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d3exp_lam_dyn
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e_fun<span class="keyword">,</span> lin<span class="keyword">,</span> npf<span class="keyword">,</span> p3ts_arg<span class="keyword">,</span> d3e_body<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e_fun
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Elam_dyn <span class="keyword">(</span>lin<span class="keyword">,</span> npf<span class="keyword">,</span> p3ts_arg<span class="keyword">,</span> d3e_body<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [d3exp_lam_dyn]
+</span>
+<span class="keyword">implement</span> d3exp_laminit_dyn
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e_fun<span class="keyword">,</span> lin<span class="keyword">,</span> npf<span class="keyword">,</span> p3ts_arg<span class="keyword">,</span> d3e_body<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e_fun
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Elaminit_dyn <span class="keyword">(</span>lin<span class="keyword">,</span> npf<span class="keyword">,</span> p3ts_arg<span class="keyword">,</span> d3e_body<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [d3exp_laminit_dyn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d3exp_lam_met
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2es_met<span class="keyword">,</span> d3e_body<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> d3e_body<span class="keyword">.</span>d3exp_typ
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Elam_met <span class="keyword">(</span>s2es_met<span class="keyword">,</span> d3e_body<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [d3exp_lam_met]
+</span>
+<span class="keyword">implement</span> d3exp_lam_sta
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e0<span class="keyword">,</span> s2vs<span class="keyword">,</span> s2ps<span class="keyword">,</span> d3e_body<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e0
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Elam_sta <span class="keyword">(</span>s2vs<span class="keyword">,</span> s2ps<span class="keyword">,</span> d3e_body<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [d3exp_lam_dyn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d3exp_lazy_delay <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> d3e<span class="keyword">)</span> <span class="keyword">=</span>  <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Elazy_delay <span class="keyword">(</span>d3e<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3exp_lazy_vt_delay <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> d3e1<span class="keyword">,</span> d3e2<span class="keyword">)</span> <span class="keyword">=</span>  <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Elazy_vt_delay <span class="keyword">(</span>d3e1<span class="keyword">,</span> d3e2<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3exp_lazy_force <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> lin<span class="keyword">,</span> d3e<span class="keyword">)</span> <span class="keyword">=</span>  <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Elazy_force <span class="keyword">(</span>lin<span class="keyword">,</span> d3e<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d3exp_let <span class="keyword">(</span>loc<span class="keyword">,</span> d3cs<span class="keyword">,</span> d3e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3eclst_eff_union <span class="keyword">(</span>d3e<span class="keyword">.</span>d3exp_eff<span class="keyword">,</span> d3cs<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> d3e<span class="keyword">.</span>d3exp_typ
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Elet <span class="keyword">(</span>d3cs<span class="keyword">,</span> d3e<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_let]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d3exp_loop
+  <span class="keyword">(</span>loc<span class="keyword">,</span> od3e_init<span class="keyword">,</span> d3e_test<span class="keyword">,</span> od3e_post<span class="keyword">,</span> d3e_body<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> <span class="keyword">case+</span> od3e_init <span class="keyword">of</span>
+    <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">|</span> Some d3e <span class="keyword">=&gt;</span> d3e<span class="keyword">.</span>d3exp_eff
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3exp_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3e_test<span class="keyword">)</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> <span class="keyword">case+</span> od3e_post <span class="keyword">of</span>
+    <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2fe <span class="keyword">|</span> Some d3e <span class="keyword">=&gt;</span> d3exp_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3e<span class="keyword">)</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3exp_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3e_body<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2exp_void_t0ype <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eloop <span class="keyword">(</span>od3e_init<span class="keyword">,</span> d3e_test<span class="keyword">,</span> od3e_post<span class="keyword">,</span> d3e_body<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_for]
+</span>
+<span class="keyword">implement</span> d3exp_loopexn <span class="keyword">(</span>loc<span class="keyword">,</span> knd<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2exp_void_t0ype <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eloopexn knd
+<span class="keyword">}</span> <span class="comment">// end of [d3exp_loopexn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d3exp_lst <span class="keyword">(</span>loc<span class="keyword">,</span> s2e_lst<span class="keyword">,</span> lin<span class="keyword">,</span> s2e_elt<span class="keyword">,</span> d3es_elt<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3explst_eff_union <span class="keyword">(</span>S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3es_elt<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e_lst
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Elst <span class="keyword">(</span>lin<span class="keyword">,</span> s2e_elt<span class="keyword">,</span> d3es_elt<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_lst]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d3exp_ptrof_ptr
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e_ptr<span class="keyword">,</span> d3e<span class="keyword">,</span> d3ls<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3lab1lst_eff_union <span class="keyword">(</span>d3e<span class="keyword">.</span>d3exp_eff<span class="keyword">,</span> d3ls<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e_ptr
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eptrof_ptr <span class="keyword">(</span>d3e<span class="keyword">,</span> d3ls<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_ptrof_ptr]
+</span>
+<span class="keyword">implement</span> d3exp_ptrof_var
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e_ptr<span class="keyword">,</span> d2v<span class="keyword">,</span> d3ls<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3lab1lst_eff_union <span class="keyword">(</span>S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3ls<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e_ptr
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eptrof_var <span class="keyword">(</span>d2v<span class="keyword">,</span> d3ls<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_ptrof_var]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d3exp_raise <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> d3e_exn<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> s2eff_union_eff <span class="keyword">(</span>d3e_exn<span class="keyword">.</span>d3exp_eff<span class="keyword">,</span> $Eff<span class="keyword">.</span>effect_exn<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eraise <span class="keyword">(</span>d3e_exn<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_raise]
+</span>
+
+<span class="keyword">implement</span> d3exp_rec <span class="keyword">(</span>loc<span class="keyword">,</span> s2e_rec<span class="keyword">,</span> recknd<span class="keyword">,</span> npf<span class="keyword">,</span> ld3es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> labd3explst_eff_union <span class="keyword">(</span>S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> ld3es<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e_rec
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Erec <span class="keyword">(</span>recknd<span class="keyword">,</span> npf<span class="keyword">,</span> ld3es<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_rec]
+</span>
+<span class="keyword">implement</span> d3exp_refarg <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> refval<span class="keyword">,</span> freeknd<span class="keyword">,</span> d3e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> d3e<span class="keyword">.</span>d3exp_eff<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Erefarg <span class="keyword">(</span>refval<span class="keyword">,</span> freeknd<span class="keyword">,</span> d3e<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [d3exp_refarg]
+</span>
+<span class="keyword">implement</span> d3exp_scaseof <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> s2e_val<span class="keyword">,</span> sc3ls<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> sc3laulst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> sc3ls<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Escaseof <span class="keyword">(</span>s2e_val<span class="keyword">,</span> sc3ls<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_scaseof]
+</span>
+<span class="keyword">implement</span> d3exp_sel <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> root<span class="keyword">,</span> path<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3lab1lst_eff_union <span class="keyword">(</span>root<span class="keyword">.</span>d3exp_eff<span class="keyword">,</span> path<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Esel <span class="keyword">(</span>root<span class="keyword">,</span> path<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_sel]
+</span>
+<span class="keyword">implement</span> d3exp_sel_ptr <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> root<span class="keyword">,</span> path<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3lab1lst_eff_union <span class="keyword">(</span>root<span class="keyword">.</span>d3exp_eff<span class="keyword">,</span> path<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Esel_ptr <span class="keyword">(</span>root<span class="keyword">,</span> path<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_sel_ptr]
+</span>
+<span class="keyword">implement</span> d3exp_sel_var <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> root<span class="keyword">,</span> path<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3lab1lst_eff_union <span class="keyword">(</span>S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> path<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Esel_var <span class="keyword">(</span>root<span class="keyword">,</span> path<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_sel_var]
+</span>
+<span class="keyword">implement</span> d3exp_seq <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> d3es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3explst_eff_union <span class="keyword">(</span>S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3es<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eseq <span class="keyword">(</span>d3es<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_seq]
+</span>
+<span class="keyword">implement</span> d3exp_sif
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> s2e_cond<span class="keyword">,</span> d3e_then<span class="keyword">,</span> d3e_else<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3e_then<span class="keyword">.</span>d3exp_eff
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3exp_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> d3e_else<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Esif <span class="keyword">(</span>s2e_cond<span class="keyword">,</span> d3e_then<span class="keyword">,</span> d3e_else<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_if]
+</span>
+<span class="keyword">implement</span> d3exp_string <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> str<span class="keyword">,</span> len<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Estring <span class="keyword">(</span>str<span class="keyword">,</span> len<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [d3exp_string]
+</span>
+<span class="keyword">implement</span> d3exp_struct <span class="keyword">(</span>loc<span class="keyword">,</span> s2e_struct<span class="keyword">,</span> ld3es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> labd3explst_eff_union <span class="keyword">(</span>S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> ld3es<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e_struct
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Estruct <span class="keyword">(</span>ld3es<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_rec]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d3exp_tmpcst <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> d2c<span class="keyword">,</span> s2ess<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Etmpcst <span class="keyword">(</span>d2c<span class="keyword">,</span> s2ess<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3exp_tmpvar <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> d2v<span class="keyword">,</span> s2ess<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Etmpvar <span class="keyword">(</span>d2v<span class="keyword">,</span> s2ess<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d3exp_top <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Etop <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3exp_trywith <span class="keyword">(</span>loc<span class="keyword">,</span> d3e<span class="keyword">,</span> c3ls<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3e<span class="keyword">.</span>d3exp_eff
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> c3laulst_eff_union <span class="keyword">(</span>s2fe<span class="keyword">,</span> c3ls<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> d3e<span class="keyword">.</span>d3exp_typ
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Etrywith <span class="keyword">(</span>d3e<span class="keyword">,</span> c3ls<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_trywith]
+</span>
+<span class="keyword">implement</span> d3exp_var <span class="keyword">(</span>loc<span class="keyword">,</span> s2e<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Evar d2v
+<span class="keyword">}</span> <span class="comment">// end of [d3exp_var]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d3exp_viewat_ptr
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e_at<span class="keyword">,</span> d3e<span class="keyword">,</span> d3ls<span class="keyword">,</span> d2v_view<span class="keyword">,</span> s2ls_view<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e_at
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eviewat_ptr <span class="keyword">(</span>d3e<span class="keyword">,</span> d3ls<span class="keyword">,</span> d2v_view<span class="keyword">,</span> s2ls_view<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3exp_viewat_var
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s2e_at<span class="keyword">,</span> d2v<span class="keyword">,</span> d3ls<span class="keyword">,</span> d2v_view<span class="keyword">,</span> s2ls_view<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2e_at
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eviewat_var <span class="keyword">(</span>d2v<span class="keyword">,</span> d3ls<span class="keyword">,</span> d2v_view<span class="keyword">,</span> s2ls_view<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d3exp_viewat_assgn_ptr <span class="keyword">(</span>loc<span class="keyword">,</span> d3e_l<span class="keyword">,</span> d3ls<span class="keyword">,</span> d3e_r<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2exp_void_t0ype <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eviewat_assgn_ptr <span class="keyword">(</span>d3e_l<span class="keyword">,</span> d3ls<span class="keyword">,</span> d3e_r<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3exp_viewat_assgn_var <span class="keyword">(</span>loc<span class="keyword">,</span> d2v_l<span class="keyword">,</span> d3ls<span class="keyword">,</span> d3e_r<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> s2exp_void_t0ype <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Eviewat_assgn_var <span class="keyword">(</span>d2v_l<span class="keyword">,</span> d3ls<span class="keyword">,</span> d3e_r<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d3exp_where <span class="keyword">(</span>loc<span class="keyword">,</span> d3e<span class="keyword">,</span> d3cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> d3eclst_eff_union <span class="keyword">(</span>d3e<span class="keyword">.</span>d3exp_eff<span class="keyword">,</span> d3cs<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  d3exp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> d3exp_eff<span class="keyword">=</span> s2fe<span class="keyword">,</span> d3exp_typ<span class="keyword">=</span> d3e<span class="keyword">.</span>d3exp_typ
+<span class="keyword">,</span> d3exp_node<span class="keyword">=</span> D3Ewhere <span class="keyword">(</span>d3e<span class="keyword">,</span> d3cs<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [d3exp_where]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d3lab0_ind <span class="keyword">(</span>loc<span class="keyword">,</span> d3ess_ind<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3lab0_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3lab0_node<span class="keyword">=</span> D3LAB0ind d3ess_ind
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3lab0_lab <span class="keyword">(</span>loc<span class="keyword">,</span> lab<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3lab0_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3lab0_node<span class="keyword">=</span> D3LAB0lab lab
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3lab1_ind <span class="keyword">(</span>loc<span class="keyword">,</span> d3ess_ind<span class="keyword">,</span> s2e_elt<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3lab1_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3lab1_node<span class="keyword">=</span> D3LAB1ind <span class="keyword">(</span>d3ess_ind<span class="keyword">,</span> s2e_elt<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3lab1_lab <span class="keyword">(</span>loc<span class="keyword">,</span> lab<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3lab1_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3lab1_node<span class="keyword">=</span> D3LAB1lab <span class="keyword">(</span>lab<span class="keyword">,</span> s2e<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> m3atch_make <span class="keyword">(</span>loc<span class="keyword">,</span> d3e<span class="keyword">,</span> op3t<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  m3atch_loc<span class="keyword">=</span> loc<span class="keyword">,</span> m3atch_exp<span class="keyword">=</span> d3e<span class="keyword">,</span> m3atch_pat<span class="keyword">=</span> op3t
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> c3lau_make <span class="keyword">(</span>loc<span class="keyword">,</span> p3ts<span class="keyword">,</span> gua<span class="keyword">,</span> seq<span class="keyword">,</span> neg<span class="keyword">,</span> d3e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  c3lau_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> c3lau_pat<span class="keyword">=</span> p3ts
+<span class="keyword">,</span> c3lau_gua<span class="keyword">=</span> gua<span class="keyword">,</span> c3lau_seq<span class="keyword">=</span> seq<span class="keyword">,</span> c3lau_neg<span class="keyword">=</span> neg
+<span class="keyword">,</span> c3lau_exp<span class="keyword">=</span> d3e
+<span class="keyword">}</span> <span class="comment">// end of [c3lau_make]
+</span>
+<span class="keyword">implement</span> sc3lau_make <span class="keyword">(</span>loc<span class="keyword">,</span> sp2t<span class="keyword">,</span> d3e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  sc3lau_loc<span class="keyword">=</span> loc<span class="keyword">,</span> sc3lau_pat<span class="keyword">=</span> sp2t<span class="keyword">,</span> sc3lau_exp<span class="keyword">=</span> d3e
+<span class="keyword">}</span> <span class="comment">// end of [sc3lau_make]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> v3aldec_make <span class="keyword">(</span>loc<span class="keyword">,</span> p3t<span class="keyword">,</span> d3e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  v3aldec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> v3aldec_pat<span class="keyword">=</span> p3t<span class="keyword">,</span> v3aldec_def<span class="keyword">=</span> d3e
+<span class="keyword">}</span> <span class="comment">// end of [v3aldec_make]
+</span>
+<span class="keyword">implement</span> v3ardec_make
+  <span class="keyword">(</span>loc<span class="keyword">,</span> knd<span class="keyword">,</span> d2v_ptr<span class="keyword">,</span> d2v_viw<span class="keyword">,</span> s2e_typ<span class="keyword">,</span> d3e_ini<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  v3ardec_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> v3ardec_knd<span class="keyword">=</span> knd
+<span class="keyword">,</span> v3ardec_dvar_ptr<span class="keyword">=</span> d2v_ptr
+<span class="keyword">,</span> v3ardec_dvar_viw<span class="keyword">=</span> d2v_viw
+<span class="keyword">,</span> v3ardec_typ<span class="keyword">=</span> s2e_typ
+<span class="keyword">,</span> v3ardec_ini<span class="keyword">=</span> d3e_ini
+<span class="keyword">}</span> <span class="comment">// end of [v3ardec_make]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> f3undec_make <span class="keyword">(</span>loc<span class="keyword">,</span> d2v<span class="keyword">,</span> d3e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  f3undec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> f3undec_var<span class="keyword">=</span> d2v<span class="keyword">,</span> f3undec_def<span class="keyword">=</span> d3e
+<span class="keyword">}</span> <span class="comment">// end of [f3undec_make]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> i3mpdec_make <span class="keyword">(</span>loc<span class="keyword">,</span> d2c<span class="keyword">,</span> s2vpss<span class="keyword">,</span> s2es<span class="keyword">,</span> d3e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  i3mpdec_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> i3mpdec_cst<span class="keyword">=</span> d2c
+<span class="keyword">,</span> i3mpdec_decarg<span class="keyword">=</span> s2vpss<span class="keyword">,</span> i3mpdec_tmparg<span class="keyword">=</span> s2es <span class="comment">(* one must be nil *)</span>
+<span class="keyword">,</span> i3mpdec_def<span class="keyword">=</span> d3e
+<span class="keyword">}</span> <span class="comment">// end of [i3mpdec_make]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d3ec_none <span class="keyword">(</span>loc<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3ec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3ec_node<span class="keyword">=</span> D3Cnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3ec_list <span class="keyword">(</span>loc<span class="keyword">,</span> d3cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3ec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3ec_node<span class="keyword">=</span> D3Clist <span class="keyword">(</span>d3cs<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3ec_saspdec <span class="keyword">(</span>loc<span class="keyword">,</span> d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3ec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3ec_node<span class="keyword">=</span> D3Csaspdec <span class="keyword">(</span>d2c<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3ec_dcstdec <span class="keyword">(</span>loc<span class="keyword">,</span> dck<span class="keyword">,</span> d3cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3ec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3ec_node<span class="keyword">=</span> D3Cdcstdec <span class="keyword">(</span>dck<span class="keyword">,</span> d3cs<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3ec_datdec <span class="keyword">(</span>loc<span class="keyword">,</span> dck<span class="keyword">,</span> s2cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3ec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3ec_node<span class="keyword">=</span> D3Cdatdec <span class="keyword">(</span>dck<span class="keyword">,</span> s2cs<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3ec_exndec <span class="keyword">(</span>loc<span class="keyword">,</span> d2cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3ec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3ec_node<span class="keyword">=</span> D3Cexndec <span class="keyword">(</span>d2cs<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3ec_extype <span class="keyword">(</span>loc<span class="keyword">,</span> name<span class="keyword">,</span> s2e_def<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3ec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3ec_node<span class="keyword">=</span> D3Cextype <span class="keyword">(</span>name<span class="keyword">,</span> s2e_def<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3ec_extval <span class="keyword">(</span>loc<span class="keyword">,</span> name<span class="keyword">,</span> d3e_def<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3ec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3ec_node<span class="keyword">=</span> D3Cextval <span class="keyword">(</span>name<span class="keyword">,</span> d3e_def<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3ec_extcode <span class="keyword">(</span>loc<span class="keyword">,</span> position<span class="keyword">,</span> code<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3ec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3ec_node<span class="keyword">=</span> D3Cextcode <span class="keyword">(</span>position<span class="keyword">,</span> code<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3ec_valdecs <span class="keyword">(</span>loc<span class="keyword">,</span> valknd<span class="keyword">,</span> d3cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3ec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3ec_node<span class="keyword">=</span> D3Cvaldecs <span class="keyword">(</span>valknd<span class="keyword">,</span> d3cs<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3ec_valdecs_par <span class="keyword">(</span>loc<span class="keyword">,</span> d3cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3ec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3ec_node<span class="keyword">=</span> D3Cvaldecs_par <span class="keyword">(</span>d3cs<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3ec_valdecs_rec <span class="keyword">(</span>loc<span class="keyword">,</span> d3cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3ec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3ec_node<span class="keyword">=</span> D3Cvaldecs_rec <span class="keyword">(</span>d3cs<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3ec_fundecs <span class="keyword">(</span>loc<span class="keyword">,</span> decarg<span class="keyword">,</span> funknd<span class="keyword">,</span> d3cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3ec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3ec_node<span class="keyword">=</span> D3Cfundecs <span class="keyword">(</span>decarg<span class="keyword">,</span> funknd<span class="keyword">,</span> d3cs<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3ec_vardecs <span class="keyword">(</span>loc<span class="keyword">,</span> d3cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3ec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3ec_node<span class="keyword">=</span> D3Cvardecs <span class="keyword">(</span>d3cs<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3ec_impdec <span class="keyword">(</span>loc<span class="keyword">,</span> d3c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3ec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3ec_node<span class="keyword">=</span> D3Cimpdec <span class="keyword">(</span>d3c<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> d3ec_local <span class="keyword">(</span>loc<span class="keyword">,</span> d3cs_head<span class="keyword">,</span> d3cs_body<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3ec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3ec_node<span class="keyword">=</span> D3Clocal <span class="keyword">(</span>d3cs_head<span class="keyword">,</span> d3cs_body<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [d3ec_local]
+</span>
+<span class="keyword">implement</span> d3ec_staload <span class="keyword">(</span>loc<span class="keyword">,</span> fil<span class="keyword">,</span> loadflag<span class="keyword">,</span> od3cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3ec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3ec_node<span class="keyword">=</span> D3Cstaload <span class="keyword">(</span>fil<span class="keyword">,</span> loadflag<span class="keyword">,</span> od3cs<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [d3ec_staload]
+</span>
+<span class="keyword">implement</span> d3ec_dynload <span class="keyword">(</span>loc<span class="keyword">,</span> fil<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d3ec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d3ec_node<span class="keyword">=</span> D3Cdynload <span class="keyword">(</span>fil<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [d3ec_dynload]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">typedef</span> <span class="staexp">"d3exp_t" <span class="keyword">=</span> d3exp</span>
+
+<span class="extern">%{$
+
+ats_void_type
+ats_dynexp3_d3exp_typ_set (
+  ats_ptr_type d3e, ats_ptr_type s2e
+) {
+  ((d3exp_t)d3e)-&gt;atslab_d3exp_typ = s2e ; return ;
+} // end of [ats_dynexp3_d3exp_typ_set]
+
+%}</span> <span class="comment">// end of [%{$]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+d3explst_typ_get
+  <span class="keyword">(</span>d3es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> d3es <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>d3e<span class="keyword">,</span> d3es<span class="keyword">)</span> <span class="keyword">=&gt;</span> cons <span class="keyword">(</span>d3e<span class="keyword">.</span>d3exp_typ<span class="keyword">,</span> d3explst_typ_get d3es<span class="keyword">)</span>
+  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> nil <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d3explst_typ_get]
+</span>
+<span class="keyword">implement</span>
+labd3explst_typ_get
+  <span class="keyword">(</span>ld3es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> ld3es <span class="keyword">of</span>
+  <span class="keyword">|</span> LABD3EXPLSTcons <span class="keyword">(</span>l<span class="keyword">,</span> d3e<span class="keyword">,</span> ld3es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      LABS2EXPLSTcons <span class="keyword">(</span>l<span class="keyword">,</span> d3e<span class="keyword">.</span>d3exp_typ<span class="keyword">,</span> labd3explst_typ_get ld3es<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [LABD3EXPLSTcons]
+</span>  <span class="keyword">|</span> LABD3EXPLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> LABS2EXPLSTnil <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [labd3explst_typ_get]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_dynexp3.dats] *)</span>
+</pre>
+</body>
+</html>

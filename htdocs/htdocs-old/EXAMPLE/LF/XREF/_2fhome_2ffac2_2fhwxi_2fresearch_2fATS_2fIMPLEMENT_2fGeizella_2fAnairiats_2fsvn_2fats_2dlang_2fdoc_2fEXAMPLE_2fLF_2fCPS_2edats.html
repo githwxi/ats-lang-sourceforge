@@ -1,0 +1,298 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">//
+</span><span class="comment">//
+</span><span class="comment">// A typeful implementation of CPS transformation
+</span><span class="comment">//
+</span><span class="comment">//
+</span>
+<span class="comment">// December 2004
+</span><span class="comment">// The code is written by Hongwei Xi
+</span>
+<span class="comment">// January 2007
+</span><span class="comment">// The code is ported to ATS/Geizella by Hongwei Xi
+</span>
+<span class="comment">// March 3rd, 2007
+</span><span class="comment">// The code is ported to ATS/Anairiats by Hongwei Xi
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="neuexp"><span class="keyword">infixr</span> -&gt;&gt; ::</span>
+
+<span class="keyword">datasort</span> <span class="staexp">ty <span class="keyword">=</span> int <span class="keyword">|</span> -&gt;&gt; <span class="keyword">of</span> <span class="keyword">(</span>ty<span class="keyword">,</span> ty<span class="keyword">)</span> <span class="keyword">|</span> bot <span class="keyword">|</span> cont <span class="keyword">of</span> ty</span>
+<span class="keyword">datasort</span> <span class="staexp">env <span class="keyword">=</span> nil <span class="keyword">|</span> :: <span class="keyword">of</span> <span class="keyword">(</span>ty<span class="keyword">,</span> env<span class="keyword">)</span></span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="398"><span class="stacstdec">VAR <span class="keyword">(</span>env<span class="keyword">,</span> ty<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">G<span class="keyword">:</span>env</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">t<span class="keyword">:</span>ty</span><span class="keyword">}</span> VARone <span class="staexp"><span class="keyword">(</span>t :: G<span class="keyword">,</span> t<span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">G<span class="keyword">:</span>env</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">t1<span class="keyword">,</span>t2<span class="keyword">:</span>ty</span><span class="keyword">}</span> VARshi <span class="staexp"><span class="keyword">(</span>t2 :: G<span class="keyword">,</span> t1<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">VAR <span class="keyword">(</span>G<span class="keyword">,</span> t1<span class="keyword">)</span></span>
+
+<span class="comment">//
+</span>
+<span class="keyword">fun</span> nat_of_var <span class="staexp"><span class="keyword">{</span>G<span class="keyword">:</span>env<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>t<span class="keyword">:</span>ty<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">VAR <span class="keyword">(</span>G<span class="keyword">,</span> t<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">Nat</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> x <span class="keyword">of</span> VARone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> 1 <span class="keyword">|</span> VARshi x <span class="keyword">=&gt;</span> 1 + nat_of_var x
+
+<span class="comment">//
+</span>
+<span class="keyword">datatype</span> <span class="staexp"><a name="642"><span class="stacstdec">EXP <span class="keyword">(</span>env<span class="keyword">,</span> ty<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">G<span class="keyword">:</span>env</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">t<span class="keyword">:</span>ty</span><span class="keyword">}</span> EXPvar <span class="staexp"><span class="keyword">(</span>G<span class="keyword">,</span> t<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">VAR <span class="keyword">(</span>G<span class="keyword">,</span> t<span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">G<span class="keyword">:</span>env</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">t1<span class="keyword">,</span>t2<span class="keyword">:</span>ty</span><span class="keyword">}</span> EXPlam <span class="staexp"><span class="keyword">(</span>G<span class="keyword">,</span> t1 -&gt;&gt; t2<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">EXP <span class="keyword">(</span>t1 :: G<span class="keyword">,</span> t2<span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">G<span class="keyword">:</span>env</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">t1<span class="keyword">,</span>t2<span class="keyword">:</span>ty</span><span class="keyword">}</span> EXPapp <span class="staexp"><span class="keyword">(</span>G<span class="keyword">,</span> t2<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>EXP <span class="keyword">(</span>G<span class="keyword">,</span> t1 -&gt;&gt; t2<span class="keyword">)</span><span class="keyword">,</span> EXP <span class="keyword">(</span>G<span class="keyword">,</span> t1<span class="keyword">)</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">G<span class="keyword">:</span>env</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">t1<span class="keyword">,</span>t2<span class="keyword">:</span>ty</span><span class="keyword">}</span> EXPlet <span class="staexp"><span class="keyword">(</span>G<span class="keyword">,</span> t2<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>EXP <span class="keyword">(</span>G<span class="keyword">,</span> t1<span class="keyword">)</span><span class="keyword">,</span> EXP <span class="keyword">(</span>t1 :: G<span class="keyword">,</span> t2<span class="keyword">)</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">G<span class="keyword">:</span>env</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">t<span class="keyword">:</span>ty</span><span class="keyword">}</span> EXPcal <span class="staexp"><span class="keyword">(</span>G<span class="keyword">,</span> t<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">EXP <span class="keyword">(</span>G<span class="keyword">,</span> cont<span class="keyword">(</span>t<span class="keyword">)</span> -&gt;&gt; t<span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">G<span class="keyword">:</span>env</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">t1<span class="keyword">,</span>t2<span class="keyword">:</span>ty</span><span class="keyword">}</span> EXPthr <span class="staexp"><span class="keyword">(</span>G<span class="keyword">,</span> t2<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>EXP <span class="keyword">(</span>G<span class="keyword">,</span> cont t1<span class="keyword">)</span><span class="keyword">,</span> EXP <span class="keyword">(</span>G<span class="keyword">,</span> t1<span class="keyword">)</span><span class="keyword">)</span></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="1061"><span class="stacstdec">EXP0 <span class="keyword">(</span>t<span class="keyword">:</span> ty<span class="keyword">)</span> <span class="keyword">=</span> EXP <span class="keyword">(</span>nil<span class="keyword">,</span> t<span class="keyword">)</span></span></a></span>
+
+<span class="comment">//
+</span>
+<span class="keyword">dataprop</span> <span class="prfexp"><span class="staexp"><a name="1103"><span class="stacstdec">RT1 <span class="keyword">(</span>ty<span class="keyword">,</span> ty<span class="keyword">,</span> int<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">t<span class="keyword">,</span>t'<span class="keyword">:</span>ty</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">n<span class="keyword">:</span>nat</span><span class="keyword">}</span> RT1 <span class="staexp"><span class="keyword">(</span>t<span class="keyword">,</span> <span class="keyword">(</span>t' -&gt;&gt; bot<span class="keyword">)</span> -&gt;&gt; bot<span class="keyword">,</span> n+1<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">RT2 <span class="keyword">(</span>t<span class="keyword">,</span> t'<span class="keyword">,</span> n<span class="keyword">)</span></span>
+
+<span class="keyword">and</span> <span class="staexp"><a name="1203"><span class="stacstdec">RT2 <span class="keyword">(</span>ty<span class="keyword">,</span> ty<span class="keyword">,</span> int<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> RT2int <span class="staexp"><span class="keyword">(</span>int<span class="keyword">,</span> int<span class="keyword">,</span> 0<span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">t1<span class="keyword">,</span>t2<span class="keyword">,</span>t1'<span class="keyword">,</span>t2'<span class="keyword">:</span>ty</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">n1<span class="keyword">,</span>n2<span class="keyword">:</span>nat</span><span class="keyword">}</span>
+      RT2fun <span class="staexp"><span class="keyword">(</span>t1 -&gt;&gt; t2<span class="keyword">,</span> t1' -&gt;&gt; t2'<span class="keyword">,</span>n1+n2+1<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>RT2<span class="keyword">(</span>t1<span class="keyword">,</span> t1'<span class="keyword">,</span>n1<span class="keyword">)</span><span class="keyword">,</span> RT1 <span class="keyword">(</span>t2<span class="keyword">,</span> t2'<span class="keyword">,</span>n2<span class="keyword">)</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> RT2bot <span class="staexp"><span class="keyword">(</span>bot<span class="keyword">,</span> bot<span class="keyword">,</span> 0<span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">t<span class="keyword">,</span>t'<span class="keyword">:</span>ty</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">n<span class="keyword">:</span>nat</span><span class="keyword">}</span> RT2cont<span class="staexp"><span class="keyword">(</span>cont<span class="keyword">(</span>t<span class="keyword">)</span><span class="keyword">,</span> t' -&gt;&gt; bot<span class="keyword">,</span>n+1<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">RT2 <span class="keyword">(</span>t<span class="keyword">,</span> t'<span class="keyword">,</span>n<span class="keyword">)</span></span></span>
+
+<span class="keyword">propdef</span> <span class="staexp"><a name="1474"><span class="stacstdec">RT10 <span class="keyword">(</span>t1<span class="keyword">:</span> ty<span class="keyword">,</span> t2<span class="keyword">:</span> ty<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>n<span class="keyword">:</span>nat<span class="keyword">]</span> RT1 <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">,</span> n<span class="keyword">)</span></span></a></span>
+<span class="keyword">propdef</span> <span class="staexp"><a name="1530"><span class="stacstdec">RT20 <span class="keyword">(</span>t1<span class="keyword">:</span> ty<span class="keyword">,</span> t2<span class="keyword">:</span> ty<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>n<span class="keyword">:</span>nat<span class="keyword">]</span> RT2 <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">,</span> n<span class="keyword">)</span></span></a></span>
+
+<span class="comment">//
+</span>
+<span class="keyword">extern</span> <span class="keyword">prval</span> <a name="1596"><span class="dyncstdec"><span class="prfexp">rt1fun<span class="keyword">:</span> <span class="staexp"><span class="keyword">{</span>t<span class="keyword">:</span>ty<span class="keyword">}</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">-&lt;&gt;</span> <span class="keyword">[</span>t'<span class="keyword">:</span>ty<span class="keyword">]</span> RT10 <span class="keyword">(</span>t<span class="keyword">,</span> t'<span class="keyword">)</span></span></span></span></a>
+<span class="keyword">extern</span> <span class="keyword">prval</span> <a name="1652"><span class="dyncstdec"><span class="prfexp">rt2fun<span class="keyword">:</span> <span class="staexp"><span class="keyword">{</span>t1<span class="keyword">:</span>ty<span class="keyword">}</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">-&lt;&gt;</span> <span class="keyword">[</span>t2<span class="keyword">:</span>ty<span class="keyword">]</span> RT20 <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span></span></span></span></a>
+
+<span class="comment">(*
+
+prfun rt1fun {t:ty} .&lt;t&gt;. = RT1 (rt2fun {t})
+
+and rt2fun {t:ty} .&lt;t&gt;. =
+  scase t of
+    | int =&gt; RT2int (int, int, 0)
+    | t1 -&gt;&gt; t2 =&gt; RT2fun (rt2fun {t1}, rt1fun {t2})
+    | bot -&gt; RT2bot (bot, bot, 0)
+    | cont t =&gt; RT2cont (rt2fun {t})
+
+*)</span>
+
+<span class="keyword">dataprop</span> <span class="prfexp"><span class="staexp"><a name="1959"><span class="stacstdec">TYEQ <span class="keyword">(</span>ty<span class="keyword">,</span> ty<span class="keyword">)</span></span></a></span> <span class="keyword">=</span> <span class="keyword">{</span><span class="staexp">t<span class="keyword">:</span>ty</span><span class="keyword">}</span> TYEQ <span class="staexp"><span class="keyword">(</span>t<span class="keyword">,</span> t<span class="keyword">)</span></span></span>
+
+<span class="comment">//
+</span>
+<span class="keyword">prfun</span> <span class="prfexp">rt1eq <span class="staexp"><span class="keyword">{</span>t<span class="keyword">,</span>t1<span class="keyword">,</span>t2<span class="keyword">:</span>ty<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n1<span class="keyword">,</span>n2<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n1<span class="keyword">&gt;.</span></span>
+   <span class="keyword">(</span>pf1<span class="keyword">:</span> <span class="staexp">RT1 <span class="keyword">(</span>t<span class="keyword">,</span> t1<span class="keyword">,</span> n1<span class="keyword">)</span></span><span class="keyword">,</span> pf2<span class="keyword">:</span> <span class="staexp">RT1 <span class="keyword">(</span>t<span class="keyword">,</span> t2<span class="keyword">,</span> n2<span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp">TYEQ <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span></span>  <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> <span class="keyword">(</span>pf1<span class="keyword">,</span> pf2<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">(</span>RT1 pf1<span class="keyword">,</span> RT1 pf2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="keyword">prval</span> <span class="prfexp">TYEQ <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> rt2eq <span class="keyword">(</span>pf1<span class="keyword">,</span> pf2<span class="keyword">)</span></span> <span class="keyword">in</span> TYEQ <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [rt1eq]
+</span>
+<span class="keyword">and</span> rt2eq <span class="staexp"><span class="keyword">{</span>t<span class="keyword">,</span>t1<span class="keyword">,</span>t2<span class="keyword">:</span>ty<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n1<span class="keyword">,</span>n2<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n1<span class="keyword">&gt;.</span></span>
+   <span class="keyword">(</span>pf1<span class="keyword">:</span> <span class="staexp">RT2 <span class="keyword">(</span>t<span class="keyword">,</span> t1<span class="keyword">,</span> n1<span class="keyword">)</span></span><span class="keyword">,</span> pf2<span class="keyword">:</span> <span class="staexp">RT2 <span class="keyword">(</span>t<span class="keyword">,</span> t2<span class="keyword">,</span> n2<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">TYEQ <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>pf1<span class="keyword">,</span> pf2<span class="keyword">)</span> <span class="keyword">of</span> 
+  <span class="keyword">|</span> <span class="keyword">(</span>RT2int <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> RT2int <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> TYEQ
+  <span class="keyword">|</span> <span class="keyword">(</span>RT2fun <span class="keyword">(</span>pf11<span class="keyword">,</span> pf12<span class="keyword">)</span><span class="keyword">,</span> RT2fun <span class="keyword">(</span>pf21<span class="keyword">,</span> pf22<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">prval</span> <span class="prfexp">TYEQ <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> rt2eq <span class="keyword">(</span>pf11<span class="keyword">,</span> pf21<span class="keyword">)</span> <span class="keyword">and</span> TYEQ <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> rt1eq <span class="keyword">(</span>pf12<span class="keyword">,</span> pf22<span class="keyword">)</span></span>
+    <span class="keyword">in</span>
+      TYEQ <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>RT2cont pf1<span class="keyword">,</span> RT2cont pf2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">let</span> <span class="keyword">prval</span> <span class="prfexp">TYEQ <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> rt2eq <span class="keyword">(</span>pf1<span class="keyword">,</span> pf2<span class="keyword">)</span></span> <span class="keyword">in</span> TYEQ <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">end</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>RT2bot <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> RT2bot <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> TYEQ <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span></span> <span class="comment">// end of [rt2eq]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">datatype</span> <span class="staexp"><a name="2748"><span class="stacstdec">EXP' <span class="keyword">(</span>env<span class="keyword">,</span> ty<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">G<span class="keyword">:</span>env</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">t<span class="keyword">:</span>ty</span><span class="keyword">}</span> EXPvar' <span class="staexp"><span class="keyword">(</span>G<span class="keyword">,</span> t<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">VAR <span class="keyword">(</span>G<span class="keyword">,</span> t<span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">G<span class="keyword">:</span>env</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">t1<span class="keyword">,</span>t2<span class="keyword">:</span>ty</span><span class="keyword">}</span> EXPlam' <span class="staexp"><span class="keyword">(</span>G<span class="keyword">,</span> t1 -&gt;&gt; t2<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">EXP' <span class="keyword">(</span>t1 :: G<span class="keyword">,</span> t2<span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">G<span class="keyword">:</span>env</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">t1<span class="keyword">,</span>t2<span class="keyword">:</span>ty</span><span class="keyword">}</span> EXPapp' <span class="staexp"><span class="keyword">(</span>G<span class="keyword">,</span> t2<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>EXP' <span class="keyword">(</span>G<span class="keyword">,</span> t1 -&gt;&gt; t2<span class="keyword">)</span><span class="keyword">,</span> EXP' <span class="keyword">(</span>G<span class="keyword">,</span> t1<span class="keyword">)</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">G<span class="keyword">:</span>env</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">t1<span class="keyword">,</span>t2<span class="keyword">:</span>ty</span><span class="keyword">}</span> EXPlet' <span class="staexp"><span class="keyword">(</span>G<span class="keyword">,</span> t2<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>EXP' <span class="keyword">(</span>G<span class="keyword">,</span> t1<span class="keyword">)</span><span class="keyword">,</span> EXP' <span class="keyword">(</span>t1 :: G<span class="keyword">,</span> t2<span class="keyword">)</span><span class="keyword">)</span></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="3045"><span class="stacstdec">EXP0' <span class="keyword">(</span>t<span class="keyword">:</span>ty<span class="keyword">)</span> <span class="keyword">=</span> EXP' <span class="keyword">(</span>nil<span class="keyword">,</span> t<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="3083"><span class="stacstdec">SUB <span class="keyword">(</span>G1<span class="keyword">:</span>env<span class="keyword">,</span> G2<span class="keyword">:</span>env<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">{</span>t<span class="keyword">:</span>ty<span class="keyword">}</span> VAR<span class="keyword">(</span>G1<span class="keyword">,</span>t<span class="keyword">)</span> <span class="keyword">-&gt;</span> EXP' <span class="keyword">(</span>G2<span class="keyword">,</span>t<span class="keyword">)</span></span></a></span>
+
+<span class="comment">//
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="3154"><span class="dyncstdec">print_exp1 <span class="staexp"><span class="keyword">{</span>G<span class="keyword">:</span>env<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>t<span class="keyword">:</span>ty<span class="keyword">}</span></span> <span class="keyword">(</span>e0<span class="keyword">:</span> <span class="staexp">EXP' <span class="keyword">(</span>G<span class="keyword">,</span> t<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> print <span class="keyword">with</span> print_exp1</span>
+
+<span class="keyword">implement</span> print_exp1 e0 <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> e0 <span class="keyword">of</span>
+  <span class="keyword">|</span> EXPvar' x <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> n <span class="keyword">=</span> nat_of_var x
+    <span class="keyword">in</span>
+      print "EXPvar' ("<span class="keyword">;</span> print n<span class="keyword">;</span> print ")"
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> EXPlam' e <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      print "EXPlam' ("<span class="keyword">;</span> print_exp1 e<span class="keyword">;</span> print ")"
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> EXPapp' <span class="keyword">(</span>e1<span class="keyword">,</span> e2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      print "EXPapp' ("<span class="keyword">;</span> print_exp1 e1<span class="keyword">;</span> print ", "<span class="keyword">;</span> print_exp1 e2<span class="keyword">;</span> print ")"
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> EXPlet' <span class="keyword">(</span>e1<span class="keyword">,</span> e2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      print "EXPlet' ("<span class="keyword">;</span> print_exp1 e1<span class="keyword">;</span> print ", "<span class="keyword">;</span> print_exp1 e2<span class="keyword">;</span> print ")"
+    <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [print_exp1]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">val</span> idSub <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">lam</span> x <span class="keyword">=&gt;</span> EXPvar' x<span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">{</span>G<span class="keyword">:</span>env<span class="keyword">}</span> SUB <span class="keyword">(</span>G<span class="keyword">,</span> G<span class="keyword">)</span></span>
+
+<span class="keyword">val</span> shiSub <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">lam</span> x <span class="keyword">=&gt;</span> EXPvar' <span class="keyword">(</span>VARshi x<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">{</span>G<span class="keyword">:</span>env<span class="keyword">}</span> <span class="keyword">{</span>t<span class="keyword">:</span>ty<span class="keyword">}</span> SUB <span class="keyword">(</span>G<span class="keyword">,</span> t :: G<span class="keyword">)</span></span>
+
+<span class="comment">//
+</span>
+<span class="keyword">fun</span> subst <span class="staexp"><span class="keyword">{</span>G1<span class="keyword">,</span>G2<span class="keyword">:</span>env<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>t<span class="keyword">:</span>ty<span class="keyword">}</span></span>
+   <span class="keyword">(</span>sub<span class="keyword">:</span> <span class="staexp">SUB<span class="keyword">(</span>G1<span class="keyword">,</span>G2<span class="keyword">)</span></span><span class="keyword">)</span> <span class="keyword">(</span>e<span class="keyword">:</span> <span class="staexp">EXP' <span class="keyword">(</span>G1<span class="keyword">,</span>t<span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">EXP' <span class="keyword">(</span>G2<span class="keyword">,</span>t<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> e <span class="keyword">of</span>
+  <span class="keyword">|</span> EXPvar' x <span class="keyword">=&gt;</span> sub <span class="keyword">(</span>x<span class="keyword">)</span>
+  <span class="keyword">|</span> EXPlam' e <span class="keyword">=&gt;</span> EXPlam' <span class="keyword">(</span>subst <span class="keyword">(</span>subLam sub<span class="keyword">)</span> e<span class="keyword">)</span>
+  <span class="keyword">|</span> EXPapp' <span class="keyword">(</span>e1<span class="keyword">,</span> e2<span class="keyword">)</span> <span class="keyword">=&gt;</span> EXPapp' <span class="keyword">(</span>subst sub e1<span class="keyword">,</span> subst sub e2<span class="keyword">)</span>
+  <span class="keyword">|</span> EXPlet' <span class="keyword">(</span>e1<span class="keyword">,</span> e2<span class="keyword">)</span> <span class="keyword">=&gt;</span> EXPlet' <span class="keyword">(</span>subst sub e1<span class="keyword">,</span> subst <span class="keyword">(</span>subLam sub<span class="keyword">)</span> e2<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [subst]
+</span>
+<span class="keyword">and</span> subLam <span class="staexp"><span class="keyword">{</span>G1<span class="keyword">,</span>G2<span class="keyword">:</span>env<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>t<span class="keyword">:</span>ty<span class="keyword">}</span></span>
+  <span class="keyword">(</span>sub<span class="keyword">:</span> <span class="staexp">SUB <span class="keyword">(</span>G1<span class="keyword">,</span>G2<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">SUB <span class="keyword">(</span>t::G1<span class="keyword">,</span>t::G2<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">lam</span> x <span class="keyword">=&gt;</span> <span class="keyword">case+</span> x <span class="keyword">of</span>
+    <span class="keyword">|</span> VARone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> EXPvar' <span class="keyword">(</span>VARone<span class="keyword">)</span>
+    <span class="keyword">|</span> VARshi x' <span class="keyword">=&gt;</span> subst <span class="keyword">(</span>shiSub <span class="staexp"><span class="keyword">{</span><span class="keyword">..</span><span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span><span class="keyword">..</span><span class="keyword">}</span></span><span class="keyword">)</span> <span class="keyword">(</span>sub x'<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [subLam]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">fn</span> EXPone1 <span class="staexp"><span class="keyword">{</span>G<span class="keyword">:</span>env<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>t<span class="keyword">:</span>ty<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">EXP' <span class="keyword">(</span>t :: G<span class="keyword">,</span> t<span class="keyword">)</span></span> <span class="keyword">=</span> EXPvar' <span class="keyword">(</span>VARone<span class="keyword">)</span>
+<span class="keyword">fn</span> EXPtwo1 <span class="staexp"><span class="keyword">{</span>G<span class="keyword">:</span>env<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>t1<span class="keyword">,</span>t2<span class="keyword">:</span>ty<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">EXP' <span class="keyword">(</span>t1 :: t2 :: G<span class="keyword">,</span> t2<span class="keyword">)</span></span> <span class="keyword">=</span>
+  EXPvar' <span class="keyword">(</span>VARshi VARone<span class="keyword">)</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">fn</span> expShi <span class="staexp"><span class="keyword">{</span>G<span class="keyword">:</span>env<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>t1<span class="keyword">,</span>t2<span class="keyword">:</span>ty<span class="keyword">}</span></span> <span class="keyword">(</span>e<span class="keyword">:</span> <span class="staexp">EXP' <span class="keyword">(</span>G<span class="keyword">,</span> t1<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">EXP' <span class="keyword">(</span>t2 :: G<span class="keyword">,</span> t1<span class="keyword">)</span></span> <span class="keyword">=</span>
+  subst <span class="keyword">(</span>shiSub <span class="staexp"><span class="keyword">{</span><span class="keyword">..</span><span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span><span class="keyword">..</span><span class="keyword">}</span></span><span class="keyword">)</span> e
+
+<span class="comment">//
+</span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="4684"><span class="stacstdec">VM <span class="keyword">(</span>G1<span class="keyword">:</span> env<span class="keyword">,</span> G2<span class="keyword">:</span> env<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">{</span>t1<span class="keyword">:</span>ty<span class="keyword">}</span> VAR <span class="keyword">(</span>G1<span class="keyword">,</span> t1<span class="keyword">)</span> <span class="keyword">-&gt;</span> <span class="keyword">[</span>t2<span class="keyword">:</span> ty<span class="keyword">]</span> <span class="keyword">(</span>RT20 <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span> <span class="keyword">|</span> VAR <span class="keyword">(</span>G2<span class="keyword">,</span> t2<span class="keyword">)</span><span class="keyword">)</span></span></a></span>
+
+<span class="keyword">val</span> vmNil <span class="keyword">=</span>
+  <span class="keyword">(</span><span class="keyword">lam</span> x <span class="keyword">=&gt;</span> <span class="keyword">case+</span> x <span class="keyword">of</span> VARone _ <span class="keyword">=/=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">|</span> VARshi _ <span class="keyword">=/=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">VM <span class="keyword">(</span>nil<span class="keyword">,</span> nil<span class="keyword">)</span></span>
+
+<span class="comment">//
+</span>
+<span class="keyword">fn</span> vmShi <span class="staexp"><span class="keyword">{</span>G1<span class="keyword">,</span>G2<span class="keyword">:</span>env<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>t<span class="keyword">:</span>ty<span class="keyword">}</span></span> <span class="keyword">(</span>vm<span class="keyword">:</span> <span class="staexp">VM <span class="keyword">(</span>G1<span class="keyword">,</span> G2<span class="keyword">)</span></span><span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">(</span><span class="keyword">lam</span> x1 <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> x2<span class="keyword">)</span> <span class="keyword">=</span> vm x1 <span class="keyword">in</span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> VARshi x2<span class="keyword">)</span> <span class="keyword">end</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">VM <span class="keyword">(</span>G1<span class="keyword">,</span> t :: G2<span class="keyword">)</span></span>
+
+<span class="keyword">fn</span> vmLam <span class="staexp"><span class="keyword">{</span>G1<span class="keyword">,</span>G2<span class="keyword">:</span>env<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>t1<span class="keyword">,</span>t2<span class="keyword">:</span>ty<span class="keyword">}</span></span>
+   <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">RT20 <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span></span></span> <span class="keyword">|</span> vm<span class="keyword">:</span> <span class="staexp">VM <span class="keyword">(</span>G1<span class="keyword">,</span> G2<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">VM <span class="keyword">(</span>t1 :: G1<span class="keyword">,</span> t2 :: G2<span class="keyword">)</span></span> <span class="keyword">=</span>
+  <span class="keyword">lam</span> x1 <span class="keyword">=&gt;</span> <span class="keyword">case+</span> x1 <span class="keyword">of</span>
+    <span class="keyword">|</span> VARone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> VARone<span class="keyword">)</span>
+    <span class="keyword">|</span> VARshi x1 <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> x2<span class="keyword">)</span> <span class="keyword">=</span> vm x1 <span class="keyword">in</span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> VARshi x2<span class="keyword">)</span> <span class="keyword">end</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">fun</span> cps <span class="staexp"><span class="keyword">{</span>G1<span class="keyword">,</span>G2<span class="keyword">:</span>env<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>t1<span class="keyword">,</span>t2<span class="keyword">:</span>ty<span class="keyword">}</span></span>
+   <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">RT10 <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span></span></span> <span class="keyword">|</span> vm<span class="keyword">:</span> <span class="staexp">VM <span class="keyword">(</span>G1<span class="keyword">,</span> G2<span class="keyword">)</span></span><span class="keyword">,</span> e<span class="keyword">:</span> <span class="staexp">EXP <span class="keyword">(</span>G1<span class="keyword">,</span> t1<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">EXP' <span class="keyword">(</span>G2<span class="keyword">,</span> t2<span class="keyword">)</span></span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">prval</span> <span class="prfexp">RT1 <span class="keyword">(</span>pf<span class="keyword">)</span> <span class="keyword">=</span> pf</span> <span class="keyword">in</span> EXPlam' <span class="keyword">(</span>cpsw <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> vmShi vm<span class="keyword">,</span> EXPone1 <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> e<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">end</span>
+
+<span class="keyword">and</span> cpsw <span class="staexp"><span class="keyword">{</span>G1<span class="keyword">,</span>G2<span class="keyword">:</span>env<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>t1<span class="keyword">,</span>t2<span class="keyword">:</span>ty<span class="keyword">}</span></span>
+   <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">RT20 <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span></span></span> <span class="keyword">|</span> vm<span class="keyword">:</span> <span class="staexp">VM <span class="keyword">(</span>G1<span class="keyword">,</span> G2<span class="keyword">)</span></span><span class="keyword">,</span> k<span class="keyword">:</span> <span class="staexp">EXP' <span class="keyword">(</span>G2<span class="keyword">,</span> t2 -&gt;&gt; bot<span class="keyword">)</span></span><span class="keyword">,</span> e<span class="keyword">:</span> <span class="staexp">EXP <span class="keyword">(</span>G1<span class="keyword">,</span> t1<span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">EXP' <span class="keyword">(</span>G2<span class="keyword">,</span> bot<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> e <span class="keyword">of</span>
+  <span class="keyword">|</span> EXPvar x1 <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf'</span> <span class="keyword">|</span> x2<span class="keyword">)</span> <span class="keyword">=</span> vm x1
+      <span class="keyword">prval</span> <span class="prfexp">TYEQ <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> rt2eq <span class="keyword">(</span>pf<span class="keyword">,</span> pf'<span class="keyword">)</span></span>
+    <span class="keyword">in</span>
+      EXPapp' <span class="keyword">(</span>k<span class="keyword">,</span> EXPvar' x2<span class="keyword">)</span>
+    <span class="keyword">end</span>
+
+  <span class="keyword">|</span> EXPlam e <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">prval</span> <span class="prfexp">RT2fun <span class="keyword">(</span>pf1<span class="keyword">,</span> pf2<span class="keyword">)</span> <span class="keyword">=</span> pf</span>
+    <span class="keyword">in</span>
+      EXPapp' <span class="keyword">(</span>k<span class="keyword">,</span> EXPlam' <span class="keyword">(</span>cps <span class="keyword">(</span><span class="prfexp">pf2</span> <span class="keyword">|</span> vmLam <span class="keyword">(</span><span class="prfexp">pf1</span> <span class="keyword">|</span> vm<span class="keyword">)</span><span class="keyword">,</span> e<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span>
+
+  <span class="keyword">|</span> EXPapp <span class="staexp"><span class="keyword">{</span><span class="keyword">..</span><span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>t<span class="keyword">,</span> _<span class="keyword">}</span></span> <span class="keyword">(</span>e1<span class="keyword">,</span> e2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">prval</span> <span class="prfexp">pf1 <span class="keyword">=</span> rt2fun <span class="staexp"><span class="keyword">{</span>t<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span></span>
+      <span class="keyword">val</span> k <span class="keyword">=</span> EXPlam' <span class="keyword">(</span>EXPapp' <span class="keyword">(</span>EXPapp' <span class="keyword">(</span>EXPtwo1 <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> EXPone1 <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">,</span> expShi <span class="keyword">(</span>expShi k<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">val</span> k <span class="keyword">=</span> EXPlam' <span class="keyword">(</span>cpsw <span class="keyword">(</span><span class="prfexp">pf1</span> <span class="keyword">|</span> vmShi vm<span class="keyword">,</span> k<span class="keyword">,</span> e2<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      cpsw <span class="keyword">(</span><span class="prfexp">RT2fun <span class="keyword">(</span>pf1<span class="keyword">,</span> RT1 pf<span class="keyword">)</span></span> <span class="keyword">|</span> vm<span class="keyword">,</span> k<span class="keyword">,</span> e1<span class="keyword">)</span>
+    <span class="keyword">end</span>
+
+  <span class="keyword">|</span> EXPlet <span class="staexp"><span class="keyword">{</span><span class="keyword">..</span><span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>t<span class="keyword">,</span> _<span class="keyword">}</span></span> <span class="keyword">(</span>e1<span class="keyword">,</span> e2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">prval</span> <span class="prfexp">pf1 <span class="keyword">=</span> rt2fun <span class="staexp"><span class="keyword">{</span>t<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span></span>
+      <span class="keyword">val</span> k <span class="keyword">=</span> EXPlam' <span class="keyword">(</span>
+        EXPlet' <span class="keyword">(</span>EXPone1 <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> expShi <span class="keyword">(</span>cpsw <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> vmLam <span class="keyword">(</span><span class="prfexp">pf1</span> <span class="keyword">|</span> vm<span class="keyword">)</span><span class="keyword">,</span> expShi k<span class="keyword">,</span> e2<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">)</span>
+    <span class="keyword">in</span>
+       cpsw <span class="keyword">(</span><span class="prfexp">pf1</span> <span class="keyword">|</span> vm<span class="keyword">,</span> k<span class="keyword">,</span> e1<span class="keyword">)</span>
+    <span class="keyword">end</span>
+
+  <span class="keyword">|</span> EXPcal e <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> k <span class="keyword">=</span> expShi k
+      <span class="keyword">val</span> k <span class="keyword">=</span> EXPlam' <span class="keyword">(</span>EXPapp' <span class="keyword">(</span>EXPapp' <span class="keyword">(</span>EXPone1 <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> k<span class="keyword">)</span><span class="keyword">,</span> k<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      cpsw <span class="keyword">(</span><span class="prfexp">RT2fun <span class="keyword">(</span>RT2cont pf<span class="keyword">,</span> RT1 pf<span class="keyword">)</span></span> <span class="keyword">|</span> vm<span class="keyword">,</span> k<span class="keyword">,</span> e<span class="keyword">)</span>
+    <span class="keyword">end</span>
+
+  <span class="keyword">|</span> EXPthr <span class="staexp"><span class="keyword">{</span><span class="keyword">..</span><span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>t<span class="keyword">,</span>_<span class="keyword">}</span></span> <span class="keyword">(</span>e1<span class="keyword">,</span> e2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">prval</span> <span class="prfexp">pf1 <span class="keyword">=</span> rt2fun <span class="staexp"><span class="keyword">{</span>t<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span></span>
+      <span class="keyword">val</span> k <span class="keyword">=</span> EXPlam' <span class="keyword">(</span>cpsw <span class="keyword">(</span><span class="prfexp">pf1</span> <span class="keyword">|</span> vmShi vm<span class="keyword">,</span> EXPone1 <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> e2<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      cpsw <span class="keyword">(</span><span class="prfexp">RT2cont pf1</span> <span class="keyword">|</span> vm<span class="keyword">,</span> k<span class="keyword">,</span> e1<span class="keyword">)</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [cpsw]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">fn</span> cps0 <span class="staexp"><span class="keyword">{</span>t1<span class="keyword">,</span>t2<span class="keyword">:</span>ty<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">RT10 <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span></span></span> <span class="keyword">|</span> e<span class="keyword">:</span> <span class="staexp">EXP0 t1</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">EXP0' t2</span> <span class="keyword">=</span>
+  cps <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> vmNil<span class="keyword">,</span> e<span class="keyword">)</span>
+
+<span class="comment">// Some examples
+</span>
+<span class="keyword">val</span> ans1<span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>t<span class="keyword">:</span>ty<span class="keyword">]</span> EXP0' t</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">[</span><span class="staexp">t2<span class="keyword">:</span>ty</span><span class="keyword">]</span> pf <span class="keyword">=</span> rt1fun <span class="staexp"><span class="keyword">{</span>int -&gt;&gt; int<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span></span>
+<span class="keyword">in</span>
+  cps0 <span class="staexp"><span class="keyword">{</span>int-&gt;&gt;int<span class="keyword">,</span>t2<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> EXPlam <span class="staexp"><span class="keyword">{</span>nil<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>int<span class="keyword">,</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>EXPvar VARone<span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span>
+
+<span class="keyword">implement</span> main <span class="keyword">(</span>argc<span class="keyword">,</span> argv<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+
+<span class="keyword">in</span>
+
+print "ans1 = "<span class="keyword">;</span> print ans1<span class="keyword">;</span> print_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+
+<span class="keyword">end</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [CPS.dats] *)</span>
+</pre>
+</body>
+</html>

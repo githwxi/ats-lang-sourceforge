@@ -1,0 +1,520 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: November 2007
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+#include "ats_counter.cats" /* only needed for [ATS/Geizella] */
+%}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Err <span class="keyword">=</span> "ats_error.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Lst <span class="keyword">=</span> "ats_list.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Stamp <span class="keyword">=</span> "ats_stamp.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Sym <span class="keyword">=</span> "ats_symbol.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Syn <span class="keyword">=</span> "ats_syntax.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_stadyncst2.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">nil list_nil</span>
+<span class="keyword">#define</span> <span class="neuexp">cons list_cons</span>
+<span class="keyword">#define</span> <span class="neuexp">:: list_cons</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="1993"><span class="stacstdec">d2var_struct <span class="keyword">=</span> <span class="keyword">@{</span>
+  d2var_loc<span class="keyword">=</span> loc_t <span class="comment">// first location
+</span><span class="keyword">,</span> d2var_sym<span class="keyword">=</span> sym_t <span class="comment">// name
+</span><span class="keyword">,</span> d2var_lev<span class="keyword">=</span> int <span class="comment">// toplevel: 0
+</span><span class="keyword">,</span> d2var_lin<span class="keyword">=</span> int <span class="comment">// nonlinear (-1) and linear (&gt;=0)
+</span><span class="keyword">,</span> d2var_isfix<span class="keyword">=</span> bool <span class="comment">// is fix-variable?
+</span><span class="keyword">,</span> d2var_isprf<span class="keyword">=</span> bool <span class="comment">// is proof?
+</span><span class="keyword">,</span> d2var_decarg<span class="keyword">=</span> s2qualst <span class="comment">// template arg
+</span><span class="keyword">,</span> d2var_addr<span class="keyword">=</span> s2expopt <span class="comment">//
+</span><span class="keyword">,</span> d2var_view<span class="keyword">=</span> d2varopt <span class="comment">// 
+</span><span class="keyword">,</span> d2var_fin<span class="keyword">=</span> d2var_fin <span class="comment">//
+</span><span class="keyword">,</span> d2var_typ<span class="keyword">=</span> s2expopt <span class="comment">//
+</span><span class="keyword">,</span> d2var_mastyp<span class="keyword">=</span> s2expopt <span class="comment">//
+</span><span class="keyword">,</span> d2var_count<span class="keyword">=</span> int <span class="comment">//
+</span><span class="keyword">,</span> d2var_stamp<span class="keyword">=</span> stamp_t <span class="comment">// uniqueness stamp
+</span><span class="keyword">}</span></span></a></span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">assume</span> <span class="staexp">d2var_t <span class="keyword">=</span> <span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>vbox <span class="keyword">(</span>d2var_struct @ l<span class="keyword">)</span> <span class="keyword">|</span> ptr l<span class="keyword">)</span></span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> d2var_make <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+
+<span class="keyword">val</span> stamp <span class="keyword">=</span> $Stamp<span class="keyword">.</span>d2var_stamp_make <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_gc</span><span class="keyword">,</span> <span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> ptr_alloc_tsz <span class="staexp"><span class="keyword">{</span>d2var_struct<span class="keyword">}</span></span> <span class="keyword">(</span>sizeof&lt;<span class="staexp">d2var_struct</span><span class="keyword">&gt;</span><span class="keyword">)</span>
+<span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> free_gc_elim <span class="staexp"><span class="keyword">{</span>d2var_struct<span class="keyword">}</span></span> <span class="keyword">(</span>pf_gc<span class="keyword">)</span></span>
+
+<span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+p<span class="keyword">-&gt;</span>d2var_loc := loc<span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2var_sym := id<span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2var_lev := ~1<span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2var_lin := ~1<span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2var_isfix := false<span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2var_isprf := false<span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2var_decarg := list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2var_addr := None <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2var_view := D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2var_fin := D2VARFINnone <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2var_typ := None <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2var_mastyp := None <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2var_count := 0<span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2var_stamp := stamp
+<span class="keyword">end</span> <span class="comment">// end of [val]
+</span>
+<span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pfbox</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> vbox_make_view_ptr <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">)</span>
+
+<span class="keyword">in</span>
+
+<span class="keyword">(</span><span class="prfexp">pfbox</span> <span class="keyword">|</span> p<span class="keyword">)</span>
+
+<span class="keyword">end</span> <span class="comment">// end of [d2var_make]
+</span>
+<span class="keyword">implement</span> d2var_make_any <span class="keyword">(</span>loc<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  d2var_make <span class="keyword">(</span>loc<span class="keyword">,</span> $Sym<span class="keyword">.</span>symbol_UNDERSCORE<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2var_make_any]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d2var_loc_get <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_loc <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_sym_get <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_sym <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_isfix_get <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_isfix <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_isfix_set <span class="keyword">(</span>d2v<span class="keyword">,</span> isfix<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_isfix := isfix <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_isprf_get <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_isprf <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_isprf_set <span class="keyword">(</span>d2v<span class="keyword">,</span> isprf<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_isprf := isprf <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_lev_get <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_lev <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_lev_set <span class="keyword">(</span>d2v<span class="keyword">,</span> lev<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_lev := lev <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_lin_get <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_lin <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_lin_set <span class="keyword">(</span>d2v<span class="keyword">,</span> lin<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_lin := lin <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_lin_inc <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_lin := 1 + p<span class="keyword">-&gt;</span>d2var_lin <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_decarg_get <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_decarg <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_decarg_set <span class="keyword">(</span>d2v<span class="keyword">,</span> decarg<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_decarg := decarg <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_addr_get <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_addr <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_addr_set <span class="keyword">(</span>d2v<span class="keyword">,</span> os2e_addr<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_addr := os2e_addr <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_view_get <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_view <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_view_set <span class="keyword">(</span>d2v<span class="keyword">,</span> od2v_view<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_view := od2v_view <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_fin_get <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_fin <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_fin_set <span class="keyword">(</span>d2v<span class="keyword">,</span> fin<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_fin := fin <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_typ_get <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_typ <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_typ_set <span class="keyword">(</span>d2v<span class="keyword">,</span> os2e<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_typ := os2e <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_mastyp_get <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_mastyp <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_mastyp_set <span class="keyword">(</span>d2v<span class="keyword">,</span> os2e<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_mastyp := os2e <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_count_get <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_count <span class="keyword">end</span>
+<span class="comment">// end of [d2var_count_get]
+</span>
+<span class="keyword">implement</span> d2var_count_inc <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v<span class="keyword">;</span> <span class="keyword">val</span> n <span class="keyword">=</span> p<span class="keyword">-&gt;</span>d2var_count <span class="keyword">in</span>
+  p<span class="keyword">-&gt;</span>d2var_count := n + 1
+<span class="keyword">end</span> <span class="comment">(* end of [d2var_count_inc] *)</span>
+
+<span class="keyword">implement</span> d2var_stamp_get <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2v <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2var_stamp <span class="keyword">end</span>
+<span class="comment">// end of [d2var_stamp_get]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> _lt_d2var_d2var
+  <span class="keyword">(</span>d2v1<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">,</span> d2v2<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> stamp1 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf1</span> <span class="keyword">|</span> p1<span class="keyword">)</span> <span class="keyword">=</span> d2v1 <span class="keyword">in</span> p1<span class="keyword">-&gt;</span>d2var_stamp <span class="keyword">end</span>
+  <span class="keyword">val</span> stamp2 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf2</span> <span class="keyword">|</span> p2<span class="keyword">)</span> <span class="keyword">=</span> d2v2 <span class="keyword">in</span> p2<span class="keyword">-&gt;</span>d2var_stamp <span class="keyword">end</span>
+<span class="keyword">in</span>
+  $Stamp<span class="keyword">.</span>lt_stamp_stamp <span class="keyword">(</span>stamp1<span class="keyword">,</span> stamp2<span class="keyword">)</span>
+<span class="keyword">end</span>
+
+<span class="keyword">implement</span> lt_d2var_d2var <span class="keyword">(</span>d2v1<span class="keyword">,</span> d2v2<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">$effmask_all</span> <span class="keyword">(</span> _lt_d2var_d2var <span class="keyword">(</span>d2v1<span class="keyword">,</span> d2v2<span class="keyword">)</span> <span class="keyword">)</span>
+
+<span class="keyword">fn</span> _lte_d2var_d2var
+  <span class="keyword">(</span>d2v1<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">,</span> d2v2<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> stamp1 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf1</span> <span class="keyword">|</span> p1<span class="keyword">)</span> <span class="keyword">=</span> d2v1 <span class="keyword">in</span> p1<span class="keyword">-&gt;</span>d2var_stamp <span class="keyword">end</span>
+  <span class="keyword">val</span> stamp2 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf2</span> <span class="keyword">|</span> p2<span class="keyword">)</span> <span class="keyword">=</span> d2v2 <span class="keyword">in</span> p2<span class="keyword">-&gt;</span>d2var_stamp <span class="keyword">end</span>
+<span class="keyword">in</span>
+  $Stamp<span class="keyword">.</span>lte_stamp_stamp <span class="keyword">(</span>stamp1<span class="keyword">,</span> stamp2<span class="keyword">)</span>
+<span class="keyword">end</span>
+
+<span class="keyword">implement</span> lte_d2var_d2var <span class="keyword">(</span>d2v1<span class="keyword">,</span> d2v2<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">$effmask_all</span> <span class="keyword">(</span> _lte_d2var_d2var <span class="keyword">(</span>d2v1<span class="keyword">,</span> d2v2<span class="keyword">)</span> <span class="keyword">)</span>
+
+<span class="keyword">fn</span> _eq_d2var_d2var
+  <span class="keyword">(</span>d2v1<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">,</span> d2v2<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> stamp1 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf1</span> <span class="keyword">|</span> p1<span class="keyword">)</span> <span class="keyword">=</span> d2v1 <span class="keyword">in</span> p1<span class="keyword">-&gt;</span>d2var_stamp <span class="keyword">end</span>
+  <span class="keyword">val</span> stamp2 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf2</span> <span class="keyword">|</span> p2<span class="keyword">)</span> <span class="keyword">=</span> d2v2 <span class="keyword">in</span> p2<span class="keyword">-&gt;</span>d2var_stamp <span class="keyword">end</span>
+<span class="keyword">in</span>
+  $Stamp<span class="keyword">.</span>eq_stamp_stamp <span class="keyword">(</span>stamp1<span class="keyword">,</span> stamp2<span class="keyword">)</span>
+<span class="keyword">end</span>
+
+<span class="keyword">implement</span> eq_d2var_d2var <span class="keyword">(</span>d2v1<span class="keyword">,</span> d2v2<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">$effmask_all</span> <span class="keyword">(</span> _eq_d2var_d2var <span class="keyword">(</span>d2v1<span class="keyword">,</span> d2v2<span class="keyword">)</span> <span class="keyword">)</span>
+
+<span class="keyword">fn</span> _neq_d2var_d2var
+  <span class="keyword">(</span>d2v1<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">,</span> d2v2<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> stamp1 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf1</span> <span class="keyword">|</span> p1<span class="keyword">)</span> <span class="keyword">=</span> d2v1 <span class="keyword">in</span> p1<span class="keyword">-&gt;</span>d2var_stamp <span class="keyword">end</span>
+  <span class="keyword">val</span> stamp2 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf2</span> <span class="keyword">|</span> p2<span class="keyword">)</span> <span class="keyword">=</span> d2v2 <span class="keyword">in</span> p2<span class="keyword">-&gt;</span>d2var_stamp <span class="keyword">end</span>
+<span class="keyword">in</span>
+  $Stamp<span class="keyword">.</span>neq_stamp_stamp <span class="keyword">(</span>stamp1<span class="keyword">,</span> stamp2<span class="keyword">)</span>
+<span class="keyword">end</span>
+
+<span class="keyword">implement</span> neq_d2var_d2var <span class="keyword">(</span>d2v1<span class="keyword">,</span> d2v2<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">$effmask_all</span> <span class="keyword">(</span> _neq_d2var_d2var <span class="keyword">(</span>d2v1<span class="keyword">,</span> d2v2<span class="keyword">)</span> <span class="keyword">)</span>
+
+<span class="keyword">fn</span> _compare_d2var_d2var
+  <span class="keyword">(</span>d2v1<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">,</span> d2v2<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">Sgn</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> stamp1 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf1</span> <span class="keyword">|</span> p1<span class="keyword">)</span> <span class="keyword">=</span> d2v1 <span class="keyword">in</span> p1<span class="keyword">-&gt;</span>d2var_stamp <span class="keyword">end</span>
+  <span class="keyword">val</span> stamp2 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf2</span> <span class="keyword">|</span> p2<span class="keyword">)</span> <span class="keyword">=</span> d2v2 <span class="keyword">in</span> p2<span class="keyword">-&gt;</span>d2var_stamp <span class="keyword">end</span>
+<span class="keyword">in</span>
+  $Stamp<span class="keyword">.</span>compare_stamp_stamp <span class="keyword">(</span>stamp1<span class="keyword">,</span> stamp2<span class="keyword">)</span>
+<span class="keyword">end</span>
+
+<span class="keyword">implement</span> compare_d2var_d2var <span class="keyword">(</span>d2v1<span class="keyword">,</span> d2v2<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">$effmask_all</span> <span class="keyword">(</span> _compare_d2var_d2var <span class="keyword">(</span>d2v1<span class="keyword">,</span> d2v2<span class="keyword">)</span> <span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">end</span> <span class="comment">// end of [local] (for assuming d2var_t)
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d2var_typ_get_some <span class="keyword">(</span>loc0<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> d2var_typ_get d2v <span class="keyword">of</span>
+  <span class="keyword">|</span> Some s2e <span class="keyword">=&gt;</span> s2e <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      $Loc<span class="keyword">.</span>prerr_location loc0<span class="keyword">;</span>
+      prerr ": error(3)"<span class="keyword">;</span>
+      prerr ": there is no type for the dynamic variable ["<span class="keyword">;</span>
+      prerr d2v<span class="keyword">;</span>
+      prerr "]."<span class="keyword">;</span>
+      prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>s2exp<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [None]
+</span><span class="keyword">end</span> <span class="comment">// end of [d2var_typ_get_some]
+</span>
+<span class="keyword">implement</span> d2var_mastyp_get_some <span class="keyword">(</span>loc0<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> d2var_mastyp_get d2v <span class="keyword">of</span>
+  <span class="keyword">|</span> Some s2e <span class="keyword">=&gt;</span> s2e <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      $Loc<span class="keyword">.</span>prerr_location loc0<span class="keyword">;</span>
+      prerr ": error(3)"<span class="keyword">;</span>
+      prerr ": there is no master type for the dynamic variable ["<span class="keyword">;</span>
+      prerr d2v<span class="keyword">;</span>
+      prerr "]."<span class="keyword">;</span>
+      prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>s2exp<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [None]
+</span><span class="keyword">end</span> <span class="comment">// end of [d2var_mastyp_get_some]
+</span>
+<span class="keyword">implement</span> d2var_addr_get_some <span class="keyword">(</span>loc0<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> d2var_addr_get d2v <span class="keyword">of</span>
+  <span class="keyword">|</span> Some s2e <span class="keyword">=&gt;</span> s2e <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      $Loc<span class="keyword">.</span>prerr_location loc0<span class="keyword">;</span>
+      prerr ": Internal Error: d2var_addr_get_some: "<span class="keyword">;</span>
+      prerr ": there is no address for the dynamic variable ["<span class="keyword">;</span>
+      prerr d2v<span class="keyword">;</span>
+      prerr "]."<span class="keyword">;</span>
+      prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>s2exp<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [None]
+</span><span class="keyword">end</span> <span class="comment">// end of [d2var_addr_get_some]
+</span>
+<span class="keyword">implement</span> d2var_view_get_some <span class="keyword">(</span>loc0<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> d2var_view_get d2v <span class="keyword">of</span>
+  <span class="keyword">|</span> D2VAROPTsome d2v_view <span class="keyword">=&gt;</span> d2v_view
+  <span class="keyword">|</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      $Loc<span class="keyword">.</span>prerr_location loc0<span class="keyword">;</span>
+      prerr ": Internal Error: d2var_view_get_some: "<span class="keyword">;</span>
+      prerr ": there is no view attached to the dynamic variable ["<span class="keyword">;</span>
+      prerr d2v<span class="keyword">;</span>
+      prerr "]."<span class="keyword">;</span>
+      prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>d2var_t<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D2VAROPTnone]
+</span><span class="keyword">end</span> <span class="comment">// end of [d2var_addr_get_some]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> fprint_d2var <span class="keyword">(</span><span class="prfexp">pf_out</span> <span class="keyword">|</span> out<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $Sym<span class="keyword">.</span>fprint_symbol <span class="keyword">(</span><span class="prfexp">pf_out</span> <span class="keyword">|</span> out<span class="keyword">,</span> d2var_sym_get d2v<span class="keyword">)</span>
+<span class="comment">(*
+  val () = fprint_string (pf_out | out, "(")
+  val () = $Stamp.fprint_stamp (pf_out | out, d2var_stamp_get d2v)
+  val () = fprint_string (pf_out | out, ")")
+*)</span>
+<span class="keyword">in</span>
+  <span class="comment">// nothing
+</span><span class="keyword">end</span> <span class="comment">// end of [fprint_d2var]
+</span>
+<span class="keyword">implement</span> fprint_d2varlst <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> d2vs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> d2vs<span class="keyword">:</span> <span class="staexp">d2varlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> d2vs <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>d2v<span class="keyword">,</span> d2vs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ", "<span class="keyword">)</span><span class="keyword">;</span>
+        fprint_d2var <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> d2v<span class="keyword">)</span><span class="keyword">;</span> aux <span class="keyword">(</span>out<span class="keyword">,</span> i+1<span class="keyword">,</span> d2vs<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> 0<span class="keyword">,</span> d2vs<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [fprint_d2varlst]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> print_d2var <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span>fprint_d2var<span class="keyword">,</span> d2v<span class="keyword">)</span>
+<span class="keyword">implement</span> prerr_d2var <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span>fprint_d2var<span class="keyword">,</span> d2v<span class="keyword">)</span>
+
+<span class="keyword">implement</span> print_d2varlst <span class="keyword">(</span>d2vs<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span>fprint_d2varlst<span class="keyword">,</span> d2vs<span class="keyword">)</span>
+<span class="keyword">implement</span> prerr_d2varlst <span class="keyword">(</span>d2vs<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span>fprint_d2varlst<span class="keyword">,</span> d2vs<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d2var_is_linear <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>d2var_lin_get d2v &gt;= 0<span class="keyword">)</span>
+<span class="keyword">implement</span> d2var_is_mutable <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> d2var_view_get d2v <span class="keyword">of</span> D2VAROPTsome _ <span class="keyword">=&gt;</span> true <span class="keyword">|</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> false
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d2var_typ_reset <span class="keyword">(</span>d2v<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  d2var_lin_inc <span class="keyword">(</span>d2v<span class="keyword">)</span><span class="keyword">;</span> d2var_typ_set <span class="keyword">(</span>d2v<span class="keyword">,</span> Some s2e<span class="keyword">)</span>
+<span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_typ_reset_at <span class="keyword">(</span>d2v<span class="keyword">,</span> s2e<span class="keyword">,</span> s2l<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2e <span class="keyword">=</span> s2exp_whnf s2e
+  <span class="keyword">val</span> os2e_at <span class="keyword">=</span> <span class="keyword">(</span>
+    <span class="keyword">case+</span> s2e<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Eout _ <span class="keyword">=&gt;</span> None <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">when</span> s2cstref_exp_equ <span class="keyword">(</span>Void_t0ype<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> None <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> Some <span class="keyword">(</span>s2exp_at_viewt0ype_addr_view <span class="keyword">(</span>s2e<span class="keyword">,</span> s2l<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">s2expopt</span>
+<span class="keyword">in</span>
+  d2var_lin_inc <span class="keyword">(</span>d2v<span class="keyword">)</span><span class="keyword">;</span> d2var_typ_set <span class="keyword">(</span>d2v<span class="keyword">,</span> os2e_at<span class="keyword">)</span>
+<span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2var_ptr_viewat_make <span class="keyword">(</span>d2v_ptr<span class="keyword">,</span> od2v_view<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> loc <span class="keyword">=</span> d2var_loc_get d2v_ptr <span class="keyword">and</span> sym <span class="keyword">=</span> d2var_sym_get d2v_ptr
+  <span class="keyword">val</span> d2v_view <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> od2v_view <span class="keyword">of</span>
+    <span class="keyword">|</span> D2VAROPTsome d2v_view <span class="keyword">=&gt;</span> d2v_view <span class="keyword">|</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+       <span class="keyword">val</span> sym_view <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_make_string <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_name sym + ".view"<span class="keyword">)</span>
+     <span class="keyword">in</span>
+       d2var_make <span class="keyword">(</span>loc<span class="keyword">,</span> sym_view<span class="keyword">)</span>
+     <span class="keyword">end</span> <span class="comment">// end of [D2VAROPTnone]
+</span>  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">d2var_t</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> d2var_lin_set <span class="keyword">(</span>d2v_view<span class="keyword">,</span> 0<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> d2var_addr_set <span class="keyword">(</span>d2v_view<span class="keyword">,</span> d2var_addr_get d2v_ptr<span class="keyword">)</span>
+<span class="keyword">in</span>
+  d2v_view
+<span class="keyword">end</span> <span class="comment">// end of [d2var_ptr_viewat_make]
+</span>
+<span class="keyword">implement</span> d2var_ptr_viewat_make_none <span class="keyword">(</span>d2v_ptr<span class="keyword">)</span> <span class="keyword">=</span>
+  d2var_ptr_viewat_make <span class="keyword">(</span>d2v_ptr<span class="keyword">,</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="comment">// end of [d2var_ptr_viewat_make_none]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// implementing [d2varset_t]
+</span>
+<span class="keyword">local</span>
+
+<span class="keyword">staload</span> <span class="staexp">Set <span class="keyword">=</span> "ats_set_fun.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymous*)</span> <span class="keyword">=</span> "ats_set_fun.dats"</span>
+
+<span class="keyword">assume</span> <span class="staexp">d2varset_t <span class="keyword">=</span> $Set<span class="keyword">.</span>set_t <span class="keyword">(</span>d2var_t<span class="keyword">)</span></span>
+
+<span class="keyword">fn</span> cmp <span class="keyword">(</span>d2v1<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">,</span> d2v2<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp"><span class="keyword">fun</span></span><span class="keyword">&gt;</span> <span class="staexp">Sgn</span> <span class="keyword">=</span>
+  <span class="keyword">$effmask_all</span> <span class="keyword">(</span>compare <span class="keyword">(</span>d2v1<span class="keyword">,</span> d2v2<span class="keyword">)</span><span class="keyword">)</span>
+
+<span class="keyword">fn</span> fprint_d2varset_ptr <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf_mod<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span>
+  <span class="keyword">,</span> <span class="prfexp">pf_out<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>FILE m @ l</span></span>
+  <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span>
+  <span class="keyword">,</span> dvs<span class="keyword">:</span> <span class="staexp">d2varset_t</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">//
+</span>  <span class="keyword">typedef</span> <span class="staexp"><a name="12228"><span class="stacstdec">ptrint <span class="keyword">=</span> <span class="keyword">(</span>ptr l<span class="keyword">,</span> int<span class="keyword">)</span></span></a></span>
+<span class="comment">//
+</span>  <span class="keyword">var</span> pi<span class="keyword">:</span> <span class="staexp">ptrint</span><span class="keyword">;</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pi<span class="keyword">.</span>0 := p<span class="keyword">;</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pi<span class="keyword">.</span>1 := 0
+<span class="comment">//
+</span>  <span class="keyword">viewdef</span> <span class="staexp"><a name="12323"><span class="stacstdec">V <span class="keyword">=</span> <span class="keyword">@(</span>FILE m @ l<span class="keyword">,</span> ptrint @ pi<span class="keyword">)</span></span></a></span>
+<span class="comment">//
+</span>  <span class="keyword">fn</span> pr <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>V</span></span> <span class="keyword">|</span> d2v<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">,</span> pi<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>ptr pi</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">pf_out <span class="keyword">=</span> pf<span class="keyword">.</span>0</span>
+    <span class="keyword">prval</span> <span class="prfexp">pf_at <span class="keyword">=</span> pf<span class="keyword">.</span>1</span><span class="keyword">;</span> <span class="keyword">val</span> p <span class="keyword">=</span> pi<span class="keyword">-&gt;</span>0<span class="keyword">;</span> <span class="keyword">val</span> i <span class="keyword">=</span> pi<span class="keyword">-&gt;</span>1
+  <span class="keyword">in</span>
+    <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> <span class="keyword">!</span>p<span class="keyword">,</span> ", "<span class="keyword">)</span><span class="keyword">;</span>
+    pi<span class="keyword">-&gt;</span>1 := i + 1<span class="keyword">;</span>
+    fprint_d2var <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> <span class="keyword">!</span>p<span class="keyword">,</span> d2v<span class="keyword">)</span><span class="keyword">;</span>
+    pf<span class="keyword">.</span>0 := pf_out<span class="keyword">;</span> pf<span class="keyword">.</span>1 := pf_at<span class="keyword">;</span>
+  <span class="keyword">end</span> <span class="comment">// end of [pr]
+</span><span class="comment">//
+</span>  <span class="keyword">prval</span> <span class="prfexp">pf <span class="keyword">=</span> <span class="keyword">(</span>pf_out<span class="keyword">,</span> view@ pi<span class="keyword">)</span></span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $Set<span class="keyword">.</span>set_foreach_main <span class="staexp"><span class="keyword">{</span>V<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>ptr pi<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> dvs<span class="keyword">,</span> pr<span class="keyword">,</span> <span class="keyword">&amp;</span>pi<span class="keyword">)</span>
+<span class="comment">//
+</span><span class="keyword">in</span> <span class="comment">// in of [let]
+</span>  pf_out := pf<span class="keyword">.</span>0<span class="keyword">;</span> view@ pi := pf<span class="keyword">.</span>1
+<span class="keyword">end</span> <span class="comment">// end of [fprint_d2varset_ptr]
+</span>
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> fprint_d2varset <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> dvs<span class="keyword">)</span> <span class="keyword">=</span> 
+  fprint_d2varset_ptr <span class="keyword">(</span><span class="prfexp">pf</span><span class="keyword">,</span> <span class="prfexp">view@ out</span> <span class="keyword">|</span> <span class="keyword">&amp;</span>out<span class="keyword">,</span> dvs<span class="keyword">)</span>
+
+<span class="keyword">implement</span> d2varset_nil <span class="keyword">=</span> $Set<span class="keyword">.</span>set_nil
+
+<span class="keyword">implement</span> d2varset_add <span class="keyword">(</span>dvs<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">=</span> $Set<span class="keyword">.</span>set_insert <span class="keyword">(</span>dvs<span class="keyword">,</span> d2v<span class="keyword">,</span> cmp<span class="keyword">)</span>
+<span class="keyword">implement</span> d2varset_adds <span class="keyword">(</span>dvs<span class="keyword">,</span> d2vs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> d2vs <span class="keyword">of</span>
+  <span class="keyword">|</span> list_cons <span class="keyword">(</span>d2v<span class="keyword">,</span> d2vs<span class="keyword">)</span> <span class="keyword">=&gt;</span> d2varset_adds <span class="keyword">(</span>d2varset_add <span class="keyword">(</span>dvs<span class="keyword">,</span> d2v<span class="keyword">)</span><span class="keyword">,</span> d2vs<span class="keyword">)</span>
+  <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> dvs
+<span class="comment">// end of [d2varset_adds]
+</span>
+<span class="keyword">implement</span> d2varset_del <span class="keyword">(</span>dvs<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">=</span> $Set<span class="keyword">.</span>set_remove <span class="keyword">(</span>dvs<span class="keyword">,</span> d2v<span class="keyword">,</span> cmp<span class="keyword">)</span>
+<span class="keyword">implement</span> d2varset_dels <span class="keyword">(</span>dvs<span class="keyword">,</span> d2vs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> d2vs <span class="keyword">of</span>
+  <span class="keyword">|</span> list_cons <span class="keyword">(</span>d2v<span class="keyword">,</span> d2vs<span class="keyword">)</span> <span class="keyword">=&gt;</span> d2varset_dels <span class="keyword">(</span>d2varset_del <span class="keyword">(</span>dvs<span class="keyword">,</span> d2v<span class="keyword">)</span><span class="keyword">,</span> d2vs<span class="keyword">)</span>
+  <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> dvs
+<span class="comment">// end of [d2varset_dels]
+</span>
+<span class="keyword">implement</span> d2varset_union <span class="keyword">(</span>dvs1<span class="keyword">,</span> dvs2<span class="keyword">)</span> <span class="keyword">=</span> $Set<span class="keyword">.</span>set_union <span class="keyword">(</span>dvs1<span class="keyword">,</span> dvs2<span class="keyword">,</span> cmp<span class="keyword">)</span>
+
+<span class="keyword">implement</span> d2varset_ismem <span class="keyword">(</span>dvs<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">=</span> $Set<span class="keyword">.</span>set_member <span class="keyword">(</span>dvs<span class="keyword">,</span> d2v<span class="keyword">,</span> cmp<span class="keyword">)</span>
+
+<span class="keyword">implement</span> d2varset_foreach_main <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> dvs<span class="keyword">,</span> f<span class="keyword">,</span> env<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  $Set<span class="keyword">.</span>set_foreach_main <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> dvs<span class="keyword">,</span> f<span class="keyword">,</span> env<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2varset_foreach_main]
+</span>
+<span class="keyword">implement</span> d2varset_foreach_cloptr <span class="keyword">(</span>dvs<span class="keyword">,</span> f<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  $Set<span class="keyword">.</span>set_foreach_cloptr <span class="keyword">(</span>dvs<span class="keyword">,</span> f<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2varset_foreach_cloptr]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="keyword">implement</span> print_d2varset <span class="keyword">(</span>dvs<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span>fprint_d2varset<span class="keyword">,</span> dvs<span class="keyword">)</span>
+<span class="keyword">implement</span> prerr_d2varset <span class="keyword">(</span>dvs<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span>fprint_d2varset<span class="keyword">,</span> dvs<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_dynexp2_dvar.dats] *)</span>
+</pre>
+</body>
+</html>

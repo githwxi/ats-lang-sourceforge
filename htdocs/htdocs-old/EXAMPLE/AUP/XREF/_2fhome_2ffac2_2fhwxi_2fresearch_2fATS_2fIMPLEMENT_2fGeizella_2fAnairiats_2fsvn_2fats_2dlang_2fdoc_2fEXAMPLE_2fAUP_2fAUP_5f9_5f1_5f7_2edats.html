@@ -1,0 +1,99 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: October, 2010
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// book: AUP (2nd edition), pages 615 - 618
+</span><span class="comment">// section 9.1.7: Signal Handlers
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anon*)</span> <span class="keyword">=</span> "prelude/DATS/pointer.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">UNSAFE <span class="keyword">=</span> "prelude/SATS/unsafe.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/fcntl.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/signal.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/stdio.sats"</span> <span class="comment">// perror
+</span><span class="keyword">staload</span> <span class="staexp">"libc/SATS/stdlib.sats"</span> <span class="comment">// _Exit
+</span><span class="keyword">staload</span> <span class="staexp">"libc/SATS/time.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/unistd.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+volatile sig_atomic_t theSignum ;
+ATSinline()
+ats_int_type
+theSignum_get() { return theSignum ; }
+ATSinline()
+ats_void_type
+theSignum_set(int x) { theSignum = x ; return ; }
+%}</span> <span class="comment">// end of [%{^]
+</span><span class="keyword">extern</span>
+<span class="keyword">fun</span> <a name="755"><span class="dyncstdec">theSignum_get <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "theSignum_get"
+<span class="keyword">extern</span>
+<span class="keyword">fun</span> <a name="806"><span class="dyncstdec">theSignum_set <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "theSignum_set"
+
+<span class="keyword">fun</span> handler
+  <span class="keyword">(</span>sgn<span class="keyword">:</span> <span class="staexp">signum_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> theSignum_set <span class="keyword">(</span>$UNSAFE<span class="keyword">.</span>cast2int<span class="keyword">(</span>sgn<span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [val]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+main <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">var</span> act<span class="keyword">:</span> <span class="staexp">sigaction</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> ptr_zero&lt;<span class="staexp">sigaction</span><span class="keyword">&gt;</span> <span class="keyword">(</span>act<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> act<span class="keyword">.</span>sa_handler := <span class="keyword">(</span>sighandler<span class="keyword">)</span>handler
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> act<span class="keyword">.</span>sa_flags := SA_RESTART <span class="comment">// HX: even this cannot affect [sleep]!
+</span>  <span class="keyword">val</span> err <span class="keyword">=</span> sigaction_null <span class="keyword">(</span>SIGINT<span class="keyword">,</span> act<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> err <span class="keyword">&lt;</span> 0 <span class="keyword">then</span> <span class="keyword">(</span>perror "sigaction"<span class="keyword">;</span> exit <span class="keyword">(</span>EXIT_FAILURE<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> printf <span class="keyword">(</span>"Type CTRL-C in the next 10 seconds.\n"<span class="keyword">,</span> <span class="keyword">@(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> time0 <span class="keyword">=</span> time_get <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>$UNSAFE<span class="keyword">.</span>cast2lint<span class="keyword">(</span>time0<span class="keyword">)</span> &gt;= 0L<span class="keyword">)</span>
+  <span class="keyword">val</span> _leftover <span class="keyword">=</span> sleep <span class="keyword">(</span>10<span class="keyword">)</span>
+  <span class="keyword">val</span> time1 <span class="keyword">=</span> time_get <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>$UNSAFE<span class="keyword">.</span>cast2lint<span class="keyword">(</span>time1<span class="keyword">)</span> &gt;= 0L<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> printf <span class="keyword">(</span>"Slept for %ld seconds.\n"<span class="keyword">,</span> <span class="keyword">@(</span>$UNSAFE<span class="keyword">.</span>cast2lint<span class="keyword">(</span>difftime<span class="keyword">(</span>time1<span class="keyword">,</span>time0<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> sgn <span class="keyword">=</span> theSignum_get <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">(</span>sgn <span class="keyword">&gt;</span> 0<span class="keyword">)</span> <span class="keyword">then</span>
+    printf <span class="keyword">(</span>"Got signal(%d).\n"<span class="keyword">,</span> <span class="keyword">@(</span>sgn<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">else</span>
+    printf <span class="keyword">(</span>"Got no signal.\n"<span class="keyword">,</span> <span class="keyword">@(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="comment">// end of [if]
+</span><span class="keyword">}</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [AUP_9_1_7.dats] *)</span>
+</pre>
+</body>
+</html>

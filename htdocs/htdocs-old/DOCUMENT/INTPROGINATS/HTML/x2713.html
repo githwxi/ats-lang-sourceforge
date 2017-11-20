@@ -1,0 +1,702 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>Example: Functional Random-Access Lists</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+TITLE="Introduction to Programming in ATS"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Datatype Refinement"
+HREF="c2476.html"><LINK
+REL="PREVIOUS"
+TITLE="Sequentiality of Pattern Matching"
+HREF="x2684.html"><LINK
+REL="NEXT"
+TITLE="Example: Functional Red-Black Trees"
+HREF="x2787.html"></HEAD
+><BODY
+CLASS="sect1"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>Introduction to Programming in ATS: </TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="x2684.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+>Datatype Refinement</TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="x2787.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="sect1"
+><H1
+CLASS="sect1"
+><A
+NAME="example_fun_random-access_lists"
+>Example: Functional Random-Access Lists</A
+></H1
+><P
+>The data structure I implement in this section is based on one
+presented in the book titled <I
+CLASS="emphasis"
+> Pure Funtional Data Structures
+</I
+> by Chris Okasaki, where more elaboration on data structures of
+this kind can be found.
+</P
+><P
+>Let us first declare a datatype as follows:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN2718"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>typedef pt (a:t@ype) = '(a, a)
+
+datatype
+ralist (a:t@ype+, n:int) =
+  | RAnil (a, 0)
+  | {n:pos} RAevn (a, 2*n) of ralist (pt a, n)
+  | {n:nat} RAodd (a, 2*n+1) of (a, ralist (pt a, n))
+// end of [ralist]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+Given an unboxed type T and a static integer, the type
+<FONT
+COLOR="RED"
+>ralist</FONT
+>(T, I) is a boxed type for values representing
+lists of length I. The meaning of the three constructors
+<FONT
+COLOR="RED"
+>RAnil</FONT
+>, <FONT
+COLOR="RED"
+>RAevn</FONT
+> and <FONT
+COLOR="RED"
+>RAodd</FONT
+> can be
+briefly explained as follows:
+
+<P
+></P
+><UL
+><LI
+><P
+>&#13;The constructor <FONT
+COLOR="RED"
+>RAnil</FONT
+> is for constructing a value representing
+the empty list.
+</P
+></LI
+><LI
+><P
+>In order to construct a value representing a list of 2*I
+elements for some I &#62; 0, we first construct a value representing a list of
+I pairs of adjacent elements in the (original) list and then apply the
+constructor <FONT
+COLOR="RED"
+>RAevn</FONT
+> to the value.
+</P
+></LI
+><LI
+><P
+>In order to construct a value representing a list of
+2*I+1 elements for some I &#62;= 0, we take out the head of the list and
+construct a value representing a list of I pairs of adjacent elements in
+the tail of the (original) list and then apply the constructor
+<FONT
+COLOR="RED"
+>RAodd</FONT
+> to the head element and the value.
+</P
+></LI
+></UL
+>
+
+For example, the list of the first 5 positive integers is represented by the
+following value:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN2734"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>RAodd(1, RAevn(RAodd( '( '(2, 3), '(4, 5) ), RAnil())))
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+Values constructed by the constructors <FONT
+COLOR="RED"
+>RAnil</FONT
+>,
+<FONT
+COLOR="RED"
+>RAevn</FONT
+> and <FONT
+COLOR="RED"
+>RAodd</FONT
+> represent lists that support
+operations of logrithmic time for accessing and updating list elements, and
+such lists are often referred to as random-access lists.
+</P
+><P
+>Note that the datatype <FONT
+COLOR="RED"
+>ralist</FONT
+> is not supported in ML
+even if the index representing list length is erased. This kind of
+datatypes are often referred to as nested datatypes, which are also
+supported in Haskell.
+</P
+><P
+>The following defined function <FONT
+COLOR="RED"
+>ralist_length</FONT
+> computes
+the length of a random-access list:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN2743"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun{a:t@ype}
+ralist_length // O(log n)
+  {n:nat} .&#60;n&#62;.
+  (xs: ralist (a, n)): int n =
+  case+ xs of
+  | RAnil () =&#62; 0
+  | RAevn xxs =&#62; 2 * ralist_length&#60;pt(a)&#62; (xxs)
+  | RAodd (_, xxs) =&#62; 2 * ralist_length&#60;pt(a)&#62; (xxs) + 1
+// end of [ralist_length]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+While the implementation of <FONT
+COLOR="RED"
+>ralist_length</FONT
+> is clearly not
+tail-recursive, this is hardly of any practical concern as the
+time-complexity of <FONT
+COLOR="RED"
+>ralist_length</FONT
+> is O(log(n)).
+</P
+><P
+>Consing means to form a new list with an element and a list such
+that the element and the list are the head and tail of the new list. The
+following defined function <FONT
+COLOR="RED"
+>ralist_cons</FONT
+> implements consing
+for random-access lists:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN2749"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun{a:t@ype}
+ralist_cons // O(1), amortized
+  {n:nat} .&#60;n&#62;.
+  (x0: a, xs: ralist (a, n)): ralist (a, n+1) =
+  case+ xs of
+  | RAnil () =&#62; RAodd (x0, RAnil)
+  | RAevn (xxs) =&#62; RAodd (x0, xxs)
+  | RAodd (x1, xxs) =&#62;
+      RAevn (ralist_cons&#60;pt(a)&#62; ( '(x0, x1), xxs ))
+    // end of [RAodd]
+// end of [ralist_cons]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+In the worst case (where the length of <FONT
+COLOR="RED"
+>xs</FONT
+> is a power of 2
+minus 1), <FONT
+COLOR="RED"
+>ralist_cons</FONT
+> takes O(log(n))-time to finish. However,
+it can be proven that the amortized time-complexity of consing on
+random-access lists is O(1).
+</P
+><P
+>Unconsing does the opposite of consing: It returns a pair consisting
+of the head and tail of a given non-empty list.  The following defined
+function <FONT
+COLOR="RED"
+>ralist_uncons</FONT
+> implements unconsing for random-access
+lists:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN2755"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun{a:t@ype}
+ralist_uncons // O(1), amortized
+  {n:pos} .&#60;n&#62;.
+  (xs: ralist (a, n)): (a, ralist (a, n-1)) =
+  case+ xs of
+  | RAevn (xxs) =&#62; let
+      val (xx, xxs) = ralist_uncons&#60;pt(a)&#62; (xxs)
+    in
+      (xx.0, RAodd (xx.1, xxs))
+    end // end of [RAevn]
+  | RAodd (x, xxs) =&#62; (case+ xxs of
+(*
+// Note: [=&#62;&#62;] is needed for enforcing sequentiality
+// during typechecking:
+*)
+      RAnil () =&#62; (x, RAnil) | _ =&#62;&#62; (x, RAevn (xxs))
+    ) // end of [RAodd]
+// end of [ralist_uncons]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+Like <FONT
+COLOR="RED"
+>ralist_cons</FONT
+>, <FONT
+COLOR="RED"
+>ralist_uncons</FONT
+> takes
+O(log(n))-time to finish when the length of <FONT
+COLOR="RED"
+>xs</FONT
+> is a power of
+2. However, its amortized time-complexity is also O(1).  It is highly
+probable for a programmer to implement the second matching clause in the
+body of <FONT
+COLOR="RED"
+>ralist_uncons</FONT
+> as follows:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN2761"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>  | RAodd (x, xxs) =&#62; (x, RAevn (xxs))
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+For instance, I myself did this.  This is a program error as the invariant
+can potentially be broken that states <FONT
+COLOR="RED"
+>RAevn</FONT
+> being only applied
+to a value representing a non-empty list. The error is readily caught by
+the typechecker of ATS but it is most likely to go unnoticed in a setting
+where the invariant on the constructor <FONT
+COLOR="RED"
+>RAevn</FONT
+> can not be
+captured at compile-time.
+</P
+><P
+>Given a random-access list xs of length n, the elements in it are
+numbered from 0 to n-1, inclusively. We can find element i in the list xs,
+where i is assumed to be a natural number less than n, by implementing the
+following algorithm:
+
+<P
+></P
+><UL
+><LI
+><P
+>Assume the length n is even. Then xs is of the form
+<FONT
+COLOR="RED"
+>RAevn</FONT
+>(xxs), where xxs is a list of pairs. Let i2 be i/2 and we
+find element i2 in xxs, which is a pair. Let xx refer to this pair. If i is
+even, then the left component of xx is element i in xs. Otherwise, the
+right component is.
+</P
+></LI
+><LI
+><P
+>Assume the length n is odd. Then xs is of the form
+<FONT
+COLOR="RED"
+>RAodd</FONT
+>(x, xxs), where xxs is a list of pairs. If i equals 0,
+the x is element i in xs. Otherwise, let i1 be i-1 and i2 be i1/2 and we
+find element i2 in xxs, which is a pair. Let xx refer to this pair. If i1 is
+even, then the left component of xx is element i in xs. Otherwise, the
+right component is.
+</P
+></LI
+></UL
+>
+
+The following function <FONT
+COLOR="RED"
+>ralist_lookup</FONT
+> is implemented precisely
+according to the given algorithm:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN2774"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun{a:t@ype}
+ralist_lookup // O(log(n))-time
+  {n:int} {i:nat | i &#60; n} .&#60;n&#62;.
+  (xs: ralist (a, n), i: int i): a =
+  case+ xs of
+  | RAevn xxs =&#62; let
+      val i2 = i / 2
+      val lr = i - 2 * i2
+      val xx = ralist_lookup&#60;pt(a)&#62; (xxs, i2)
+    in
+      if lr = 0 then xx.0 else xx.1
+    end // end of [RAevn]
+  | RAodd (x, xxs) =&#62;
+      if i &#62; 0 then let
+        val i1 = i - 1
+        val i2 = i1 / 2
+        val lr = i1 - 2 * i2
+        val xx = ralist_lookup&#60;pt(a)&#62; (xxs, i2)
+      in
+        if lr = 0 then xx.0 else xx.1
+      end else x
+    // end of [RAodd]
+// end of [ralist_lookup]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+Clearly, the time complexity of <FONT
+COLOR="RED"
+>ralist_lookup</FONT
+> is O(log(n)).
+</P
+><P
+>Given a random-access list xs of length n, an index that is a
+natural number less than n and an element x0, the following defined
+function <FONT
+COLOR="RED"
+>ralist_update</FONT
+> returns another random-access that is
+the same as xs except element i in it being x0:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN2779"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun{a:t@ype}
+ralist_update // O(log(n))-time
+  {n:int} {i:nat | i &#60; n} .&#60;n&#62;. (
+    xs: ralist (a, n), i: int i, x0: a
+  ) : ralist (a, n) = let
+//
+  fun{a:t@ype} fupdate
+    {n:int} {i:nat | i &#60; n} .&#60;n,1&#62;. (
+      xs: ralist (a, n), i: int i, f: a -&#60;cloref1&#62; a
+    ) : ralist (a, n) =
+    case+ xs of
+    | RAevn xxs =&#62;
+        RAevn (fupdate2 (xxs, i, f))
+    | RAodd (x, xxs) =&#62;
+        if i &#62; 0 then
+          RAodd (x, fupdate2 (xxs, i-1, f))
+        else RAodd (f(x), xxs)
+   (* end of [fupdate] *)
+//
+   and fupdate2
+     {n2:int} {i:nat | i &#60; n2+n2} .&#60;2*n2,0&#62;. (
+       xxs: ralist (pt(a), n2), i: int i, f: a -&#60;cloref1&#62; a
+     ) : ralist (pt(a), n2) = let
+     val i2 = i / 2
+     val lr = i - 2 * i2
+     val f2 = (
+       if lr = 0 then
+         lam xx =&#62; '(f(xx.0), xx.1)
+       else
+         lam xx =&#62; '(xx.0, f(xx.1))
+     ) : pt(a) -&#60;cloref1&#62; pt(a)
+   in
+     fupdate&#60;pt(a)&#62; (xxs, i2, f2)
+   end // end of [fupdate2]
+//
+in
+  fupdate (xs, i, lam _ =&#62; x0)
+end // end of [ralist_update]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+Note that the functions <FONT
+COLOR="RED"
+>fupdate</FONT
+> and <FONT
+COLOR="RED"
+>fupdate2</FONT
+> are
+higher-order. Given a random-access list xs of length n, an index i that is
+a natural number less than n and a (closure) function f,
+<FONT
+COLOR="RED"
+>fupdate</FONT
+> returns another random-access list that is the same as
+xs except element i in it being f(x), where x is element i in xs. It is
+straightforward to see that the time-complexity of
+<FONT
+COLOR="RED"
+>ralist_update</FONT
+> is O(log(n)).  I leave the reader to figure out
+further details on this interesting implementation.
+</P
+><P
+>The code employed for illustration in this section plus some additional
+code for testing is available <A
+HREF="http://www.ats-lang.org/DOCUMENT/INTPROGINATS/CODE/CHAPTER_DEPREFDTS/ralist.dats"
+TARGET="_top"
+>on-line</A
+>.
+</P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="x2684.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="x2787.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Sequentiality of Pattern Matching</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="c2476.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Example: Functional Red-Black Trees</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

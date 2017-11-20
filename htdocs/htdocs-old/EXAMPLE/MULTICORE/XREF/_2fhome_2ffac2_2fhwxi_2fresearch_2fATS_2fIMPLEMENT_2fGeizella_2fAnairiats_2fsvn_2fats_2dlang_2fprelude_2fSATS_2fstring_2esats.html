@@ -1,0 +1,792 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of the GNU LESSER GENERAL PUBLIC LICENSE as published by the
+** Free Software Foundation; either version 2.1, or (at your option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* author: Hongwei Xi (hwxi AT cs DOT bu DOT edu) *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// some string operations
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#include</span> <span class="neuexp">"prelude/params.hats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#if</span> <span class="neuexp">VERBOSE_PRELUDE</span> <span class="keyword">#then</span>
+<span class="keyword">#print</span> <span class="neuexp">"Loading [string.sats] starts!\n"</span>
+<span class="keyword">#endif</span> <span class="comment">// end of [VERBOSE_PRELUDE]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="1720"><span class="stacstdec">NUL <span class="keyword">=</span> '\000'</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="1763"><span class="stacstdec">bytes <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">@[</span>byte<span class="keyword">]</span><span class="keyword">[</span>n<span class="keyword">]</span></span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1798"><span class="stacstdec">b0ytes <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">@[</span>byte?<span class="keyword">]</span><span class="keyword">[</span>n<span class="keyword">]</span></span></a></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="1836"><span class="stacstdec">chars <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">@[</span>char<span class="keyword">]</span><span class="keyword">[</span>n<span class="keyword">]</span></span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1871"><span class="stacstdec">c0hars <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">@[</span>char?<span class="keyword">]</span><span class="keyword">[</span>n<span class="keyword">]</span></span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1908"><span class="stacstdec">c1har <span class="keyword">=</span> <span class="keyword">[</span>c<span class="keyword">:</span>char <span class="keyword">|</span> c &lt;&gt; NUL<span class="keyword">]</span> char c</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1951"><span class="stacstdec">c1hars <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">@[</span>c1har<span class="keyword">]</span><span class="keyword">[</span>n<span class="keyword">]</span></span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">viewdef</span> <span class="staexp"><a name="2010"><span class="stacstdec">strbuf_v
+  <span class="keyword">(</span>m<span class="keyword">:</span> int<span class="keyword">,</span> n<span class="keyword">:</span> int<span class="keyword">,</span> l<span class="keyword">:</span>addr<span class="keyword">)</span> <span class="keyword">=</span> strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span> @ l</span></a></span>
+<span class="keyword">viewdef</span> <span class="staexp"><a name="2074"><span class="stacstdec">strbuf_v <span class="keyword">(</span>l<span class="keyword">:</span>addr<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat<span class="keyword">]</span> strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span> @ l</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">prfun</span> <a name="2150"><span class="dyncstdec"><span class="prfexp">strbuf_vsubr_lemma0 <span class="comment">// implemneted in [string.dats]
+</span>  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">vsubr_p <span class="keyword">(</span>strbuf_v l<span class="keyword">,</span> strbuf_v <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span><span class="keyword">)</span></span></span></span></a>
+<span class="comment">// end of [strbuf_vsubr_lemma0]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="2334"><span class="stacstdec">strbufptr_gc
+  <span class="keyword">(</span>m<span class="keyword">:</span>int<span class="keyword">,</span> n<span class="keyword">:</span>int<span class="keyword">,</span> l<span class="keyword">:</span>addr<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">@(</span>free_gc_v <span class="keyword">(</span>m<span class="keyword">,</span> l<span class="keyword">)</span><span class="keyword">,</span> strbuf_v <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span> <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></a></span>
+<span class="comment">// end of [strbufptr_gc]
+</span>
+<span class="keyword">viewdef</span> <span class="staexp"><a name="2456"><span class="stacstdec">strbufptr_gc
+  <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>m<span class="keyword">:</span>nat<span class="keyword">;</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> strbufptr_gc <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span></span></a></span>
+<span class="keyword">viewdef</span> <span class="staexp"><a name="2527"><span class="stacstdec">Strbufptr_gc <span class="keyword">=</span> <span class="keyword">[</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat<span class="keyword">;</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> strbufptr_gc <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span></span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">praxi</span> <a name="2610"><span class="dyncstdec"><span class="prfexp">bytes_v_of_b0ytes_v <span class="staexp"><span class="keyword">{</span>bsz<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>pf<span class="keyword">:</span> <span class="staexp">b0ytes <span class="keyword">(</span>bsz<span class="keyword">)</span> @ l</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">prf</span><span class="keyword">&gt;</span> <span class="staexp">bytes <span class="keyword">(</span>bsz<span class="keyword">)</span> @ l</span></span></span></a>
+<span class="keyword">praxi</span> <a name="2702"><span class="dyncstdec"><span class="prfexp">char_v_of_b0yte_v <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>pf<span class="keyword">:</span> <span class="staexp">byte? @ l</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">char @ l</span></span></span></a>
+<span class="keyword">praxi</span> <a name="2761"><span class="dyncstdec"><span class="prfexp">chars_v_of_b0ytes_v <span class="staexp"><span class="keyword">{</span>bsz<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>pf<span class="keyword">:</span> <span class="staexp">b0ytes <span class="keyword">(</span>bsz<span class="keyword">)</span> @ l</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">prf</span><span class="keyword">&gt;</span> <span class="staexp">chars <span class="keyword">(</span>bsz<span class="keyword">)</span> @ l</span></span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">praxi</span> <a name="2875"><span class="dyncstdec"><span class="prfexp">bytes_v_of_chars_v <span class="staexp"><span class="keyword">{</span>bsz<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>pf<span class="keyword">:</span> <span class="staexp">chars <span class="keyword">(</span>bsz<span class="keyword">)</span> @ l</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">prf</span><span class="keyword">&gt;</span> <span class="staexp">bytes <span class="keyword">(</span>bsz<span class="keyword">)</span> @ l</span></span></span></a>
+<span class="keyword">praxi</span> <a name="2965"><span class="dyncstdec"><span class="prfexp">bytes_v_of_strbuf_v <span class="staexp"><span class="keyword">{</span>bsz<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>pf<span class="keyword">:</span> <span class="staexp">strbuf <span class="keyword">(</span>bsz<span class="keyword">)</span> @ l</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">prf</span><span class="keyword">&gt;</span> <span class="staexp">bytes <span class="keyword">(</span>bsz<span class="keyword">)</span> @ l</span></span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">praxi</span> <a name="3079"><span class="dyncstdec"><span class="prfexp">strbuf_v_null
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span>pf1<span class="keyword">:</span> <span class="staexp">char NUL @ l</span><span class="keyword">,</span> pf2<span class="keyword">:</span> <span class="staexp">b0ytes <span class="keyword">(</span>n<span class="keyword">)</span> @ l + sizeof<span class="keyword">(</span>char<span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">strbuf_v <span class="keyword">(</span>n+1<span class="keyword">,</span> 0<span class="keyword">,</span> l<span class="keyword">)</span></span></span></span></a>
+<span class="comment">// end of [strbuf_v]
+</span>
+<span class="keyword">praxi</span> <a name="3223"><span class="dyncstdec"><span class="prfexp">strbuf_v_cons
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span>pf1<span class="keyword">:</span> <span class="staexp">c1har @ l</span><span class="keyword">,</span> pf2<span class="keyword">:</span> <span class="staexp">strbuf_v <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l + sizeof<span class="keyword">(</span>char<span class="keyword">)</span><span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:&lt;</span><span class="staexp">prf</span><span class="keyword">&gt;</span> <span class="staexp">strbuf_v <span class="keyword">(</span>m+1<span class="keyword">,</span> n+1<span class="keyword">,</span> l<span class="keyword">)</span></span></span></span></a>
+<span class="comment">// end of [strbuf_v_cons]
+</span>
+<span class="keyword">dataview</span> <span class="prfexp"><span class="staexp"><a name="3385"><span class="stacstdec">strbufopt_v <span class="keyword">(</span>int<span class="keyword">,</span> int<span class="keyword">,</span> addr<span class="keyword">,</span> char<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">m<span class="keyword">:</span>nat</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">l<span class="keyword">:</span>addr</span><span class="keyword">}</span>
+    strbufopt_v_none <span class="staexp"><span class="keyword">(</span>m<span class="keyword">,</span> ~1<span class="keyword">,</span> l<span class="keyword">,</span> NUL<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">b0ytes m @ l</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">m<span class="keyword">,</span>n<span class="keyword">:</span>nat</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">l<span class="keyword">:</span>addr</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">c<span class="keyword">:</span>char</span> <span class="keyword">|</span> <span class="staexp">c &lt;&gt; NUL</span><span class="keyword">}</span>
+    strbufopt_v_some <span class="staexp"><span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">,</span> c<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">strbuf_v <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span></span></span>
+<span class="comment">// end of [strbufopt_v]
+</span>
+<span class="keyword">praxi</span> <a name="3626"><span class="dyncstdec"><span class="prfexp">strbuf_v_uncons
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>pf<span class="keyword">:</span> <span class="staexp">strbuf_v <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:&lt;</span><span class="staexp">prf</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">[</span>c<span class="keyword">:</span>char<span class="keyword">]</span> <span class="keyword">@(</span>
+     char c @ l<span class="keyword">,</span> strbufopt_v <span class="keyword">(</span>m-1<span class="keyword">,</span> n-1<span class="keyword">,</span> l + sizeof<span class="keyword">(</span>char<span class="keyword">)</span><span class="keyword">,</span> c<span class="keyword">)</span>
+   <span class="keyword">)</span></span></span></span></a>
+<span class="comment">// end of [strbuf_v_uncons]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">prfun</span> <a name="3831"><span class="dyncstdec"><span class="prfexp">strbuf_v_split
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i &lt;= n<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>ofs<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>
+    pf_mul<span class="keyword">:</span> <span class="staexp">MUL <span class="keyword">(</span>i<span class="keyword">,</span> sizeof char<span class="keyword">,</span> ofs<span class="keyword">)</span></span><span class="keyword">,</span> pf_str<span class="keyword">:</span> <span class="staexp">strbuf_v <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>c1hars i @ l<span class="keyword">,</span> strbuf_v <span class="keyword">(</span>m-i<span class="keyword">,</span> n-i<span class="keyword">,</span> l+ofs<span class="keyword">)</span><span class="keyword">)</span></span></span></span></a>
+<span class="comment">// end of [strbuf_v_split]
+</span>
+<span class="keyword">prfun</span> <a name="4045"><span class="dyncstdec"><span class="prfexp">strbuf_v_unsplit
+  <span class="staexp"><span class="keyword">{</span>n1<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>m2<span class="keyword">,</span>n2<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>ofs<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>
+    pf_mul<span class="keyword">:</span> <span class="staexp">MUL <span class="keyword">(</span>n1<span class="keyword">,</span> sizeof char<span class="keyword">,</span> ofs<span class="keyword">)</span></span>
+  <span class="keyword">,</span> pf_buf<span class="keyword">:</span> <span class="staexp">c1hars n1 @ l</span><span class="keyword">,</span> pf_str<span class="keyword">:</span> <span class="staexp">strbuf_v <span class="keyword">(</span>m2<span class="keyword">,</span> n2<span class="keyword">,</span> l+ofs<span class="keyword">)</span></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">strbuf_v <span class="keyword">(</span>n1+m2<span class="keyword">,</span> n1+n2<span class="keyword">,</span> l<span class="keyword">)</span></span></span></span></a>
+<span class="comment">// end of [strbuf_v_unsplit]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="4293"><span class="dyncstdec">bytes_strbuf_trans <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat <span class="keyword">|</span> n <span class="keyword">&lt;</span> m<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>b0ytes m @ l &gt;&gt; strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n1<span class="keyword">)</span> @ l</span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">#[</span>n1<span class="keyword">:</span> nat <span class="keyword">|</span> n1 &lt;= n<span class="keyword">]</span> void</span></span></a>
+  <span class="keyword">=</span> "atspre_bytes_strbuf_trans"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="neuexp"><span class="keyword">symintr</span></span> fprint_strbuf
+<span class="keyword">fun</span> <a name="4519"><span class="dyncstdec">fprint0_strbuf <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="keyword">(</span>out<span class="keyword">:</span> <span class="staexp">FILEref</span><span class="keyword">,</span> buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atspre_fprint_string"
+<span class="neuexp"><span class="keyword">overload</span> fprint_strbuf <span class="keyword">with</span> fprint0_strbuf</span>
+
+<span class="keyword">fun</span> <a name="4661"><span class="dyncstdec">print_strbuf <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="comment">// overload print with print_strbuf
+</span><span class="keyword">fun</span> <a name="4752"><span class="dyncstdec">prerr_strbuf <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="comment">// overload print with prerr_strbuf
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// val string_empty : string 0 // this not really necessary
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">//
+</span><span class="comment">// casting functions
+</span><span class="comment">//
+</span>
+<span class="keyword">castfn</span> <a name="4982"><span class="dyncstdec">string1_of_string
+  <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>n<span class="keyword">:</span>nat<span class="keyword">]</span> string n</span></span></a>
+
+<span class="keyword">castfn</span> <a name="5044"><span class="dyncstdec">string1_of_strbuf
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>bufptr<span class="keyword">:</span> <span class="staexp">strbufptr_gc n</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">string n</span></span></a>
+
+<span class="keyword">castfn</span> <a name="5117"><span class="dyncstdec">strbuf_of_string1 <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>m<span class="keyword">:</span>int <span class="keyword">|</span> n <span class="keyword">&lt;</span> m<span class="keyword">]</span> <span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>vbox <span class="keyword">(</span>strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span> @ l<span class="keyword">)</span> <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></span></a>
+<span class="comment">// end of [strbuf_of_string1]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="5281"><span class="dyncstdec">strbufptr_free <span class="keyword">(</span>p_buf<span class="keyword">:</span> <span class="staexp">Strbufptr_gc</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atspre_strbufptr_free"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="5378"><span class="dyncstdec">lt_string_string <span class="keyword">(</span>s1<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> s2<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></a>
+  <span class="keyword">=</span> "atspre_lt_string_string"
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">&lt;</span> <span class="keyword">with</span> lt_string_string</span>
+
+<span class="keyword">fun</span> <a name="5496"><span class="dyncstdec">lt_string_string__main <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l1<span class="keyword">,</span>l2<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v</span></span><span class="keyword">,</span> <span class="prfexp">pf1<span class="keyword">:</span> <span class="staexp">vsubr_p <span class="keyword">(</span>strbuf_v l1<span class="keyword">,</span> v<span class="keyword">)</span></span></span><span class="keyword">,</span> <span class="prfexp">pf2<span class="keyword">:</span> <span class="staexp">vsubr_p <span class="keyword">(</span>strbuf_v l2<span class="keyword">,</span> v<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> p1<span class="keyword">:</span> <span class="staexp">ptr l1</span><span class="keyword">,</span> p2<span class="keyword">:</span> <span class="staexp">ptr l2</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></a>
+  <span class="keyword">=</span> "atspre_lt_string_string"
+
+<span class="comment">//
+</span>
+<span class="keyword">fun</span> <a name="5695"><span class="dyncstdec">lte_string_string <span class="keyword">(</span>s1<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> s2<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></a>
+  <span class="keyword">=</span> "atspre_lte_string_string"
+<span class="neuexp"><span class="keyword">overload</span> &lt;= <span class="keyword">with</span> lte_string_string</span>
+
+<span class="keyword">fun</span> <a name="5817"><span class="dyncstdec">lte_string_string__main <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l1<span class="keyword">,</span>l2<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v</span></span><span class="keyword">,</span> <span class="prfexp">pf1<span class="keyword">:</span> <span class="staexp">vsubr_p <span class="keyword">(</span>strbuf_v l1<span class="keyword">,</span> v<span class="keyword">)</span></span></span><span class="keyword">,</span> <span class="prfexp">pf2<span class="keyword">:</span> <span class="staexp">vsubr_p <span class="keyword">(</span>strbuf_v l2<span class="keyword">,</span> v<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> p1<span class="keyword">:</span> <span class="staexp">ptr l1</span><span class="keyword">,</span> p2<span class="keyword">:</span> <span class="staexp">ptr l2</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></a> <span class="keyword">=</span> "atspre_lte_string_string"
+<span class="comment">// end of [lte_string_string__main]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">fun</span> <a name="6052"><span class="dyncstdec">gt_string_string <span class="keyword">(</span>s1<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> s2<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></a>
+  <span class="keyword">=</span> "atspre_gt_string_string"
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">&gt;</span> <span class="keyword">with</span> gt_string_string</span>
+
+<span class="keyword">fun</span> <a name="6170"><span class="dyncstdec">gt_string_string__main <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l1<span class="keyword">,</span>l2<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v</span></span><span class="keyword">,</span> <span class="prfexp">pf1<span class="keyword">:</span> <span class="staexp">vsubr_p <span class="keyword">(</span>strbuf_v l1<span class="keyword">,</span> v<span class="keyword">)</span></span></span><span class="keyword">,</span> <span class="prfexp">pf2<span class="keyword">:</span> <span class="staexp">vsubr_p <span class="keyword">(</span>strbuf_v l2<span class="keyword">,</span> v<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> p1<span class="keyword">:</span> <span class="staexp">ptr l1</span><span class="keyword">,</span> p2<span class="keyword">:</span> <span class="staexp">ptr l2</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></a> <span class="keyword">=</span> "atspre_gt_string_string"
+<span class="comment">// end of [gt_string_string__main]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">fun</span> <a name="6402"><span class="dyncstdec">gte_string_string <span class="keyword">(</span>s1<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> s2<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></a>
+  <span class="keyword">=</span> "atspre_gte_string_string"
+<span class="neuexp"><span class="keyword">overload</span> &gt;= <span class="keyword">with</span> gte_string_string</span>
+
+<span class="keyword">fun</span> <a name="6524"><span class="dyncstdec">gte_string_string__main <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l1<span class="keyword">,</span>l2<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v</span></span><span class="keyword">,</span> <span class="prfexp">pf1<span class="keyword">:</span> <span class="staexp">vsubr_p <span class="keyword">(</span>strbuf_v l1<span class="keyword">,</span> v<span class="keyword">)</span></span></span><span class="keyword">,</span> <span class="prfexp">pf2<span class="keyword">:</span> <span class="staexp">vsubr_p <span class="keyword">(</span>strbuf_v l2<span class="keyword">,</span> v<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> p1<span class="keyword">:</span> <span class="staexp">ptr l1</span><span class="keyword">,</span> p2<span class="keyword">:</span> <span class="staexp">ptr l2</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></a> <span class="keyword">=</span> "atspre_gte_string_string"
+<span class="comment">// end of [gte_string_string__main]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">fun</span> <a name="6759"><span class="dyncstdec">eq_string_string
+  <span class="keyword">(</span>s1<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> s2<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></a> <span class="keyword">=</span> "atspre_eq_string_string"
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">=</span> <span class="keyword">with</span> eq_string_string</span>
+
+<span class="keyword">fun</span> <a name="6877"><span class="dyncstdec">eq_string_string__main <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l1<span class="keyword">,</span>l2<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v</span></span><span class="keyword">,</span> <span class="prfexp">pf1<span class="keyword">:</span> <span class="staexp">vsubr_p <span class="keyword">(</span>strbuf_v l1<span class="keyword">,</span> v<span class="keyword">)</span></span></span><span class="keyword">,</span> <span class="prfexp">pf2<span class="keyword">:</span> <span class="staexp">vsubr_p <span class="keyword">(</span>strbuf_v l2<span class="keyword">,</span> v<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> p1<span class="keyword">:</span> <span class="staexp">ptr l1</span><span class="keyword">,</span> p2<span class="keyword">:</span> <span class="staexp">ptr l2</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></a> <span class="keyword">=</span> "atspre_eq_string_string"
+<span class="comment">// end of [eq_string_string__main]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">fun</span> <a name="7109"><span class="dyncstdec">neq_string_string <span class="keyword">(</span>s1<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> s2<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></a>
+  <span class="keyword">=</span> "atspre_neq_string_string"
+<span class="neuexp"><span class="keyword">overload</span> &lt;&gt; <span class="keyword">with</span> neq_string_string</span>
+
+<span class="keyword">fun</span> <a name="7231"><span class="dyncstdec">neq_string_string__main <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l1<span class="keyword">,</span>l2<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v</span></span><span class="keyword">,</span> <span class="prfexp">pf1<span class="keyword">:</span> <span class="staexp">vsubr_p <span class="keyword">(</span>strbuf_v l1<span class="keyword">,</span> v<span class="keyword">)</span></span></span><span class="keyword">,</span> <span class="prfexp">pf2<span class="keyword">:</span> <span class="staexp">vsubr_p <span class="keyword">(</span>strbuf_v l2<span class="keyword">,</span> v<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> p1<span class="keyword">:</span> <span class="staexp">ptr l1</span><span class="keyword">,</span> p2<span class="keyword">:</span> <span class="staexp">ptr l2</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></a> <span class="keyword">=</span> "atspre_neq_string_string"
+<span class="comment">// end of [neq_string_string__main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="7483"><span class="dyncstdec">compare_string_string <span class="keyword">(</span>s1<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> s2<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">Sgn</span></span></a>
+  <span class="keyword">=</span> "atspre_compare_string_string"
+<span class="neuexp"><span class="keyword">overload</span> compare <span class="keyword">with</span> compare_string_string</span>
+
+<span class="keyword">fun</span> <a name="7621"><span class="dyncstdec">compare_string_string__main <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l1<span class="keyword">,</span>l2<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v</span></span><span class="keyword">,</span> <span class="prfexp">pf1<span class="keyword">:</span> <span class="staexp">vsubr_p <span class="keyword">(</span>strbuf_v l1<span class="keyword">,</span> v<span class="keyword">)</span></span></span><span class="keyword">,</span> <span class="prfexp">pf2<span class="keyword">:</span> <span class="staexp">vsubr_p <span class="keyword">(</span>strbuf_v l2<span class="keyword">,</span> v<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> p1<span class="keyword">:</span> <span class="staexp">ptr l1</span><span class="keyword">,</span> p2<span class="keyword">:</span> <span class="staexp">ptr l2</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp">Sgn</span></span></a> <span class="keyword">=</span> "atspre_compare_string_string"
+<span class="comment">// end of [compare_string_string__main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="neuexp"><span class="keyword">symintr</span></span> fprint_string
+
+<span class="keyword">fun</span> <a name="7907"><span class="dyncstdec">fprint0_string <span class="keyword">(</span>out<span class="keyword">:</span> <span class="staexp">FILEref</span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exnref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atspre_fprint_string"
+<span class="neuexp"><span class="keyword">overload</span> fprint_string <span class="keyword">with</span> fprint0_string</span>
+<span class="keyword">fun</span> <a name="8037"><span class="dyncstdec">fprint1_string <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exnref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atspre_fprint_string"
+<span class="neuexp"><span class="keyword">overload</span> fprint_string <span class="keyword">with</span> fprint1_string</span>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_string</span>
+
+<span class="keyword">fun</span> <a name="8246"><span class="dyncstdec">fprint1_string__main <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v</span></span><span class="keyword">,</span> <span class="prfexp">fpf<span class="keyword">:</span> <span class="staexp">vsubr_p <span class="keyword">(</span>strbuf_v l<span class="keyword">,</span> v<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp">FILEref</span><span class="keyword">,</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exnref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atspre_fprint_string"
+<span class="comment">// end of [fprint1_string__main]
+</span>
+<span class="keyword">fun</span> <a name="8431"><span class="dyncstdec">print_string <span class="keyword">(</span>b<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atspre_print_string"
+<span class="keyword">and</span> <a name="8496"><span class="dyncstdec">prerr_string <span class="keyword">(</span>b<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atspre_prerr_string"
+<span class="neuexp"><span class="keyword">overload</span> print <span class="keyword">with</span> print_string</span>
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> prerr_string</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="8649"><span class="dyncstdec">strbuf_get_char_at <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i <span class="keyword">&lt;</span> n<span class="keyword">}</span></span>
+  <span class="keyword">(</span>sbf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>c<span class="keyword">:</span>char <span class="keyword">|</span> c &lt;&gt; NUL<span class="keyword">]</span> char c</span></span></a>
+  <span class="keyword">=</span> "atspre_string_get_char_at"
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">[</span><span class="keyword">]</span> <span class="keyword">with</span> strbuf_get_char_at</span>
+
+<span class="keyword">fun</span> <a name="8834"><span class="dyncstdec">string_get_char_at <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i <span class="keyword">&lt;</span> n<span class="keyword">}</span></span>
+  <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>c<span class="keyword">:</span>char <span class="keyword">|</span> c &lt;&gt; NUL<span class="keyword">]</span> char c</span></span></a> <span class="comment">// no effect
+</span>  <span class="keyword">=</span> "atspre_string_get_char_at"
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">[</span><span class="keyword">]</span> <span class="keyword">with</span> string_get_char_at</span>
+
+<span class="comment">//
+</span><span class="comment">// HX:
+</span><span class="comment">// these functions are present mostly for convenience as a programmer
+</span><span class="comment">// ofter uses values of the type int as array indices:
+</span><span class="comment">//
+</span>
+<span class="keyword">fun</span> <a name="9163"><span class="dyncstdec">strbuf_get_char_at__intsz
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i <span class="keyword">&lt;</span> n<span class="keyword">}</span></span>
+  <span class="keyword">(</span>sbf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int i</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>c<span class="keyword">:</span>char <span class="keyword">|</span> c &lt;&gt; NUL<span class="keyword">]</span> char c</span></span></a>
+  <span class="keyword">=</span> "atspre_string_get_char_at__intsz"
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">[</span><span class="keyword">]</span> <span class="keyword">with</span> strbuf_get_char_at__intsz</span>
+
+<span class="keyword">fun</span> <a name="9368"><span class="dyncstdec">string_get_char_at__intsz <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i <span class="keyword">&lt;</span> n<span class="keyword">}</span></span>
+  <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int i</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>c<span class="keyword">:</span>char <span class="keyword">|</span> c &lt;&gt; NUL<span class="keyword">]</span> char c</span></span></a> <span class="comment">// no effect
+</span>  <span class="keyword">=</span> "atspre_string_get_char_at__intsz"
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">[</span><span class="keyword">]</span> <span class="keyword">with</span> string_get_char_at__intsz</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="9597"><span class="dyncstdec">strbuf_set_char_at <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i <span class="keyword">&lt;</span> n<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>c<span class="keyword">:</span> char <span class="keyword">|</span> c &lt;&gt; NUL<span class="keyword">}</span></span>
+  <span class="keyword">(</span>sbf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">,</span> c<span class="keyword">:</span> <span class="staexp">char c</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atspre_strbuf_set_char_at"
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">[</span><span class="keyword">]</span> <span class="keyword">with</span> strbuf_set_char_at</span>
+
+<span class="keyword">fun</span> <a name="9794"><span class="dyncstdec">string_set_char_at <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i <span class="keyword">&lt;</span> n<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>c<span class="keyword">:</span> char <span class="keyword">|</span> c &lt;&gt; NUL<span class="keyword">}</span></span>
+  <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">,</span> c<span class="keyword">:</span> <span class="staexp">char c</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atspre_strbuf_set_char_at"
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">[</span><span class="keyword">]</span> <span class="keyword">with</span> string_set_char_at</span>
+
+<span class="comment">//
+</span><span class="comment">// these functions are present mostly for convenience as a programmer
+</span><span class="comment">// ofter uses values of the type int as array indices:
+</span><span class="comment">//
+</span>
+<span class="keyword">fun</span> <a name="10119"><span class="dyncstdec">strbuf_set_char_at__intsz <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i <span class="keyword">&lt;</span> n<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>c<span class="keyword">:</span> char <span class="keyword">|</span> c &lt;&gt; NUL<span class="keyword">}</span></span>
+  <span class="keyword">(</span>sbf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int i</span><span class="keyword">,</span> c<span class="keyword">:</span> <span class="staexp">char c</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atspre_strbuf_set_char_at__intsz"
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">[</span><span class="keyword">]</span> <span class="keyword">with</span> strbuf_set_char_at__intsz</span>
+
+<span class="keyword">fun</span> <a name="10334"><span class="dyncstdec">string_set_char_at__intsz <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i <span class="keyword">&lt;</span> n<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>c<span class="keyword">:</span> char <span class="keyword">|</span> c &lt;&gt; NUL<span class="keyword">}</span></span>
+  <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int i</span><span class="keyword">,</span> c<span class="keyword">:</span> <span class="staexp">char c</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atspre_strbuf_set_char_at__intsz"
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">[</span><span class="keyword">]</span> <span class="keyword">with</span> string_set_char_at__intsz</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="10566"><span class="dyncstdec">strbuf_test_char_at <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i &lt;= n<span class="keyword">}</span></span> <span class="keyword">(</span>sbf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>c<span class="keyword">:</span>char <span class="keyword">|</span> <span class="keyword">(</span>c &lt;&gt; NUL &amp;&amp; i <span class="keyword">&lt;</span> n<span class="keyword">)</span> || <span class="keyword">(</span>c == NUL &amp;&amp; i &gt;= n<span class="keyword">)</span><span class="keyword">]</span> char c</span></span></a>
+  <span class="keyword">=</span> "atspre_string_test_char_at"
+<span class="comment">// end of [strbuf_test_char_at]
+</span>
+<span class="keyword">fun</span> <a name="10788"><span class="dyncstdec">string_test_char_at <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i &lt;= n<span class="keyword">}</span></span> <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>c<span class="keyword">:</span>char <span class="keyword">|</span> <span class="keyword">(</span>c &lt;&gt; NUL &amp;&amp; i <span class="keyword">&lt;</span> n<span class="keyword">)</span> || <span class="keyword">(</span>c == NUL &amp;&amp; i &gt;= n<span class="keyword">)</span><span class="keyword">]</span> char c</span></span></a>
+  <span class="keyword">=</span> "atspre_string_test_char_at"
+<span class="comment">// end of [string_test_char_at]
+</span>
+
+<span class="comment">//
+</span><span class="comment">// these functions are present mostly for convenience as a programmer
+</span><span class="comment">// ofter uses values of the type int as array indices:
+</span><span class="comment">//
+</span>
+<span class="keyword">fun</span> <a name="11135"><span class="dyncstdec">strbuf_test_char_at__intsz <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i &lt;= n<span class="keyword">}</span></span> <span class="keyword">(</span>sbf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>c<span class="keyword">:</span>char <span class="keyword">|</span> <span class="keyword">(</span>c &lt;&gt; NUL &amp;&amp; i <span class="keyword">&lt;</span> n<span class="keyword">)</span> || <span class="keyword">(</span>c == NUL &amp;&amp; i &gt;= n<span class="keyword">)</span><span class="keyword">]</span> char c</span></span></a>
+  <span class="keyword">=</span> "atspre_string_test_char_at__intsz"
+
+<span class="keyword">fun</span> <a name="11339"><span class="dyncstdec">string_test_char_at__intsz <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i &lt;= n<span class="keyword">}</span></span> <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>c<span class="keyword">:</span>char <span class="keyword">|</span> <span class="keyword">(</span>c &lt;&gt; NUL &amp;&amp; i <span class="keyword">&lt;</span> n<span class="keyword">)</span> || <span class="keyword">(</span>c == NUL &amp;&amp; i &gt;= n<span class="keyword">)</span><span class="keyword">]</span> char c</span></span></a>
+  <span class="keyword">=</span> "atspre_string_test_char_at__intsz"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="11556"><span class="dyncstdec">strbuf_initialize_substring <span class="staexp"><span class="keyword">{</span>bsz<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>st<span class="keyword">,</span>ln<span class="keyword">:</span>nat <span class="keyword">|</span> st+ln &lt;= n<span class="keyword">;</span> ln <span class="keyword">&lt;</span> bsz<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>b0ytes bsz @ l &gt;&gt; strbuf <span class="keyword">(</span>bsz<span class="keyword">,</span> ln<span class="keyword">)</span> @ l</span></span>
+  <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">,</span> str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> st<span class="keyword">:</span> <span class="staexp">size_t st</span><span class="keyword">,</span> ln<span class="keyword">:</span> <span class="staexp">size_t ln</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atspre_strbuf_initialize_substring"
+<span class="comment">// end of [strbuf_initialize_substring]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="11872"><span class="dyncstdec">string_make_char <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>n<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">,</span> c<span class="keyword">:</span> <span class="staexp">char</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">strbufptr_gc n</span></span></a> <span class="keyword">=</span> "atspre_string_make_char"
+<span class="comment">// end of [string_make_char]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="12023"><span class="dyncstdec">string_make_list_int
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>cs<span class="keyword">:</span> <span class="staexp">list <span class="keyword">(</span>char<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">strbufptr_gc n</span></span></a>
+  <span class="keyword">=</span> "atspre_string_make_list_int"
+<span class="comment">// end of [string_make_list_int]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="12196"><span class="dyncstdec">string_make_list_rev_int
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>cs<span class="keyword">:</span> <span class="staexp">list <span class="keyword">(</span>char<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">strbufptr_gc n</span></span></a>
+  <span class="keyword">=</span> "atspre_string_make_list_rev_int"
+<span class="comment">// end of [string_make_list_rev_int]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="12381"><span class="dyncstdec">string_takeout_bufptr
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>st<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>ln<span class="keyword">:</span>nat <span class="keyword">|</span> st+ln &lt;= n<span class="keyword">}</span></span>
+  <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> st<span class="keyword">:</span> <span class="staexp">size_t st</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>bytes<span class="keyword">(</span>ln<span class="keyword">)</span> @ l<span class="keyword">,</span> bytes<span class="keyword">(</span>ln<span class="keyword">)</span> @ l <span class="keyword">-&lt;</span>lin<span class="keyword">,</span>prf<span class="keyword">&gt;</span> void <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "#atspre_padd_size"
+<span class="comment">// end of [string_takeout_bufptr]
+</span>
+<span class="keyword">fun</span> <a name="12612"><span class="dyncstdec">string_make_substring
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>st<span class="keyword">,</span>ln<span class="keyword">:</span>nat <span class="keyword">|</span> st + ln &lt;= n<span class="keyword">}</span></span>
+  <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> st<span class="keyword">:</span> <span class="staexp">size_t st</span><span class="keyword">,</span> ln<span class="keyword">:</span> <span class="staexp">size_t ln</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">strbufptr_gc ln</span></span></a>
+  <span class="keyword">=</span> "atspre_string_make_substring"
+<span class="comment">// end of [string_make_substring]
+</span>
+<span class="keyword">fun</span> <a name="12812"><span class="dyncstdec">string_make_substring__main <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>st<span class="keyword">,</span>ln<span class="keyword">:</span>nat <span class="keyword">|</span> st+ln &lt;= n<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v</span></span>
+  <span class="keyword">,</span> <span class="prfexp">pf_con<span class="keyword">:</span> <span class="staexp">vsubr_p <span class="keyword">(</span>strbuf_v <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span><span class="keyword">,</span> v<span class="keyword">)</span></span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">,</span> st<span class="keyword">:</span> <span class="staexp">size_t st</span><span class="keyword">,</span> ln<span class="keyword">:</span> <span class="staexp">size_t ln</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp">strbufptr_gc ln</span></span></a>
+  <span class="keyword">=</span> "atspre_string_make_substring"
+<span class="comment">// end of [string_make_substring__main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="13118"><span class="dyncstdec">string0_append
+  <span class="keyword">(</span>s1<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> s2<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">string</span></span></a> <span class="comment">// persistent
+</span>  <span class="keyword">=</span> "atspre_string_append" 
+<span class="neuexp"><span class="keyword">overload</span> + <span class="keyword">with</span> string0_append</span>
+
+<span class="keyword">fun</span> <a name="13248"><span class="dyncstdec">string1_append <span class="staexp"><span class="keyword">{</span>i<span class="keyword">,</span>j<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>s1<span class="keyword">:</span> <span class="staexp">string i</span><span class="keyword">,</span> s2<span class="keyword">:</span> <span class="staexp">string j</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">strbufptr_gc <span class="keyword">(</span>i+j<span class="keyword">)</span></span></span></a> <span class="comment">// linear
+</span>  <span class="keyword">=</span> "atspre_string_append"
+<span class="neuexp"><span class="keyword">overload</span> + <span class="keyword">with</span> string1_append</span>
+
+<span class="keyword">fun</span> <a name="13399"><span class="dyncstdec">string1_append__main <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>m1<span class="keyword">,</span>i<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>m2<span class="keyword">,</span>j<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l1<span class="keyword">,</span>l2<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v</span></span>
+  <span class="keyword">,</span> <span class="prfexp">pf1<span class="keyword">:</span> <span class="staexp">vsubr_p <span class="keyword">(</span>strbuf_v <span class="keyword">(</span>m1<span class="keyword">,</span> i<span class="keyword">,</span> l1<span class="keyword">)</span><span class="keyword">,</span> v<span class="keyword">)</span></span></span><span class="keyword">,</span> <span class="prfexp">pf2<span class="keyword">:</span> <span class="staexp">vsubr_p <span class="keyword">(</span>strbuf_v <span class="keyword">(</span>m2<span class="keyword">,</span> j<span class="keyword">,</span> l2<span class="keyword">)</span><span class="keyword">,</span> v<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> p1<span class="keyword">:</span> <span class="staexp">ptr l1</span><span class="keyword">,</span> p2<span class="keyword">:</span> <span class="staexp">ptr l2</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp">strbufptr_gc <span class="keyword">(</span>i+j<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atspre_string_append"
+<span class="comment">// end of [string1_append__main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="13702"><span class="dyncstdec">string_compare
+  <span class="keyword">(</span>s1<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> s2<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">Sgn</span></span></a> <span class="keyword">=</span> "atspre_compare_string_string"
+<span class="comment">// end of [string_compare]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="13837"><span class="dyncstdec">stringlst_concat
+  <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">List string</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">strptr1</span></span></a> <span class="keyword">=</span> "atspre_stringlst_concat"
+<span class="comment">// end of [stringlst_concat]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="13968"><span class="dyncstdec">string_contains
+  <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> c<span class="keyword">:</span> <span class="staexp">char</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></a> <span class="keyword">=</span> "atspre_string_contains"
+<span class="comment">// end of [string_contains]
+</span><span class="keyword">fun</span> <a name="14076"><span class="dyncstdec">strptr_contains
+  <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>agz<span class="keyword">}</span></span> <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>strptr l</span><span class="keyword">,</span> c<span class="keyword">:</span> <span class="staexp">char</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></a> <span class="keyword">=</span> "atspre_string_contains"
+<span class="comment">// end of [strptr_contains]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="14217"><span class="dyncstdec">string_equal <span class="keyword">(</span>s1<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> s2<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></a> <span class="keyword">=</span> "atspre_eq_string_string"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="14317"><span class="dyncstdec">strbuf_length <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>sbf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">size_t n</span></span></a> <span class="keyword">=</span> "atspre_string_length"
+<span class="comment">// end of [strbuf_length]
+</span>
+<span class="neuexp"><span class="keyword">symintr</span></span> string_length
+<span class="keyword">fun</span> <a name="14455"><span class="dyncstdec">string0_length
+  <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">size_t</span></span></a> <span class="keyword">=</span> "atspre_string_length"
+<span class="keyword">fun</span> <a name="14525"><span class="dyncstdec">string1_length
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">size_t n</span></span></a> <span class="keyword">=</span> "atspre_string_length"
+<span class="neuexp"><span class="keyword">overload</span> string_length <span class="keyword">with</span> string0_length</span>
+<span class="neuexp"><span class="keyword">overload</span> string_length <span class="keyword">with</span> string1_length</span>
+
+<span class="keyword">fun</span> <a name="14694"><span class="dyncstdec">strptr_length
+  <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>agz<span class="keyword">}</span></span> <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>strptr l</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">size_t</span></span></a> <span class="keyword">=</span> "atspre_string_length"
+<span class="comment">// end of [strptr_length]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="14822"><span class="dyncstdec">strbuf_is_empty <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="keyword">(</span>sbf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool <span class="keyword">(</span>n==0<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atspre_string_is_empty"
+<span class="comment">// end of [strbuf_is_empty]
+</span>
+<span class="neuexp"><span class="keyword">symintr</span></span> string_is_empty
+<span class="keyword">fun</span> <a name="14971"><span class="dyncstdec">string0_is_empty
+  <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></a> <span class="keyword">=</span> "atspre_string_is_empty"
+<span class="neuexp"><span class="keyword">overload</span> string_is_empty <span class="keyword">with</span> string0_is_empty</span>
+<span class="keyword">fun</span> <a name="15090"><span class="dyncstdec">string1_is_empty <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool <span class="keyword">(</span>n==0<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atspre_string_is_empty"
+<span class="neuexp"><span class="keyword">overload</span> string_is_empty <span class="keyword">with</span> string1_is_empty</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="15248"><span class="dyncstdec">strbuf_isnot_empty <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="keyword">(</span>sbf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool <span class="keyword">(</span>n <span class="keyword">&gt;</span> 0<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atspre_string_isnot_empty"
+
+<span class="neuexp"><span class="keyword">symintr</span></span> string_isnot_empty
+<span class="keyword">fun</span> <a name="15379"><span class="dyncstdec">string0_isnot_empty
+  <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></a> <span class="keyword">=</span> "atspre_string_isnot_empty"
+<span class="neuexp"><span class="keyword">overload</span> string_isnot_empty <span class="keyword">with</span> string0_isnot_empty</span>
+<span class="keyword">fun</span> <a name="15510"><span class="dyncstdec">string1_isnot_empty <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool <span class="keyword">(</span>n <span class="keyword">&gt;</span> 0<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atspre_string_isnot_empty"
+<span class="neuexp"><span class="keyword">overload</span> string_isnot_empty <span class="keyword">with</span> string1_isnot_empty</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="15681"><span class="dyncstdec">strbuf_is_at_end <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">,</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i &lt;= n<span class="keyword">}</span></span>
+  <span class="keyword">(</span>sbf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool <span class="keyword">(</span>i == n<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atspre_string_is_at_end"
+<span class="keyword">fun</span> <a name="15807"><span class="dyncstdec">string_is_at_end <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i &lt;= n<span class="keyword">}</span></span>
+  <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool <span class="keyword">(</span>i == n<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atspre_string_is_at_end"
+<span class="comment">// end of [string_is_at_end]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="15974"><span class="dyncstdec">strbuf_isnot_at_end
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i &lt;= n<span class="keyword">}</span></span>
+  <span class="keyword">(</span>sbf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool <span class="keyword">(</span>i &lt;&gt; n<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atspre_string_isnot_at_end"
+<span class="comment">// end of [strbuf_isnot_at_end]
+</span>
+<span class="keyword">fun</span> <a name="16147"><span class="dyncstdec">string_isnot_at_end <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i &lt;= n<span class="keyword">}</span></span>
+  <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool <span class="keyword">(</span>i &lt;&gt; n<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atspre_string_isnot_at_end"
+<span class="comment">// end of [string_isnot_at_end]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="16323"><span class="dyncstdec">string_explode <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">list_vt <span class="keyword">(</span>char<span class="keyword">,</span> n<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atspre_string_explode"
+<span class="comment">// end of [string_explode]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: this is an alias of [string_make_list]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="16515"><span class="dyncstdec">string_implode <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>cs<span class="keyword">:</span> <span class="staexp">list <span class="keyword">(</span>char<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">strbufptr_gc n</span></span></a> <span class="keyword">=</span> "atspre_string_implode"
+<span class="comment">// end of [string_implode]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// This function is based on [strchr] in [string.h]
+</span><span class="comment">// the NULL character at the end of a string is considered in the string
+</span><span class="comment">// So we do not allow to search for the NULL character!!!
+</span><span class="comment">//
+</span><span class="comment">// locate a character from left
+</span><span class="keyword">fun</span> <a name="16878"><span class="dyncstdec">string_index_of_char_from_left
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> c<span class="keyword">:</span> <span class="staexp">c1har</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">ssizeBtw <span class="keyword">(</span>~1<span class="keyword">,</span> n<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atspre_string_index_of_char_from_left"
+
+<span class="comment">//
+</span><span class="comment">// This function is based on [strrchr] in [string.h]
+</span><span class="comment">// the NULL character at the end of a string is considered in the string
+</span><span class="comment">// So we do not allow to search for the NULL character!!!
+</span><span class="comment">//
+</span><span class="comment">// locate a character from right
+</span><span class="keyword">fun</span> <a name="17237"><span class="dyncstdec">string_index_of_char_from_right
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> c<span class="keyword">:</span> <span class="staexp">c1har</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">ssizeBtw <span class="keyword">(</span>~1<span class="keyword">,</span> n<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atspre_string_index_of_char_from_right"
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// This function is based on [strstr] in [string.h]
+</span><span class="comment">// Note that the NULL character is not compared
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="17501"><span class="dyncstdec">string_index_of_string <span class="comment">// locate a substring from left
+</span>  <span class="staexp"><span class="keyword">{</span>n1<span class="keyword">,</span>n2<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>haystack<span class="keyword">:</span> <span class="staexp">string n1</span><span class="keyword">,</span> needle<span class="keyword">:</span> <span class="staexp">string n2</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">ssizeBtw <span class="keyword">(</span>~1<span class="keyword">,</span> n1<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atspre_string_index_of_string"
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: implemented in [prelude/CATS/string.cats]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="17748"><span class="dyncstdec">string_singleton <span class="keyword">(</span>c<span class="keyword">:</span> <span class="staexp">char</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">strbufptr_gc 1</span></span></a> <span class="keyword">=</span> "atspre_string_singleton"
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: implemented in [prelude/DATS/string.dats]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="17901"><span class="dyncstdec">string_foreach__main <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>vt<span class="keyword">:</span>viewtype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>f<span class="keyword">:</span>eff<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v</span></span> <span class="keyword">|</span> str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> f<span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">!</span>v <span class="keyword">|</span> c1har<span class="keyword">,</span> <span class="keyword">!</span>vt<span class="keyword">)</span> <span class="keyword">-&lt;</span>f<span class="keyword">&gt;</span> void</span><span class="keyword">,</span> env<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>vt</span><span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">f</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a>
+<span class="comment">// end of [string_foreach__main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: implemented in [prelude/DATS/string.dats]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="18153"><span class="dyncstdec">strbuf_tolower
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atspre_strbuf_tolower"
+<span class="keyword">fun</span> <a name="18238"><span class="dyncstdec">string_tolower <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">strbufptr_gc n</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: implemented in [prelude/DATS/string.dats]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="18375"><span class="dyncstdec">strbuf_toupper
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atspre_strbuf_toupper"
+<span class="keyword">fun</span> <a name="18460"><span class="dyncstdec">string_toupper <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">strbufptr_gc n</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">//
+</span><span class="comment">// HX: h = (h &lt;&lt; 5) + h + c
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="18577"><span class="dyncstdec">string_hash_33 <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">ulint</span></span></a> <span class="keyword">=</span> "atspre_string_hash_33"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">//
+</span><span class="comment">// HX: functions for optional strings
+</span><span class="comment">//
+</span>
+<span class="comment">//
+</span><span class="comment">// HX: stropt_none = $extval (ats_ptr_type, "0")
+</span><span class="comment">//
+</span><span class="keyword">val</span> <a name="18767"><span class="dyncstdec">stropt_none <span class="keyword">:</span> <span class="staexp">stropt <span class="keyword">(</span>~1<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atspre_stropt_none"
+
+<span class="keyword">castfn</span> <a name="18824"><span class="dyncstdec">stropt_some <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">stropt n</span></span></a>
+  <span class="keyword">=</span> "atspre_stropt_some"
+<span class="keyword">castfn</span> <a name="18904"><span class="dyncstdec">stropt_unsome <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>stropt<span class="keyword">:</span> <span class="staexp">stropt n</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">string n</span></span></a>
+  <span class="keyword">=</span> "atspre_stropt_unsome"
+
+<span class="keyword">fun</span> <a name="18989"><span class="dyncstdec">stropt_is_none <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>stropt<span class="keyword">:</span> <span class="staexp">stropt i</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool <span class="keyword">(</span>i <span class="keyword">&lt;</span> 0<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atspre_stropt_is_none"
+<span class="keyword">fun</span> <a name="19079"><span class="dyncstdec">stropt_is_some <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>stropt<span class="keyword">:</span> <span class="staexp">stropt i</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool <span class="keyword">(</span>i &gt;= 0<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atspre_stropt_is_some"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">//
+</span><span class="comment">// HX: functions for linear optional strings
+</span><span class="comment">// HX-2010-10-04: Given the availability of strptr, the demand for
+</span><span class="comment">// linear optional strings has drastically reduced
+</span><span class="comment">//
+</span>
+<span class="keyword">absviewtype</span> <span class="staexp"><a name="19370"><span class="stacstdec">stropt_gc</span></a></span> <span class="keyword">(</span>m<span class="keyword">:</span>int<span class="keyword">,</span> n<span class="keyword">:</span>int<span class="keyword">)</span>
+
+<span class="comment">(*
+castfn stropt_gc_none
+  (_: ptr null): stropt_gc (0, 0)
+castfn stropt_gc_unnone
+  {n:int} (x: stropt_gc (0, n)):&lt;&gt; ptr (null)
+*)</span>
+<span class="keyword">fun</span> <a name="19532"><span class="dyncstdec">stropt_gc_none
+  <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">stropt_gc <span class="keyword">(</span>0<span class="keyword">,</span> 0<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atspre_stropt_gc_none"
+<span class="keyword">fun</span> <a name="19603"><span class="dyncstdec">stropt_gc_unnone <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">stropt_gc <span class="keyword">(</span>0<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "#atspre_stropt_gc_unnone"
+<span class="comment">// end of [stropt_gc_unnone]
+</span>
+<span class="keyword">castfn</span> <a name="19726"><span class="dyncstdec">stropt_gc_some
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">strbufptr_gc <span class="keyword">(</span>m<span class="keyword">,</span>n<span class="keyword">,</span>l<span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp">stropt_gc <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atspre_stropt_some"
+<span class="keyword">castfn</span> <a name="19843"><span class="dyncstdec">stropt_gc_unsome <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat <span class="keyword">|</span> m <span class="keyword">&gt;</span> 0<span class="keyword">}</span></span> <span class="comment">// [m &gt; n]
+</span>  <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">stropt_gc <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> strbufptr_gc <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atspre_stropt_unsome"
+
+<span class="keyword">fun</span> <a name="19980"><span class="dyncstdec">stropt_gc_is_none
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>s<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>stropt_gc <span class="keyword">(</span>m<span class="keyword">,</span>n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool <span class="keyword">(</span>m == 0<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atspre_stropt_is_none"
+<span class="keyword">fun</span> <a name="20081"><span class="dyncstdec">stropt_gc_is_some
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>s<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>stropt_gc <span class="keyword">(</span>m<span class="keyword">,</span>n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool <span class="keyword">(</span>m &gt;= 1<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atspre_stropt_is_some"
+
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="20191"><span class="stacstdec">Stropt_gc <span class="keyword">=</span> <span class="keyword">[</span>m<span class="keyword">,</span>n<span class="keyword">:</span>nat<span class="keyword">]</span> stropt_gc <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span></span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">//
+</span><span class="comment">// HX-2010-08-10: linear strings
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="20295"><span class="dyncstdec">strptr_null <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">strptr <span class="keyword">(</span>null<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atspre_strptr_null"
+<span class="comment">//
+</span><span class="keyword">fun</span> <a name="20358"><span class="dyncstdec">strptr_is_null
+  <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>strptr l</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool <span class="keyword">(</span>l==null<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atspre_ptr_is_null"
+<span class="keyword">fun</span> <a name="20445"><span class="dyncstdec">strptr_isnot_null
+  <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>strptr l</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool <span class="keyword">(</span>l <span class="keyword">&gt;</span> null<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atspre_ptr_isnot_null"
+<span class="comment">//
+</span><span class="keyword">castfn</span> <a name="20545"><span class="dyncstdec">ptr_of_strptr <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>strptr l</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">ptr l</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> ptr_of <span class="keyword">with</span> ptr_of_strptr</span>
+<span class="comment">//
+</span><span class="keyword">castfn</span> <a name="20637"><span class="dyncstdec">string_of_strptr <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">strptr1</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">string</span></span></a>
+<span class="keyword">castfn</span> <a name="20684"><span class="dyncstdec">string1_of_strptr <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">strptr1</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">String</span></span></a>
+<span class="keyword">castfn</span> <a name="20732"><span class="dyncstdec">string1_of_strptrlen
+  <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">strptrlen <span class="keyword">(</span>l<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">string n</span></span></a>
+<span class="comment">//
+</span><span class="keyword">castfn</span> <a name="20816"><span class="dyncstdec">string_takeout_ptr <span class="comment">// non-reentrant! 
+</span>  <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>agz<span class="keyword">]</span> <span class="keyword">(</span>strptr l <span class="keyword">-&lt;</span>lin<span class="keyword">,</span>prf<span class="keyword">&gt;</span> void <span class="keyword">|</span> strptr l<span class="keyword">)</span></span></span></a>
+<span class="comment">//
+</span><span class="keyword">castfn</span> <a name="20932"><span class="dyncstdec">strbuf_of_strptr <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>agz<span class="keyword">}</span></span>
+  <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">strptr l</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>m<span class="keyword">,</span>n<span class="keyword">:</span>int <span class="keyword">|</span> 0 &lt;= n<span class="keyword">;</span> n <span class="keyword">&lt;</span> m<span class="keyword">]</span> strbufptr_gc <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span></span></span></a>
+<span class="keyword">castfn</span> <a name="21032"><span class="dyncstdec">strbuf_of_strptrlen <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">strptrlen <span class="keyword">(</span>l<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>m<span class="keyword">:</span>int <span class="keyword">|</span> n <span class="keyword">&lt;</span> m<span class="keyword">]</span> strbufptr_gc <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span></span></span></a>
+<span class="comment">//
+</span><span class="keyword">castfn</span> <a name="21145"><span class="dyncstdec">strbuf_takeout_ptr <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>strbuf_v <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span></span></span> <span class="keyword">|</span> x<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">(</span>strptr l <span class="keyword">-&lt;</span>lin<span class="keyword">,</span>prf<span class="keyword">&gt;</span> void <span class="keyword">|</span> strptr l<span class="keyword">)</span></span></span></a>
+<span class="comment">//
+</span><span class="keyword">castfn</span> <a name="21273"><span class="dyncstdec">string_of_strbuf
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">strbufptr_gc <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">string n</span></span></a>
+<span class="comment">//
+</span><span class="keyword">castfn</span> <a name="21361"><span class="dyncstdec">strptr_free_null <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">strptr null</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">ptr null</span></span></a>
+<span class="keyword">fun</span> <a name="21411"><span class="dyncstdec">strptr_free <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">strptr l</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atspre_strptr_free"
+<span class="comment">//
+</span><span class="neuexp"><span class="keyword">symintr</span></span> fprint_strptr
+<span class="keyword">fun</span> <a name="21506"><span class="dyncstdec">fprint0_strptr <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span>out<span class="keyword">:</span> <span class="staexp">FILEref</span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>strptr l</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atspre_fprint_strptr"
+<span class="neuexp"><span class="keyword">overload</span> fprint_strptr <span class="keyword">with</span> fprint0_strptr</span>
+<span class="keyword">fun</span> <a name="21639"><span class="dyncstdec">fprint1_strptr <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>strptr l</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atspre_fprint_strptr"
+<span class="neuexp"><span class="keyword">overload</span> fprint_strptr <span class="keyword">with</span> fprint1_strptr</span>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_strptr</span>
+<span class="comment">//
+</span><span class="keyword">fun</span> <a name="21853"><span class="dyncstdec">print_strptr <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>strptr l</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> print <span class="keyword">with</span> print_strptr</span>
+<span class="keyword">fun</span> <a name="21933"><span class="dyncstdec">prerr_strptr <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>strptr l</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> prerr_strptr</span>
+<span class="comment">//
+</span><span class="neuexp"><span class="keyword">symintr</span></span> strptr_of
+<span class="keyword">castfn</span> <a name="22037"><span class="dyncstdec">strptr_of_strbuf <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>n<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">strbufptr_gc <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l <span class="keyword">&gt;</span> null<span class="keyword">]</span> strptr l</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> strptr_of <span class="keyword">with</span> strptr_of_strbuf</span>
+<span class="keyword">castfn</span> <a name="22174"><span class="dyncstdec">strptr_of_strptrlen
+  <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">strptrlen <span class="keyword">(</span>l<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l <span class="keyword">&gt;</span> null<span class="keyword">]</span> strptr l</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> strptr_of <span class="keyword">with</span> strptr_of_strptrlen</span>
+<span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="22330"><span class="dyncstdec">strptr_dup <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>agz<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>strptr l</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">strptr1</span></span></a>
+<span class="keyword">fun</span> <a name="22377"><span class="dyncstdec">string_tail
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i &lt;= n<span class="keyword">}</span></span> <span class="keyword">(</span>
+  x<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span>
+<span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>strptr l <span class="keyword">-&lt;</span>lin<span class="keyword">,</span>prf<span class="keyword">&gt;</span> void <span class="keyword">|</span> strptrlen <span class="keyword">(</span>l<span class="keyword">,</span> n-i<span class="keyword">)</span><span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atspre_padd_size"
+<span class="comment">// end pf [string_tail]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#if</span> <span class="neuexp">VERBOSE_PRELUDE</span> <span class="keyword">#then</span>
+<span class="keyword">#print</span> <span class="neuexp">"Loading [string.sats] finishes!\n"</span>
+<span class="keyword">#endif</span> <span class="comment">// end of [VERBOSE_PRELUDE]
+</span>
+<span class="comment">(* end of [string.sats] *)</span>
+</pre>
+</body>
+</html>

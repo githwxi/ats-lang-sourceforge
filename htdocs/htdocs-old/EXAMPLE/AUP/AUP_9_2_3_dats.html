@@ -1,0 +1,233 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: October, 2010
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// book: AUP (2nd edition), pages 628 - 634
+</span><span class="comment">// section 9.2.3: sigsuspend System Call
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">UNSAFE <span class="keyword">=</span> "prelude/SATS/unsafe.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anon*)</span> <span class="keyword">=</span> "prelude/DATS/pointer.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">T <span class="keyword">=</span> "libc/sys/SATS/types.sats"</span>
+<span class="keyword">macdef</span> <span class="neuexp">int_of_pid <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2ftypes_2esats.html#4436"><span class="dyncstuse">$T<span class="keyword">.</span>int_of_pid</span></span></a>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/errno.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/fcntl.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/signal.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/stdio.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/stdlib.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/unistd.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: any order printing order is possible: child/parent or parent/child
+</span><span class="comment">//
+</span><span class="keyword">fun</span> try1 <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> pid <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2funistd_2esats.html#3976"><span class="dyncstuse">fork_err</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> ipid <span class="keyword">=</span> int_of_pid <span class="keyword">(</span>pid<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+  <span class="keyword">|</span> _ <span class="keyword">when</span> ipid <span class="keyword">=</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> cpid <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2funistd_2esats.html#6660"><span class="dyncstuse">getpid</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fprintf_2esats.html#2494"><span class="dyncstuse">printf</span></a> <span class="keyword">(</span>"try1: child(%ld)\n"<span class="keyword">,</span> <span class="keyword">@(</span><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2funsafe_2esats.html#2199"><span class="dyncstuse">$UNSAFE<span class="keyword">.</span>cast2lint</span></a><span class="keyword">(</span>cpid<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fdyn_2esats.html#4627"><span class="dyncstuse">exit</span></a> <span class="keyword">(</span>EXIT_SUCCESS<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_]
+</span>  <span class="keyword">|</span> _ <span class="keyword">when</span> ipid <span class="keyword">&gt;</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fprintf_2esats.html#2494"><span class="dyncstuse">printf</span></a> <span class="keyword">(</span>"parent(%d)\n"<span class="keyword">,</span> <span class="keyword">@(</span>ipid<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="comment">// nothing
+</span>    <span class="keyword">end</span> <span class="comment">// end of [ipid &gt; 0]
+</span>  <span class="keyword">|</span> _ <span class="comment">(*ipid=-1*)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fstdio_2esats.html#20018"><span class="dyncstuse">perror</span></a> <span class="keyword">(</span>"fork"<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fdyn_2esats.html#4627"><span class="dyncstuse">exit</span></a> <span class="keyword">(</span>EXIT_SUCCESS<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_]
+</span><span class="keyword">end</span> <span class="comment">// end of [try1]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// this one uses [sigsuspend]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> try4 <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">typedef</span> <span class="staexp"><a name="1325"><span class="stacstdec">T <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#3420"><span class="stacstuse">sigset_t</span></a></span></a></span>
+  <span class="keyword">var</span> set<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fAUP_2fAUP_5f9_5f2_5f3_2edats.html#1325"><span class="stacstuse">T</span></a></span>
+  <span class="keyword">val</span> err <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#3454"><span class="dyncstuse">sigemptyset</span></a> <span class="keyword">(</span>set<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fdyn_2esats.html#8913"><span class="dyncstuse">opt_unsome</span></a><span class="staexp"><span class="keyword">{</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fAUP_2fAUP_5f9_5f2_5f3_2edats.html#1325"><span class="stacstuse">T</span></a><span class="keyword">}</span></span> <span class="keyword">(</span>set<span class="keyword">)</span></span>
+  <span class="keyword">val</span> err <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#3810"><span class="dyncstuse">sigaddset</span></a> <span class="keyword">(</span>set<span class="keyword">,</span> SIGUSR1<span class="keyword">)</span> <span class="comment">// SIGUSR1 is blocked
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+  <span class="keyword">val</span> err <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#4945"><span class="dyncstuse">sigprocmask_null</span></a> <span class="keyword">(</span>SIG_SETMASK<span class="keyword">,</span> set<span class="keyword">)</span>
+  <span class="keyword">val</span> pid <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2funistd_2esats.html#3976"><span class="dyncstuse">fork_err</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> ipid <span class="keyword">=</span> int_of_pid <span class="keyword">(</span>pid<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+  <span class="keyword">|</span> _ <span class="keyword">when</span> ipid <span class="keyword">=</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// child
+</span><span class="comment">//
+</span>      <span class="keyword">var</span> act<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#7241"><span class="stacstuse">sigaction</span></a></span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fpointer_2esats.html#6098"><span class="dyncstuse">ptr_zero&lt;</span></a><span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#7241"><span class="stacstuse">sigaction</span></a></span><span class="keyword">&gt;</span> <span class="keyword">(</span>act<span class="keyword">)</span>
+      <span class="comment">// HX: note that SIGUSR1 kills the process if there is no handler for it
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> act<span class="keyword">.</span>sa_handler := sighandler<span class="keyword">(</span><span class="keyword">lam</span> <span class="keyword">(</span>sgn<span class="keyword">:</span><span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#1857"><span class="stacstuse">signum_t</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#15547"><span class="stacstuse">void</span></a></span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">val</span> err <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#7444"><span class="dyncstuse">sigaction_null</span></a> <span class="keyword">(</span>SIGUSR1<span class="keyword">,</span> act<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+<span class="comment">//
+</span>      <span class="keyword">var</span> suspendset<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#3420"><span class="stacstuse">sigset_t</span></a></span>
+      <span class="keyword">val</span> err <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#3633"><span class="dyncstuse">sigfillset</span></a> <span class="keyword">(</span>suspendset<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fdyn_2esats.html#8913"><span class="dyncstuse">opt_unsome</span></a><span class="staexp"><span class="keyword">{</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fAUP_2fAUP_5f9_5f2_5f3_2edats.html#1325"><span class="stacstuse">T</span></a><span class="keyword">}</span></span> <span class="keyword">(</span>suspendset<span class="keyword">)</span></span>
+      <span class="keyword">val</span> err <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#3950"><span class="dyncstuse">sigdelset</span></a> <span class="keyword">(</span>suspendset<span class="keyword">,</span> SIGUSR1<span class="keyword">)</span> <span class="comment">// only [SIGUSR1] is allowed
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+      <span class="keyword">val</span> err <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#8587"><span class="dyncstuse">sigsuspend</span></a> <span class="keyword">(</span>suspendset<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">&lt;</span> 0<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">(</span><a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2ferrno_2esats.html#5349"><span class="dyncstuse">errno_get</span></a><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> EINTR<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> cpid <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2funistd_2esats.html#6660"><span class="dyncstuse">getpid</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fprintf_2esats.html#2494"><span class="dyncstuse">printf</span></a> <span class="keyword">(</span>"try4: child(%ld)\n"<span class="keyword">,</span> <span class="keyword">@(</span><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2funsafe_2esats.html#2199"><span class="dyncstuse">$UNSAFE<span class="keyword">.</span>cast2lint</span></a><span class="keyword">(</span>cpid<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fdyn_2esats.html#4627"><span class="dyncstuse">exit</span></a> <span class="keyword">(</span>EXIT_SUCCESS<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        <span class="comment">// nothing
+</span>      <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fdyn_2esats.html#4627"><span class="dyncstuse">exit</span></a> <span class="keyword">(</span>EXIT_FAILURE<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="comment">// nothing
+</span>    <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">|</span> _ <span class="keyword">when</span> ipid <span class="keyword">&gt;</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// parent
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fprintf_2esats.html#2494"><span class="dyncstuse">printf</span></a> <span class="keyword">(</span>"parent(%d)\n"<span class="keyword">,</span> <span class="keyword">@(</span>ipid<span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">val</span> err <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#7582"><span class="dyncstuse">kill</span></a> <span class="keyword">(</span>pid<span class="keyword">,</span> SIGUSR1<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="comment">// nothing
+</span>    <span class="keyword">end</span> <span class="comment">// end of [ipid &gt; 0]
+</span>  <span class="keyword">|</span> _ <span class="comment">(*ipid=-1*)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fstdio_2esats.html#20018"><span class="dyncstuse">perror</span></a> "fork" <span class="keyword">in</span> <span class="comment">(*nothing*)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_]
+</span><span class="keyword">end</span> <span class="comment">// end of [try4]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// this one uses [sigwait]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> try5 <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> set<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#3420"><span class="stacstuse">sigset_t</span></a></span>
+  <span class="keyword">val</span> err <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#3454"><span class="dyncstuse">sigemptyset</span></a> <span class="keyword">(</span>set<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fdyn_2esats.html#8913"><span class="dyncstuse">opt_unsome</span></a><span class="staexp"><span class="keyword">{</span><a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#3420"><span class="stacstuse">sigset_t</span></a><span class="keyword">}</span></span> <span class="keyword">(</span>set<span class="keyword">)</span></span>
+  <span class="keyword">val</span> err <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#3810"><span class="dyncstuse">sigaddset</span></a> <span class="keyword">(</span>set<span class="keyword">,</span> SIGUSR1<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+  <span class="keyword">val</span> err <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#4945"><span class="dyncstuse">sigprocmask_null</span></a> <span class="keyword">(</span>SIG_SETMASK<span class="keyword">,</span> set<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+  <span class="keyword">val</span> pid <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2funistd_2esats.html#3976"><span class="dyncstuse">fork_err</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> ipid <span class="keyword">=</span> int_of_pid <span class="keyword">(</span>pid<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+  <span class="keyword">|</span> _ <span class="keyword">when</span> ipid <span class="keyword">=</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// child
+</span>      <span class="keyword">var</span> sgn<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#1857"><span class="stacstuse">signum_t</span></a></span>
+      <span class="keyword">val</span> err <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#8186"><span class="dyncstuse">sigwait</span></a> <span class="keyword">(</span>set<span class="keyword">,</span> sgn<span class="keyword">)</span> <span class="comment">// wait for SIGUSR1
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fdyn_2esats.html#8913"><span class="dyncstuse">opt_unsome</span></a><span class="staexp"><span class="keyword">{</span><a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#1857"><span class="stacstuse">signum_t</span></a><span class="keyword">}</span></span> <span class="keyword">(</span>sgn<span class="keyword">)</span></span>      
+      <span class="keyword">val</span> cpid <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2funistd_2esats.html#6660"><span class="dyncstuse">getpid</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fprintf_2esats.html#2494"><span class="dyncstuse">printf</span></a> <span class="keyword">(</span>"try5: child(%ld)\n"<span class="keyword">,</span> <span class="keyword">@(</span><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2funsafe_2esats.html#2199"><span class="dyncstuse">$UNSAFE<span class="keyword">.</span>cast2lint</span></a><span class="keyword">(</span>cpid<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fdyn_2esats.html#4627"><span class="dyncstuse">exit</span></a> <span class="keyword">(</span>EXIT_SUCCESS<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">|</span> _ <span class="keyword">when</span> ipid <span class="keyword">&gt;</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// parent
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fprintf_2esats.html#2494"><span class="dyncstuse">printf</span></a> <span class="keyword">(</span>"parent(%d)\n"<span class="keyword">,</span> <span class="keyword">@(</span>ipid<span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">val</span> err <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fsignal_2esats.html#7582"><span class="dyncstuse">kill</span></a> <span class="keyword">(</span>pid<span class="keyword">,</span> SIGUSR1<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err <span class="keyword">=</span> 0<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="comment">// nothing
+</span>    <span class="keyword">end</span> <span class="comment">// end of [ipid &gt; 0]
+</span>  <span class="keyword">|</span> _ <span class="comment">(*ipid=-1*)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fstdio_2esats.html#20018"><span class="dyncstuse">perror</span></a> "fork" <span class="keyword">in</span> <span class="comment">(*nothing*)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_]
+</span><span class="keyword">end</span> <span class="comment">// end of [try5]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// this one uses [pipe]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> try6 <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> fd1<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#14678"><span class="stacstuse">int</span></a></span> <span class="keyword">and</span> fd2<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#14678"><span class="stacstuse">int</span></a></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pfopt</span> <span class="keyword">|</span> err<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2funistd_2esats.html#10178"><span class="dyncstuse">pipe</span></a> <span class="keyword">(</span>fd1<span class="keyword">,</span> fd2<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>err &gt;= 0<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp">Some_v <span class="keyword">@(</span>pfd1<span class="keyword">,</span> pfd2<span class="keyword">)</span> <span class="keyword">=</span> pfopt</span>
+  <span class="keyword">val</span> pid <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2funistd_2esats.html#3976"><span class="dyncstuse">fork_err</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> ipid <span class="keyword">=</span> int_of_pid <span class="keyword">(</span>pid<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+  <span class="keyword">|</span> _ <span class="keyword">when</span> ipid <span class="keyword">=</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// child
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2ffcntl_2esats.html#3815"><span class="dyncstuse">close_exn</span></a> <span class="keyword">(</span><span class="prfexp">pfd2</span> <span class="keyword">|</span> fd2<span class="keyword">)</span>
+      <span class="keyword">var</span> c<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#14322"><span class="stacstuse">byte</span></a></span>
+      <span class="keyword">prval</span> <span class="prfexp">pfc <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2farray_2esats.html#3400"><span class="dyncstuse">array_v_sing</span></a> <span class="keyword">(</span>view@ c<span class="keyword">)</span></span>
+      <span class="keyword">val</span> nread <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2ffcntl_2esats.html#4324"><span class="dyncstuse">read_err</span></a> <span class="keyword">(</span><span class="prfexp">pfd1</span> <span class="keyword">|</span> fd1<span class="keyword">,</span> c<span class="keyword">,</span> 1<span class="keyword">)</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> view@ c := <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2farray_2esats.html#3475"><span class="dyncstuse">array_v_unsing</span></a> <span class="keyword">(</span>pfc<span class="keyword">)</span></span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2ffcntl_2esats.html#3815"><span class="dyncstuse">close_exn</span></a> <span class="keyword">(</span><span class="prfexp">pfd1</span> <span class="keyword">|</span> fd1<span class="keyword">)</span>
+      <span class="keyword">val</span> cpid <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2funistd_2esats.html#6660"><span class="dyncstuse">getpid</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fprintf_2esats.html#2494"><span class="dyncstuse">printf</span></a> <span class="keyword">(</span>"try6: child(%ld)\n"<span class="keyword">,</span> <span class="keyword">@(</span><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2funsafe_2esats.html#2199"><span class="dyncstuse">$UNSAFE<span class="keyword">.</span>cast2lint</span></a><span class="keyword">(</span>cpid<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fdyn_2esats.html#4627"><span class="dyncstuse">exit</span></a> <span class="keyword">(</span>EXIT_SUCCESS<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [ipid = 0]
+</span>  <span class="keyword">|</span> _ <span class="keyword">when</span> ipid <span class="keyword">&gt;</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// parent
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fprintf_2esats.html#2494"><span class="dyncstuse">printf</span></a> <span class="keyword">(</span>"parent(%d)\n"<span class="keyword">,</span> <span class="keyword">@(</span>ipid<span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2ffcntl_2esats.html#3815"><span class="dyncstuse">close_exn</span></a> <span class="keyword">(</span><span class="prfexp">pfd1</span> <span class="keyword">|</span> fd1<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2ffcntl_2esats.html#3815"><span class="dyncstuse">close_exn</span></a> <span class="keyword">(</span><span class="prfexp">pfd2</span> <span class="keyword">|</span> fd2<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="comment">// nothing
+</span>    <span class="keyword">end</span> <span class="comment">// end of [ipid &gt; 0]
+</span>  <span class="keyword">|</span> _ <span class="comment">(*ipid=-1*)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// failure
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2ffcntl_2esats.html#3815"><span class="dyncstuse">close_exn</span></a> <span class="keyword">(</span><span class="prfexp">pfd1</span> <span class="keyword">|</span> fd1<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2ffcntl_2esats.html#3815"><span class="dyncstuse">close_exn</span></a> <span class="keyword">(</span><span class="prfexp">pfd2</span> <span class="keyword">|</span> fd2<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fstdio_2esats.html#20018"><span class="dyncstuse">perror</span></a> <span class="keyword">(</span>"fork"<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fdyn_2esats.html#4627"><span class="dyncstuse">exit</span></a> <span class="keyword">(</span>EXIT_SUCCESS<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_]
+</span><span class="keyword">end</span> <span class="comment">// end of [try6]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fdyn_2esats.html#6716"><span class="dyncstimp">main</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> try1 <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> try4 <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> try5 <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> try6 <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> _leftover <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2funistd_2esats.html#5584"><span class="dyncstuse">sleep</span></a> <span class="keyword">(</span>1<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [AUP_9_2_3.dats] *)</span>
+</pre>
+</body>
+</html>

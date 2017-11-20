@@ -1,0 +1,1222 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: December 2007
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* Mainly for handling dynamic expressions during type-checking *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+#include "ats_intinf.cats" // this for the ATS/Geizeilla compiler
+%}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Deb <span class="keyword">=</span> "ats_debug.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Eff <span class="keyword">=</span> "ats_effect.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Err <span class="keyword">=</span> "ats_error.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">IntInf <span class="keyword">=</span> "ats_intinf.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Loc <span class="keyword">=</span> "ats_location.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Lst <span class="keyword">=</span> "ats_list.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">SOL <span class="keyword">=</span> "ats_staexp2_solve.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Syn <span class="keyword">=</span> "ats_syntax.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">MAC <span class="keyword">=</span> "ats_macro2.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_stadyncst2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_patcst2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_string_parse.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp3.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_trans3_env.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_trans3.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">nil list_nil</span>
+<span class="keyword">#define</span> <span class="neuexp">cons list_cons</span>
+<span class="keyword">#define</span> <span class="neuexp">:: list_cons</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">THISFILENAME "ats_trans3_exp_dn.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">=</span> <span class="keyword">with</span> $Lab<span class="keyword">.</span>eq_label_label</span>
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> $Loc<span class="keyword">.</span>prerr_location</span>
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> $Lab<span class="keyword">.</span>prerr_label</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> prerr_loc_error3 <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">(</span>$Loc<span class="keyword">.</span>prerr_location loc<span class="keyword">;</span> prerr ": error(3)"<span class="keyword">)</span>
+<span class="comment">// end of [prerr_loc_error3]
+</span>
+<span class="keyword">fn</span> prerr_interror <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> prerr "INTERNAL ERROR (ats_trans3_exp_dn)"
+
+<span class="keyword">fn</span> prerr_loc_interror <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  $Loc<span class="keyword">.</span>prerr_location loc<span class="keyword">;</span> prerr ": INTERNAL ERROR (ats_trans3_exp_dn)"
+<span class="keyword">end</span> <span class="comment">// end of [prerr_loc_interror]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> pfarity_check_rec
+  <span class="keyword">(</span>loc_rec<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> npf1<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> npf2<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> npf1 <span class="keyword">=</span> npf2 <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+    prerr_loc_error3 loc_rec<span class="keyword">;</span>
+    prerr ": the proof arity of the record is ["<span class="keyword">;</span>
+    prerr npf1<span class="keyword">;</span>
+    prerr "] but it is expected to be ["<span class="keyword">;</span>
+    prerr npf2<span class="keyword">;</span>
+    prerr "]."<span class="keyword">;</span>
+    prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+    $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="comment">// end of [pfarity_check_rec]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> reckind_check
+  <span class="keyword">(</span>loc_rec<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> k1<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> k2<span class="keyword">:</span> <span class="staexp">tyreckind</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">if</span> k1 <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> k2 <span class="keyword">of</span>
+    <span class="keyword">|</span> TYRECKINDbox <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        prerr_loc_error3 loc_rec<span class="keyword">;</span>
+        prerr ": the record is boxed but it is expected to be flat."<span class="keyword">;</span>
+        prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+        $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [_]
+</span>  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span> <span class="keyword">case+</span> k2 <span class="keyword">of</span> <span class="comment">// k1 = 0
+</span>    <span class="keyword">|</span> TYRECKINDflt0 _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">|</span> TYRECKINDflt1 _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">|</span> TYRECKINDflt_ext _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        prerr_loc_error3 loc_rec<span class="keyword">;</span>
+        prerr ": the record is flat but it is expected to be boxed."<span class="keyword">;</span>
+        prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+        $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [_]
+</span>  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">// end of [reckind_check]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="4096"><span class="stacstdec">funclo <span class="keyword">=</span> $Syn<span class="keyword">.</span>funclo</span></a></span>
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="4129"><span class="stacstdec">funcloopt_vt <span class="keyword">=</span> Option_vt funclo</span></a></span>
+
+<span class="keyword">fn</span> d2exp_funclo_opt_of_d2exp
+  <span class="keyword">(</span>d2e0<span class="keyword">:</span> <span class="staexp">d2exp</span><span class="keyword">,</span> ofc0<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><span class="keyword">(</span>funcloopt_vt?<span class="keyword">)</span> &gt;&gt; funcloopt_vt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">d2exp</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> <span class="keyword">:</span><span class="keyword">(</span>ofc0<span class="keyword">:</span> Option_vt funclo<span class="keyword">)</span> <span class="keyword">=&gt;</span> d2e0<span class="keyword">.</span>d2exp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> D2Eann_funclo <span class="keyword">(</span>d2e<span class="keyword">,</span> fc<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>ofc0 := Some_vt fc<span class="keyword">;</span> d2e<span class="keyword">)</span>
+  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>ofc0 := None_vt <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span> d2e0<span class="keyword">)</span>
+<span class="comment">// end of [d2exp_funclo_opt_of_d2exp]
+</span>
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="4456"><span class="stacstdec">s2effopt_vt <span class="keyword">=</span> Option_vt s2eff</span></a></span>
+<span class="keyword">fn</span> d2exp_s2eff_opt_of_d2exp
+  <span class="keyword">(</span>d2e0<span class="keyword">:</span> <span class="staexp">d2exp</span><span class="keyword">,</span> os2fe0<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><span class="keyword">(</span>s2effopt_vt?<span class="keyword">)</span> &gt;&gt; s2effopt_vt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">d2exp</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> <span class="keyword">:</span><span class="keyword">(</span>os2fe0<span class="keyword">:</span> s2effopt_vt<span class="keyword">)</span> <span class="keyword">=&gt;</span> d2e0<span class="keyword">.</span>d2exp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> D2Eann_seff <span class="keyword">(</span>d2e<span class="keyword">,</span> s2fe<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>os2fe0 := Some_vt s2fe<span class="keyword">;</span> d2e<span class="keyword">)</span>
+  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>os2fe0 := None_vt <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span> d2e0<span class="keyword">)</span>
+<span class="comment">// end of [d2exp_s2eff_opt_of_d2exp]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+d3exp_tr_dn <span class="keyword">(</span>d3e<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "d3exp_tr_dn: d3e.d3exp_typ = "; print d3e.d3exp_typ; print_newline ()
+  end // end of [val]
+  val () = begin
+    print "d3exp_tr_dn: s2e = "; print s2e; print_newline ()
+  end // end of [val]
+*)</span>
+<span class="keyword">in</span>
+  $SOL<span class="keyword">.</span>s2exp_tyleq_solve <span class="keyword">(</span>d3e<span class="keyword">.</span>d3exp_loc<span class="keyword">,</span> d3e<span class="keyword">.</span>d3exp_typ<span class="keyword">,</span> s2e<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d3exp_tr_dn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> d2exp_float_tr_dn
+  <span class="keyword">(</span>d2e0<span class="keyword">:</span> <span class="staexp">d2exp</span><span class="keyword">,</span> fcst<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> s2e0<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">d3exp</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fn</span> err <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2e0<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">d3exp</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    prerr_loc_error3 loc0<span class="keyword">;</span>
+    prerr ": the type ["<span class="keyword">;</span> prerr s2e0<span class="keyword">;</span>
+    prerr "] cannot be assigned to a float constant."<span class="keyword">;</span>
+    prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+    $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>d3exp<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span>
+  <span class="keyword">val</span> loc0 <span class="keyword">=</span> d2e0<span class="keyword">.</span>d2exp_loc
+  <span class="keyword">val</span> s2e0 <span class="keyword">=</span> s2exp_whnf s2e0
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> s2e0<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> S2Ecst s2c <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2c <span class="keyword">of</span>
+    <span class="keyword">|</span> _ <span class="keyword">when</span> s2cstref_cst_equ <span class="keyword">(</span>Double_t0ype<span class="keyword">,</span> s2c<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        d3exp_float <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">,</span> fcst<span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> _ <span class="keyword">when</span> s2cstref_cst_equ <span class="keyword">(</span>Float_t0ype<span class="keyword">,</span> s2c<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        d3exp_float <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">,</span> fcst<span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> _ <span class="keyword">when</span> s2cstref_cst_equ <span class="keyword">(</span>Double_long_t0ype<span class="keyword">,</span> s2c<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        d3exp_float <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">,</span> fcst<span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Ecst]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> d2exp_tr_dn_rest <span class="keyword">(</span>d2e0<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2exp_float_tr_dn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> c2lau_make_if_d2exp
+  <span class="keyword">(</span>loc_cond<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> b<span class="keyword">:</span> <span class="staexp">bool</span><span class="keyword">,</span> d2e<span class="keyword">:</span> <span class="staexp">d2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">c2lau 1</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> p2t <span class="keyword">=</span> p2at_bool <span class="keyword">(</span>loc_cond<span class="keyword">,</span> b<span class="keyword">)</span><span class="keyword">;</span> <span class="keyword">val</span> gua <span class="keyword">=</span> list_nil <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  c2lau_make <span class="keyword">(</span>d2e<span class="keyword">.</span>d2exp_loc<span class="keyword">,</span> <span class="keyword">'[</span>p2t<span class="keyword">]</span><span class="keyword">,</span> gua<span class="keyword">,</span> 0<span class="keyword">,</span> 0<span class="keyword">,</span> d2e<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [c2lau_make_of_d2exp]
+</span>
+<span class="comment">// [loc0] is the location for the whole if-expression
+</span><span class="keyword">fn</span> c2lau_make_if_d2expopt
+  <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> loc_cond<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> b<span class="keyword">:</span> <span class="staexp">bool</span><span class="keyword">,</span> od2e<span class="keyword">:</span> <span class="staexp">d2expopt</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">c2lau 1</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> d2e <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> od2e <span class="keyword">of</span>
+    <span class="keyword">|</span> Some d2e <span class="keyword">=&gt;</span> d2e <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> d2exp_empty <span class="keyword">(</span>loc0<span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">d2exp</span>
+<span class="keyword">in</span>
+  c2lau_make_if_d2exp <span class="keyword">(</span>loc_cond<span class="keyword">,</span> b<span class="keyword">,</span> d2e<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [c2lau_make_if_d2expopt]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+d2exp_if_tr_dn
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> res<span class="keyword">,</span> d2e_cond<span class="keyword">,</span> d2e_then<span class="keyword">,</span> od2e_else<span class="keyword">,</span> s2e0<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> loc_cond <span class="keyword">=</span> d2e_cond<span class="keyword">.</span>d2exp_loc
+  <span class="keyword">val</span> c2l_then <span class="keyword">=</span> c2lau_make_if_d2exp <span class="keyword">(</span>loc_cond<span class="keyword">,</span> true<span class="keyword">,</span> d2e_then<span class="keyword">)</span>
+  <span class="keyword">val</span> c2l_else <span class="keyword">=</span> c2lau_make_if_d2expopt <span class="keyword">(</span>loc0<span class="keyword">,</span> loc_cond<span class="keyword">,</span> false<span class="keyword">,</span> od2e_else<span class="keyword">)</span>
+<span class="keyword">in</span>
+  d2exp_caseof_tr_dn <span class="keyword">(</span>
+    loc0<span class="keyword">,</span> 1<span class="comment">(*knd*)</span><span class="keyword">,</span> res<span class="keyword">,</span> 1<span class="keyword">,</span> <span class="keyword">'[</span>d2e_cond<span class="keyword">]</span><span class="keyword">,</span> <span class="keyword">'[</span>c2l_then<span class="keyword">,</span> c2l_else<span class="keyword">]</span><span class="keyword">,</span> s2e0
+  <span class="keyword">)</span> <span class="comment">// end of [d2exp_caseof_tr_dn]
+</span><span class="keyword">end</span> <span class="comment">// end of [d2exp_if_tr_dn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d2exp_sif_tr_dn
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> res<span class="keyword">,</span> s2p_cond<span class="keyword">,</span> d2e_then<span class="keyword">,</span> d2e_else<span class="keyword">,</span> s2e0<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> res <span class="keyword">=</span> i2nvresstate_update <span class="keyword">(</span>res<span class="keyword">)</span>
+  <span class="keyword">val</span> sbis <span class="keyword">=</span> the_d2varset_env_stbefitemlst_save <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> sac <span class="keyword">=</span> staftscstr_initialize <span class="keyword">(</span>res<span class="keyword">,</span> sbis<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> d3e_then <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_push_sta <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_hypo_add_prop <span class="keyword">(</span>loc0<span class="keyword">,</span> s2p_cond<span class="keyword">)</span>
+    <span class="keyword">val</span> d3e_then <span class="keyword">=</span> d2exp_tr_dn <span class="keyword">(</span>d2e_then<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> staftscstr_stbefitemlst_merge <span class="keyword">(</span>loc0<span class="keyword">,</span> sac<span class="keyword">,</span> sbis<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_pop_sta_and_add_none <span class="keyword">(</span>d2e_then<span class="keyword">.</span>d2exp_loc<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    d3e_then
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> stbefitemlst_restore_lin_typ <span class="keyword">(</span>sbis<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> d3e_else <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_push_sta <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_hypo_add_prop <span class="keyword">(</span>loc0<span class="keyword">,</span> s2exp_neg_bool_bool s2p_cond<span class="keyword">)</span>
+    <span class="keyword">val</span> d3e_else <span class="keyword">=</span> d2exp_tr_dn <span class="keyword">(</span>d2e_else<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> staftscstr_stbefitemlst_merge <span class="keyword">(</span>loc0<span class="keyword">,</span> sac<span class="keyword">,</span> sbis<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_pop_sta_and_add_none <span class="keyword">(</span>d2e_else<span class="keyword">.</span>d2exp_loc<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    d3e_else
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> staftscstr_stbefitemlst_check <span class="keyword">(</span>loc0<span class="keyword">,</span> sac<span class="keyword">,</span> sbis<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> staftscstr_stbefitemlst_update <span class="keyword">(</span>loc0<span class="keyword">,</span> sac<span class="keyword">,</span> sbis<span class="keyword">)</span>
+<span class="keyword">in</span>
+  d3exp_sif <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">,</span> s2p_cond<span class="keyword">,</span> d3e_then<span class="keyword">,</span> d3e_else<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2exp_sif_tr_dn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> d2exp_int_tr_dn <span class="keyword">(</span>
+    d2e0<span class="keyword">:</span> <span class="staexp">d2exp</span>
+  <span class="keyword">,</span> istr<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> icst<span class="keyword">:</span> <span class="staexp">intinf_t</span>
+  <span class="keyword">,</span> s2e0<span class="keyword">:</span> <span class="staexp">s2exp</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">d3exp</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fn</span> err <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2e0<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">d3exp</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    prerr_loc_error3 loc0<span class="keyword">;</span>
+    prerr ": the type ["<span class="keyword">;</span> prerr s2e0<span class="keyword">;</span>
+    prerr "] cannot be assigned to an integer constant."<span class="keyword">;</span>
+    prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+    $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>d3exp<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span>
+  <span class="keyword">fn</span> szcheck <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> icst<span class="keyword">:</span> <span class="staexp">intinf_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">if</span> $IntInf<span class="keyword">.</span>gte_intinf_int <span class="keyword">(</span>icst<span class="keyword">,</span> 0<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      prerr_loc_error3 loc0<span class="keyword">;</span>
+      $Deb<span class="keyword">.</span>debug_prerrf <span class="keyword">(</span>": %s: d2exp_int_tr_dn"<span class="keyword">,</span> <span class="keyword">@(</span>THISFILENAME<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+      prerr ": the negative number ["<span class="keyword">;</span>
+      $IntInf<span class="keyword">.</span>prerr_intinf icst<span class="keyword">;</span>
+      prerr "] cannot be a size."<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">end</span> <span class="comment">// end of [szcheck]
+</span>  <span class="keyword">val</span> loc0 <span class="keyword">=</span> d2e0<span class="keyword">.</span>d2exp_loc
+  <span class="keyword">val</span> s2e0 <span class="keyword">=</span> s2exp_whnf s2e0
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> s2e0<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> S2Eapp <span class="keyword">(</span>s2e_fun<span class="keyword">,</span> s2es_arg<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> s2e_fun<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Ecst s2c <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2c <span class="keyword">of</span>
+      <span class="keyword">|</span> _ <span class="keyword">when</span> s2cstref_cst_equ <span class="keyword">(</span>Int_int_t0ype<span class="keyword">,</span> s2c<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> s2i <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> s2es_arg <span class="keyword">of</span>
+            <span class="keyword">|</span> list_cons <span class="keyword">(</span>s2e<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> s2e
+            <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+                prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+                prerr ": d2exp_int_tr_dn: Int_int_t0ype"<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+                $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>s2exp<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+              <span class="keyword">end</span> <span class="comment">// end of [_]
+</span>          <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">s2exp</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $SOL<span class="keyword">.</span>s2exp_equal_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2exp_intinf icst<span class="keyword">,</span> s2i<span class="keyword">)</span>
+        <span class="keyword">in</span>
+          d3exp_int <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">,</span> istr<span class="keyword">,</span> icst<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// [Int_int_t0ype]
+</span>      <span class="keyword">|</span> _ <span class="keyword">when</span> s2cstref_cst_equ <span class="keyword">(</span>Size_int_t0ype<span class="keyword">,</span> s2c<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> szcheck <span class="keyword">(</span>loc0<span class="keyword">,</span> icst<span class="keyword">)</span>
+          <span class="keyword">val</span> s2i <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> s2es_arg <span class="keyword">of</span>
+            <span class="keyword">|</span> list_cons <span class="keyword">(</span>s2e<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> s2e
+            <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+                prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+                prerr ": d2exp_int_tr_dn: Int_int_t0ype"<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+                $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>s2exp<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+              <span class="keyword">end</span> <span class="comment">// end of [_]
+</span>          <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">s2exp</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $SOL<span class="keyword">.</span>s2exp_equal_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2exp_intinf icst<span class="keyword">,</span> s2i<span class="keyword">)</span>
+        <span class="keyword">in</span>
+          d3exp_int <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">,</span> istr<span class="keyword">,</span> icst<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// [Size_int_t0ype]
+</span>      <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [S2Ecst]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> d2exp_tr_dn_rest <span class="keyword">(</span>d2e0<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end [S2Eapp]
+</span>  <span class="keyword">|</span> S2Ecst s2c <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2c <span class="keyword">of</span>
+    <span class="keyword">|</span> _ <span class="keyword">when</span> s2cstref_cst_equ <span class="keyword">(</span>Int_t0ype<span class="keyword">,</span> s2c<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        d3exp_int <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">,</span> istr<span class="keyword">,</span> icst<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [_ when ...]
+</span>    <span class="keyword">|</span> _ <span class="keyword">when</span> s2cstref_cst_equ <span class="keyword">(</span>Size_t0ype<span class="keyword">,</span> s2c<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> szcheck <span class="keyword">(</span>loc0<span class="keyword">,</span> icst<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        d3exp_int <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">,</span> istr<span class="keyword">,</span> icst<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [_ when ...]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Ecst]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> d2exp_tr_dn_rest <span class="keyword">(</span>d2e0<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2exp_int_tr_dn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> labd2explst_tr_dn
+  <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> ld2es<span class="keyword">:</span> <span class="staexp">labd2explst</span><span class="keyword">,</span> ls2es<span class="keyword">:</span> <span class="staexp">labs2explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">labd3explst</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>ld2es<span class="keyword">,</span> ls2es<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>LABD2EXPLSTcons <span class="keyword">(</span>l1<span class="keyword">,</span> d2e<span class="keyword">,</span> ld2es<span class="keyword">)</span><span class="keyword">,</span> 
+     LABS2EXPLSTcons <span class="keyword">(</span>l2<span class="keyword">,</span> s2e<span class="keyword">,</span> ls2es<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">if</span> l1 <span class="keyword">=</span> l2 <span class="keyword">then</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> d3e <span class="keyword">=</span> d2exp_tr_dn <span class="keyword">(</span>d2e<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">in</span>
+        LABD3EXPLSTcons <span class="keyword">(</span>l1<span class="keyword">,</span> d3e<span class="keyword">,</span> labd2explst_tr_dn <span class="keyword">(</span>loc0<span class="keyword">,</span> ld2es<span class="keyword">,</span> ls2es<span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+        prerr_loc_error3 d2e<span class="keyword">.</span>d2exp_loc<span class="keyword">;</span>
+        $Deb<span class="keyword">.</span>debug_prerrf <span class="keyword">(</span>": %s: labd2explst_tr_dn"<span class="keyword">,</span> <span class="keyword">@(</span>THISFILENAME<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+        prerr ": label mismatch"<span class="keyword">;</span>
+        prerr ": the label for the dynamic expression is ["<span class="keyword">;</span>
+        prerr l1<span class="keyword">;</span>
+        prerr "] but it is expected to be ["<span class="keyword">;</span>
+        prerr l2<span class="keyword">;</span>
+        prerr "]."<span class="keyword">;</span>
+        prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+        $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>labd3explst<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">end</span> <span class="comment">(* end of [LABD2EXPLSTcons, LABS2EXPLSTcons] *)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>LABD2EXPLSTnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> LABS2EXPLSTnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> LABD3EXPLSTnil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>LABD2EXPLSTcons <span class="keyword">(</span>l1<span class="keyword">,</span> _<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">,</span> LABS2EXPLSTnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prerr_loc_error3 loc0<span class="keyword">;</span>
+      $Deb<span class="keyword">.</span>debug_prerrf <span class="keyword">(</span>": %s: labd2explst_tr_dn"<span class="keyword">,</span> <span class="keyword">@(</span>THISFILENAME<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+      prerr ": the tuple/record needs less components"<span class="keyword">;</span>
+      prerr ": a component with the label ["<span class="keyword">;</span> prerr l1<span class="keyword">;</span> prerr "] should be removed."<span class="keyword">;</span>
+      prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>labd3explst<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">(* end of [LABD2EXPLSTcons, LABS2EXPLSTnil] *)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>LABD2EXPLSTnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> LABS2EXPLSTcons <span class="keyword">(</span>l2<span class="keyword">,</span> _<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prerr_loc_error3 loc0<span class="keyword">;</span>
+      $Deb<span class="keyword">.</span>debug_prerrf <span class="keyword">(</span>": %s: labd2explst_tr_dn"<span class="keyword">,</span> <span class="keyword">@(</span>THISFILENAME<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+      prerr ": the tuple/record needs more components"<span class="keyword">;</span>
+      prerr ": a component with the label ["<span class="keyword">;</span> prerr l2<span class="keyword">;</span> prerr "] should be inserted."<span class="keyword">;</span>
+      prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>labd3explst<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">(* end of [LABD2EXPLSTnil, LABS2EXPLSTcons] *)</span>
+<span class="comment">// end of [labd2explst_tr_dn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> d2exp_seq_tr_dn
+  <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> d2es<span class="keyword">:</span> <span class="staexp">d2explst</span><span class="keyword">,</span> s2e0<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">d3exp</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>
+      d2e<span class="keyword">:</span> <span class="staexp">d2exp</span>
+    <span class="keyword">,</span> d2es<span class="keyword">:</span> <span class="staexp">d2explst</span>
+    <span class="keyword">,</span> s2e0<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2e_void<span class="keyword">:</span> <span class="staexp">s2exp</span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">d3explst</span> <span class="keyword">=</span> <span class="keyword">case+</span> d2es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>d2e1<span class="keyword">,</span> d2es1<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> d3e <span class="keyword">=</span> d2exp_tr_dn <span class="keyword">(</span>d2e<span class="keyword">,</span> s2e_void<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        cons <span class="keyword">(</span>d3e<span class="keyword">,</span> aux <span class="keyword">(</span>d2e1<span class="keyword">,</span> d2es1<span class="keyword">,</span> s2e0<span class="keyword">,</span> s2e_void<span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        cons <span class="keyword">(</span>d2exp_tr_dn <span class="keyword">(</span>d2e<span class="keyword">,</span> s2e0<span class="keyword">)</span><span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [nil]
+</span>  <span class="comment">// end of [aux]
+</span>  <span class="keyword">val</span> s2e_void <span class="keyword">=</span> s2exp_void_t0ype <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> d2es <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>d2e<span class="keyword">,</span> d2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d3exp_seq <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">,</span> aux <span class="keyword">(</span>d2e<span class="keyword">,</span> d2es<span class="keyword">,</span> s2e0<span class="keyword">,</span> s2e_void<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $SOL<span class="keyword">.</span>s2exp_tyleq_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e_void<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      d3exp_empty <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [nil]
+</span><span class="keyword">end</span> <span class="comment">// end of [d2exp_seq_tr_dn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> d2exp_string_tr_dn
+  <span class="keyword">(</span>d2e0<span class="keyword">:</span> <span class="staexp">d2exp</span><span class="keyword">,</span> str<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> len<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> s2e0<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">d3exp</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fn</span> err <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2e0<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">d3exp</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    prerr_loc_error3 loc0<span class="keyword">;</span>
+    prerr ": the type ["<span class="keyword">;</span> prerr s2e0<span class="keyword">;</span>
+    prerr "] cannot be assigned to a string constant."<span class="keyword">;</span>
+    prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+    $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>d3exp<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span>
+  <span class="keyword">val</span> loc0 <span class="keyword">=</span> d2e0<span class="keyword">.</span>d2exp_loc
+  <span class="keyword">val</span> s2e0 <span class="keyword">=</span> s2exp_whnf s2e0
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> s2e0<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> S2Eapp <span class="keyword">(</span>s2e_fun<span class="keyword">,</span> s2es_arg<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> s2e_fun<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Ecst s2c <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2c <span class="keyword">of</span>
+      <span class="keyword">|</span> _ <span class="keyword">when</span> s2cstref_cst_equ <span class="keyword">(</span>String_int_type<span class="keyword">,</span> s2c<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> s2i <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> s2es_arg <span class="keyword">of</span>
+            <span class="keyword">|</span> list_cons <span class="keyword">(</span>s2e<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> s2e <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+                prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+                prerr ": d2exp_string_tr_dn: String_int_type"<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+                $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>s2exp<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+              <span class="keyword">end</span> <span class="comment">// end of [_]
+</span>          <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">s2exp</span> <span class="comment">// end of [val]
+</span>          <span class="keyword">val</span> n <span class="keyword">=</span> string0_length <span class="keyword">(</span>str<span class="keyword">)</span>
+          <span class="keyword">val</span> n <span class="keyword">=</span> size1_of_size <span class="keyword">(</span>n<span class="keyword">)</span><span class="keyword">;</span> <span class="keyword">val</span> n <span class="keyword">=</span> int1_of_size1 <span class="keyword">(</span>n<span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $SOL<span class="keyword">.</span>s2exp_equal_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2exp_int n<span class="keyword">,</span> s2i<span class="keyword">)</span>
+        <span class="keyword">in</span>
+          d3exp_string <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">,</span> str<span class="keyword">,</span> len<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// [String_int_type]
+</span>      <span class="keyword">|</span> _ <span class="keyword">when</span> s2cstref_cst_equ <span class="keyword">(</span>Printf_c_types_type<span class="keyword">,</span> s2c<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> s2e_arg <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> s2es_arg <span class="keyword">of</span>
+            <span class="keyword">|</span> list_cons <span class="keyword">(</span>s2e<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> s2e <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+                prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+                prerr ": d2exp_string_tr_dn: Printf_c_types_type"<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+                $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>s2exp<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+              <span class="keyword">end</span> <span class="comment">// end of [list_nil]
+</span>          <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">s2exp</span> <span class="comment">// end of [val]
+</span>          <span class="keyword">val</span> fats <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> printf_c_string_parse <span class="keyword">(</span>str<span class="keyword">)</span> <span class="keyword">of</span>
+            <span class="keyword">|</span> <span class="keyword">~</span>Some_vt <span class="keyword">(</span>fats<span class="keyword">)</span> <span class="keyword">=&gt;</span> fats <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+                prerr_loc_error3 loc0<span class="keyword">;</span>
+                prerr ": the c-format string is invalid."<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+                $Err<span class="keyword">.</span>abort <span class="keyword">(</span><span class="keyword">)</span>
+              <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>          <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">printf_c_argtypes</span> <span class="comment">// end of [val]
+</span>          <span class="keyword">val</span> s2e_fats <span class="keyword">=</span> s2exp_make_printf_c_argtypes fats
+<span class="comment">(*
+          val () = begin
+            print "d2exp_string_tr_dn: s2e_arg = "; print s2e_arg;
+            print_newline ();
+            print "d2exp_string_tr_dn: s2e_fats = "; print s2e_fats;
+            print_newline ();
+          end (* end of [val] *)
+*)</span>
+          <span class="comment">(* printf_c_types_type is contravariant! *)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $SOL<span class="keyword">.</span>s2exp_tyleq_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e_arg<span class="keyword">,</span> s2e_fats<span class="keyword">)</span>
+        <span class="keyword">in</span>
+          d3exp_string <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">,</span> str<span class="keyword">,</span> len<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// [Printf_c_types_type]
+</span>      <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [S2Ecst]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eapp]
+</span>  <span class="keyword">|</span> S2Ecst s2c <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2c <span class="keyword">of</span>
+    <span class="keyword">|</span> _ <span class="keyword">when</span> s2cstref_cst_equ <span class="keyword">(</span>String_type<span class="keyword">,</span> s2c<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        d3exp_string <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">,</span> str<span class="keyword">,</span> len<span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> err <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Ecst]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> d2exp_tr_dn_rest <span class="keyword">(</span>d2e0<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2exp_string_tr_dn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+d2exp_tr_dn <span class="keyword">(</span>d2e0<span class="keyword">,</span> s2e0<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+val () = begin
+  print "d2exp_tr_dn: d2e0 = "; print d2e0; print_newline ()
+  print "d2exp_tr_dn: s2e0 = "; print s2e0; print_newline ()
+end // end of [val]
+*)</span>
+<span class="keyword">val</span> loc0 <span class="keyword">=</span> d2e0<span class="keyword">.</span>d2exp_loc
+<span class="keyword">val</span> d3e0 <span class="keyword">=</span> <span class="keyword">case+</span> d2e0<span class="keyword">.</span>d2exp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> D2Eapps <span class="keyword">(</span>d2e_fun<span class="keyword">,</span> d2as_arg<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> d2e_fun<span class="keyword">.</span>d2exp_node <span class="keyword">of</span>
+    <span class="keyword">|</span> D2Emac d2m <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> d2e0 <span class="keyword">=</span>
+          $MAC<span class="keyword">.</span>macro_eval_app_short <span class="keyword">(</span>loc0<span class="keyword">,</span> d2m<span class="keyword">,</span> d2as_arg<span class="keyword">)</span>
+        <span class="comment">// end of [val]
+</span>      <span class="keyword">in</span>
+        d2exp_tr_dn <span class="keyword">(</span>d2e0<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [D2Emac]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> d2exp_tr_dn_rest <span class="keyword">(</span>d2e0<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D2Eapps]
+</span>  <span class="keyword">|</span> D2Ecaseof <span class="keyword">(</span>casknd<span class="keyword">,</span> res<span class="keyword">,</span> n<span class="keyword">,</span> d2es<span class="keyword">,</span> c2ls<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d2exp_caseof_tr_dn <span class="keyword">(</span>loc0<span class="keyword">,</span> casknd<span class="keyword">,</span> res<span class="keyword">,</span> n<span class="keyword">,</span> d2es<span class="keyword">,</span> c2ls<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D2Ecaseof]
+</span>  <span class="keyword">|</span> D2Eeffmask <span class="keyword">(</span>effs<span class="keyword">,</span> d2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_effect</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> the_effect_env_push_effmask <span class="keyword">(</span>effs<span class="keyword">)</span>
+      <span class="keyword">val</span> d3e <span class="keyword">=</span> d2exp_tr_dn <span class="keyword">(</span>d2e<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_effect_env_pop <span class="keyword">(</span><span class="prfexp">pf_effect</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      d3exp_effmask <span class="keyword">(</span>loc0<span class="keyword">,</span> effs<span class="keyword">,</span> d3e<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D2Eeffmask]
+</span>  <span class="keyword">|</span> D2Eexist <span class="keyword">(</span>s2a<span class="keyword">,</span> d2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> s2e0 <span class="keyword">=</span> s2exp_whnf s2e0
+      <span class="keyword">val</span> s2e <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> s2e0<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+        <span class="keyword">|</span> S2Ewth <span class="keyword">(</span>s2e1<span class="keyword">,</span> wths2e2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+            <span class="keyword">val</span> s2e1 <span class="keyword">=</span> s2exp_exi_instantiate_sexparg <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2a<span class="keyword">)</span>
+          <span class="keyword">in</span>
+            s2exp_wth <span class="keyword">(</span>s2e1<span class="keyword">,</span> wths2e2<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [S2Ewth]
+</span>        <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> s2exp_exi_instantiate_sexparg <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">,</span> s2a<span class="keyword">)</span>
+      <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">s2exp</span>
+    <span class="keyword">in</span>
+      d2exp_tr_dn <span class="keyword">(</span>d2e<span class="keyword">,</span> s2e<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D2Eexist]
+</span>  <span class="keyword">|</span> D2Efloat fcst <span class="keyword">=&gt;</span> d2exp_float_tr_dn <span class="keyword">(</span>d2e0<span class="keyword">,</span> fcst<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+  <span class="keyword">|</span> D2Eif <span class="keyword">(</span>res<span class="keyword">,</span> d2e_cond<span class="keyword">,</span> d2e_then<span class="keyword">,</span> od2e_else<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d2exp_if_tr_dn <span class="keyword">(</span>loc0<span class="keyword">,</span> res<span class="keyword">,</span> d2e_cond<span class="keyword">,</span> d2e_then<span class="keyword">,</span> od2e_else<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D2Eif]
+</span>  <span class="keyword">|</span> D2Eint <span class="keyword">(</span>istr<span class="keyword">,</span> icst<span class="keyword">)</span> <span class="keyword">=&gt;</span> d2exp_int_tr_dn <span class="keyword">(</span>d2e0<span class="keyword">,</span> istr<span class="keyword">,</span> icst<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+  <span class="keyword">|</span> D2Elam_dyn <span class="keyword">(</span>lin<span class="keyword">,</span> npf<span class="keyword">,</span> p2ts_arg<span class="keyword">,</span> d2e_body<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+<span class="comment">(*
+      val () = begin
+        print "d2exp_tr_dn: D2Elam_dyn: p2ts_arg = "; print p2at_arg; print_newline ();
+        print "d2exp_tr_dn: D2Elam_dyn: d2e_body = "; print d2e_body; print_newline ();
+      end // end of [val]
+*)</span>
+      <span class="keyword">val</span> s2e0 <span class="keyword">=</span> s2exp_whnf s2e0
+    <span class="keyword">in</span>
+      <span class="keyword">case+</span> s2e0<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+      <span class="keyword">|</span> S2Efun <span class="keyword">(</span>
+          fc_fun<span class="keyword">,</span> lin_fun<span class="keyword">,</span> s2fe_fun<span class="keyword">,</span> npf_fun<span class="keyword">,</span> s2es_fun_arg<span class="keyword">,</span> s2e_fun_res
+        <span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> lin &lt;&gt; lin_fun <span class="keyword">then</span> <span class="keyword">begin</span> <span class="comment">// linearity check
+</span>            prerr_loc_error3 loc0<span class="keyword">;</span>
+            <span class="keyword">if</span> lin <span class="keyword">&gt;</span> lin_fun <span class="keyword">then</span>
+              prerr " linear function is given a nonlinear type ."<span class="keyword">;</span>
+            <span class="keyword">if</span> lin <span class="keyword">&lt;</span> lin_fun <span class="keyword">then</span>
+              prerr " nonlinear function is given a linear type ."<span class="keyword">;</span>
+            prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+            $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> npf &lt;&gt; npf_fun <span class="keyword">then</span> <span class="keyword">begin</span> <span class="comment">// pfarity check
+</span>            prerr_loc_error3 loc0<span class="keyword">;</span>
+            prerr ": this function is expected to have"<span class="keyword">;</span>
+            <span class="keyword">if</span> npf <span class="keyword">&gt;</span> npf_fun <span class="keyword">then</span> prerr " less proof arguments."<span class="keyword">;</span>
+            <span class="keyword">if</span> npf <span class="keyword">&lt;</span> npf_fun <span class="keyword">then</span> prerr " more proof arguments."<span class="keyword">;</span>
+            prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+            $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_push_sta <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">var</span> ofc<span class="keyword">:</span> <span class="staexp">funcloopt_vt</span>
+          <span class="keyword">val</span> d2e_body <span class="keyword">=</span> d2exp_funclo_opt_of_d2exp <span class="keyword">(</span>d2e_body<span class="keyword">,</span> ofc<span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> ofc <span class="keyword">of</span>
+            <span class="keyword">|</span> <span class="keyword">~</span>Some_vt fc <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+                $SOL<span class="keyword">.</span>funclo_equal_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> fc<span class="keyword">,</span> fc_fun<span class="keyword">)</span>
+              <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>            <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">var</span> os2fe<span class="keyword">:</span> <span class="staexp">s2effopt_vt</span>
+          <span class="keyword">val</span> d2e_body <span class="keyword">=</span> d2exp_s2eff_opt_of_d2exp <span class="keyword">(</span>d2e_body<span class="keyword">,</span> os2fe<span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> os2fe <span class="keyword">of</span>
+            <span class="keyword">|</span> <span class="keyword">~</span>Some_vt s2fe <span class="keyword">=&gt;</span> $SOL<span class="keyword">.</span>s2eff_leq_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2fe<span class="keyword">,</span> s2fe_fun<span class="keyword">)</span>
+            <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_effect</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> the_effect_env_push_lam s2fe_fun
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_d2varset</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2varset_env_push_lam lin
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2varset_env_add_p2atlst p2ts_arg
+          <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">sgn<span class="keyword">:</span>int</span><span class="keyword">]</span> sgn <span class="keyword">=</span> $Lst<span class="keyword">.</span>list_length_compare <span class="keyword">(</span>p2ts_arg<span class="keyword">,</span> s2es_fun_arg<span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span> <span class="comment">// arity check
+</span>            <span class="keyword">if</span> sgn &lt;&gt; 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+              prerr_loc_error3 loc0<span class="keyword">;</span>
+              prerr ": the funcion is expected to have"<span class="keyword">;</span>
+              <span class="keyword">if</span> sgn <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> prerr " less arguments."<span class="keyword">;</span>
+              <span class="keyword">if</span> sgn <span class="keyword">&lt;</span> 0 <span class="keyword">then</span> prerr " more arguments."<span class="keyword">;</span>
+              prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+              $Err<span class="keyword">.</span>abort <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+              assert <span class="keyword">(</span>sgn <span class="keyword">=</span> 0<span class="keyword">)</span>
+            <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+              <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// [sgn = 0] holds!
+</span>            <span class="keyword">end</span>
+          <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>sgn==0<span class="keyword">]</span> void</span> <span class="comment">// end of [if]
+</span>
+          <span class="comment">// checking for pattern match exhaustiveness
+</span>          <span class="keyword">val</span> p2tcss <span class="keyword">=</span> p2atcstlst_complement <span class="keyword">(</span>p2atcstlst_of_p2atlst p2ts_arg<span class="keyword">)</span>
+<span class="comment">(*
+          val () = begin
+            print "d2exp_tr_dn: D2Elam_dyn: p2tcss = "; print p2tcss; print_newline ()
+          end // end of [val]
+*)</span>
+<span class="comment">//
+</span>          <span class="keyword">val</span> cmplt <span class="keyword">=</span> <span class="keyword">(</span>
+            <span class="keyword">case+</span> p2tcss <span class="keyword">of</span> cons _ <span class="keyword">=&gt;</span> 0<span class="comment">(*incomplete*)</span> <span class="keyword">|</span> nil _ <span class="keyword">=&gt;</span> 1
+          <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">int</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> cmplt <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+            trans3_env_add_p2atcstlstlst_false <span class="keyword">(</span>loc0<span class="keyword">,</span> 1<span class="comment">(*casknd*)</span><span class="keyword">,</span> p2tcss<span class="keyword">,</span> s2es_fun_arg<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="comment">//
+</span>          <span class="keyword">val</span> p3ts_arg <span class="keyword">=</span> p2atlst_arg_tr_dn <span class="keyword">(</span>npf<span class="keyword">,</span> p2ts_arg<span class="keyword">,</span> s2es_fun_arg<span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_lamloop</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> the_lamloop_env_push_lam <span class="keyword">(</span>p3ts_arg<span class="keyword">)</span>
+          <span class="keyword">val</span> d3e_body <span class="keyword">=</span> d2exp_tr_dn <span class="keyword">(</span>d2e_body<span class="keyword">,</span> s2e_fun_res<span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2varset_env_check loc0
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> lin <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> the_d2varset_env_check_llam loc0
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_lamloop_env_pop <span class="keyword">(</span><span class="prfexp">pf_lamloop</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2varset_env_pop_lam <span class="keyword">(</span><span class="prfexp">pf_d2varset</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_effect_env_pop <span class="keyword">(</span><span class="prfexp">pf_effect</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_pop_sta_and_add_none <span class="keyword">(</span>loc0<span class="keyword">)</span>
+        <span class="keyword">in</span>
+          d3exp_lam_dyn <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">,</span> lin<span class="keyword">,</span> npf<span class="keyword">,</span> p3ts_arg<span class="keyword">,</span> d3e_body<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [S2Efun]
+</span>      <span class="keyword">|</span> S2Euni <span class="keyword">(</span>s2vs<span class="keyword">,</span> s2ps<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_push_sta <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_add_svarlst s2vs
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_hypo_add_proplst <span class="keyword">(</span>loc0<span class="keyword">,</span> s2ps<span class="keyword">)</span>
+          <span class="keyword">val</span> d3e0 <span class="keyword">=</span> d2exp_tr_dn <span class="keyword">(</span>d2e0<span class="keyword">,</span> s2e<span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_pop_sta_and_add_none <span class="keyword">(</span>loc0<span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> d3exp_typ_set <span class="keyword">(</span>d3e0<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+        <span class="keyword">in</span>
+          d3e0
+        <span class="keyword">end</span> <span class="comment">// end of [S2Euni]
+</span>      <span class="keyword">|</span> _ <span class="keyword">when</span> s2exp_is_non_fun s2e0 <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          prerr_loc_error3 loc0<span class="keyword">;</span>
+          prerr ": the function is assigned a non-function type ["<span class="keyword">;</span>
+          prerr s2e0<span class="keyword">;</span>
+          prerr "]."<span class="keyword">;</span>
+          prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>d3exp<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [_]
+</span>      <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> d3e0 <span class="keyword">=</span> d2exp_tr_up d2e0 <span class="keyword">in</span> d3exp_tr_dn <span class="keyword">(</span>d3e0<span class="keyword">,</span> s2e0<span class="keyword">)</span><span class="keyword">;</span> d3e0
+        <span class="keyword">end</span> <span class="comment">// end of [let]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [D2Elam_dyn]
+</span>  <span class="keyword">|</span> D2Elet <span class="keyword">(</span>d2cs<span class="keyword">,</span> d2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_effect</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> the_effect_env_push <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_s2cstlst</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2cstlst_env_push <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_d2varset</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2varset_env_push_let <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">val</span> d3cs <span class="keyword">=</span> d2eclst_tr d2cs
+      <span class="keyword">val</span> d3e <span class="keyword">=</span> d2exp_tr_dn <span class="keyword">(</span>d2e<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2varset_env_check loc0
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2varset_env_pop_let <span class="keyword">(</span><span class="prfexp">pf_d2varset</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2cstlst_env_pop_and_unbind <span class="keyword">(</span><span class="prfexp">pf_s2cstlst</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_effect_env_pop <span class="keyword">(</span><span class="prfexp">pf_effect</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      d3exp_let <span class="keyword">(</span>loc0<span class="keyword">,</span> d3cs<span class="keyword">,</span> d3e<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D2Elet]
+</span>  <span class="keyword">|</span> D2Erec <span class="keyword">(</span>recknd<span class="keyword">,</span> npf1<span class="keyword">,</span> ld2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">var</span> iswth<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> 0
+      <span class="keyword">val</span> s2e0 <span class="keyword">=</span> s2exp_whnf s2e0
+      <span class="keyword">var</span> s2e0<span class="keyword">:</span> <span class="staexp">s2exp</span> <span class="keyword">=</span> s2e0
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+        <span class="keyword">if</span> s2exp_is_wth s2e0 <span class="keyword">then</span> <span class="keyword">begin</span>
+          iswth := 1<span class="keyword">;</span>
+          s2e0 := s2exp_wth_instantiate <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">)</span><span class="keyword">;</span>
+          s2e0 := s2exp_whnf s2e0
+        <span class="keyword">end</span>
+      <span class="keyword">val</span> s2e0 <span class="keyword">=</span> s2e0
+    <span class="keyword">in</span>
+      <span class="keyword">case+</span> s2e0<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+      <span class="keyword">|</span> S2Etyrec <span class="keyword">(</span>tyrecknd<span class="keyword">,</span> npf2<span class="keyword">,</span> ls2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> reckind_check <span class="keyword">(</span>loc0<span class="keyword">,</span> recknd<span class="keyword">,</span> tyrecknd<span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pfarity_check_rec <span class="keyword">(</span>loc0<span class="keyword">,</span> npf1<span class="keyword">,</span> npf2<span class="keyword">)</span>
+          <span class="keyword">val</span> ld3es <span class="keyword">=</span> labd2explst_tr_dn <span class="keyword">(</span>loc0<span class="keyword">,</span> ld2es<span class="keyword">,</span> ls2es<span class="keyword">)</span>
+          <span class="keyword">val</span> d3e0 <span class="keyword">=</span> d3exp_rec <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">,</span> recknd<span class="keyword">,</span> npf1<span class="keyword">,</span> ld3es<span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> iswth <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> funarg_varfin_check <span class="keyword">(</span>loc0<span class="keyword">)</span>
+        <span class="keyword">in</span>
+          d3e0
+        <span class="keyword">end</span> <span class="comment">// end of [S2Etyrec]
+</span>      <span class="keyword">|</span> _ <span class="keyword">when</span> s2exp_is_non_tyrec s2e0 <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          prerr_loc_error3 loc0<span class="keyword">;</span>
+          prerr ": the record is assigned a non-record type ["<span class="keyword">;</span>
+          prerr s2e0<span class="keyword">;</span>
+          prerr "]."<span class="keyword">;</span>
+          prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>d3exp<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [_ when ...]
+</span>      <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> d3e0 <span class="keyword">=</span> d2exp_tr_up d2e0
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $SOL<span class="keyword">.</span>s2exp_tyleq_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> d3e0<span class="keyword">.</span>d3exp_typ<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> iswth <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> funarg_varfin_check <span class="keyword">(</span>loc0<span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> d3exp_typ_set <span class="keyword">(</span>d3e0<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+        <span class="keyword">in</span>
+          d3e0
+        <span class="keyword">end</span> <span class="comment">// end of [_]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [let]
+</span>  <span class="keyword">|</span> D2Escaseof <span class="keyword">(</span>res<span class="keyword">,</span> s2e_val<span class="keyword">,</span> sc2ls<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d2exp_scaseof_tr_dn <span class="keyword">(</span>loc0<span class="keyword">,</span> res<span class="keyword">,</span> s2e_val<span class="keyword">,</span> sc2ls<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D2Escaseof]
+</span>  <span class="keyword">|</span> D2Eseq d2es <span class="keyword">=&gt;</span> d2exp_seq_tr_dn <span class="keyword">(</span>loc0<span class="keyword">,</span> d2es<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+  <span class="keyword">|</span> D2Esif <span class="keyword">(</span>res<span class="keyword">,</span> s2p_cond<span class="keyword">,</span> d2e_then<span class="keyword">,</span> d2e_else<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d2exp_sif_tr_dn <span class="keyword">(</span>loc0<span class="keyword">,</span> res<span class="keyword">,</span> s2p_cond<span class="keyword">,</span> d2e_then<span class="keyword">,</span> d2e_else<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D2Esif]
+</span>  <span class="keyword">|</span> D2Estring <span class="keyword">(</span>str<span class="keyword">,</span> len<span class="keyword">)</span> <span class="keyword">=&gt;</span> d2exp_string_tr_dn <span class="keyword">(</span>d2e0<span class="keyword">,</span> str<span class="keyword">,</span> len<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+  <span class="keyword">|</span> D2Estruct ld2es <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">var</span> iswth<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> 0
+      <span class="keyword">val</span> s2e0 <span class="keyword">=</span> <span class="keyword">(</span>
+        <span class="keyword">if</span> s2exp_is_wth s2e0 <span class="keyword">then</span> <span class="keyword">begin</span>
+          iswth := 1<span class="keyword">;</span> s2exp_wth_instantiate <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+          s2exp_whnf s2e0
+        <span class="keyword">end</span>
+      <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">s2exp</span>
+    <span class="keyword">in</span>
+      <span class="keyword">case+</span> s2e0<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+      <span class="keyword">|</span> S2Etyrec <span class="keyword">(</span>tyrecknd<span class="keyword">,</span> npf<span class="keyword">,</span> ls2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> tyrecknd <span class="keyword">of</span> <span class="comment">// flatness checking
+</span>            <span class="keyword">|</span> TYRECKINDbox <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+                prerr_loc_error3 loc0<span class="keyword">;</span>
+                $Deb<span class="keyword">.</span>debug_prerrf <span class="keyword">(</span>": %s: d2exp_tr_dn"<span class="keyword">,</span> <span class="keyword">@(</span>THISFILENAME<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+                prerr ": the type for a struct cannot be boxed."<span class="keyword">;</span>
+                prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+                $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+              <span class="keyword">end</span> <span class="comment">// end of [TYRECKINDbox]
+</span>            <span class="keyword">|</span> TYRECKINDflt0 <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+                prerr_loc_error3 loc0<span class="keyword">;</span>
+                $Deb<span class="keyword">.</span>debug_prerrf <span class="keyword">(</span>": %s: d2exp_tr_dn"<span class="keyword">,</span> <span class="keyword">@(</span>THISFILENAME<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+                prerr ": the type for a struct cannot be a record type."<span class="keyword">;</span>
+                prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+                $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+              <span class="keyword">end</span> <span class="comment">// end of [TYRECKINDflt0]
+</span>            <span class="keyword">|</span> TYRECKINDflt1 _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+            <span class="keyword">|</span> TYRECKINDflt_ext _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="comment">// end of [val]
+</span>          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> npf <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+            prerr_loc_error3 loc0<span class="keyword">;</span>
+            $Deb<span class="keyword">.</span>debug_prerrf <span class="keyword">(</span>": %s: d2exp_tr_dn"<span class="keyword">,</span> <span class="keyword">@(</span>THISFILENAME<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+            prerr ": the proof arity of a struct cannot be ["<span class="keyword">;</span>
+            prerr npf<span class="keyword">;</span>
+            prerr "]."<span class="keyword">;</span>
+            prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+            $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>          <span class="keyword">val</span> ld3es <span class="keyword">=</span> labd2explst_tr_dn <span class="keyword">(</span>loc0<span class="keyword">,</span> ld2es<span class="keyword">,</span> ls2es<span class="keyword">)</span>
+          <span class="keyword">val</span> d3e0 <span class="keyword">=</span> d3exp_struct <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">,</span> ld3es<span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> iswth <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> funarg_varfin_check <span class="keyword">(</span>loc0<span class="keyword">)</span>
+        <span class="keyword">in</span>
+          d3e0
+        <span class="keyword">end</span> <span class="comment">// end of [S2Etyrec]
+</span>      <span class="keyword">|</span> _ <span class="keyword">when</span> s2exp_is_non_fun s2e0 <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          prerr_loc_error3 loc0<span class="keyword">;</span>
+          prerr ": the struct is assigned a non-record type ["<span class="keyword">;</span>
+          prerr s2e0<span class="keyword">;</span>
+          prerr "]."<span class="keyword">;</span>
+          prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>d3exp<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [_ when ...]
+</span>      <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          prerr_loc_error3 loc0<span class="keyword">;</span>
+          $Deb<span class="keyword">.</span>debug_prerrf <span class="keyword">(</span>": %s: d2exp_tr_dn"<span class="keyword">,</span> <span class="keyword">@(</span>THISFILENAME<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+          prerr ": the struct is given a type of an incorrect form ["<span class="keyword">;</span>
+          prerr s2e0<span class="keyword">;</span>
+          prerr "]."<span class="keyword">;</span>
+          prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>d3exp<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [_]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [D2Estruct]
+</span>  <span class="keyword">|</span> D2Etop <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="comment">// for datatype constructors taking uninitialized arguments
+</span>      d3exp_top <span class="keyword">(</span>loc0<span class="keyword">,</span> s2exp_topize_0 s2e0<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D2Etop]
+</span>  <span class="keyword">|</span> D2Etrywith <span class="keyword">(</span>r2es<span class="keyword">,</span> d2e<span class="keyword">,</span> c2ls<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_d2varset</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2varset_env_push_try <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">(*
+      // [r2es] is not in use; it is always [in2vresstate_nil]
+      val r2es = i2nvresstate_update (r2es) // each var is replaced with its view
+*)</span>
+      <span class="keyword">val</span> d3e <span class="keyword">=</span> d2exp_tr_dn <span class="keyword">(</span>d2e<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+      <span class="keyword">val</span> s2e_pat <span class="keyword">=</span> s2exp_exception_viewtype <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">var</span> cmplt<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> 0
+      <span class="keyword">val</span> c3ls <span class="keyword">=</span> c2laulst_tr_dn <span class="keyword">(</span>
+        loc0<span class="keyword">,</span> cmplt<span class="keyword">,</span> ~1<span class="comment">(*knd*)</span><span class="keyword">,</span> r2es<span class="keyword">,</span> c2ls<span class="keyword">,</span> <span class="keyword">'[</span>d3e<span class="keyword">]</span><span class="keyword">,</span> 1<span class="keyword">,</span> <span class="keyword">'[</span>s2e_pat<span class="keyword">]</span><span class="keyword">,</span> s2e0
+      <span class="keyword">)</span> <span class="comment">// end of [c2laulst_tr_dn]
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2varset_env_pop_try <span class="keyword">(</span><span class="prfexp">pf_d2varset</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      d3exp_trywith <span class="keyword">(</span>loc0<span class="keyword">,</span> d3e<span class="keyword">,</span> c3ls<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D2Etrywith]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> d2exp_tr_dn_rest <span class="keyword">(</span>d2e0<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+<span class="keyword">in</span>
+  d3e0
+<span class="keyword">end</span> <span class="comment">// end of [d2exp_tr_dn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+d2exp_tr_dn_rest <span class="keyword">(</span>d2e0<span class="keyword">,</span> s2e0<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> loc0 <span class="keyword">=</span> d2e0<span class="keyword">.</span>d2exp_loc
+  <span class="keyword">var</span> iswth<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> 0
+  <span class="keyword">val</span> d3e0 <span class="keyword">=</span> d2exp_tr_up d2e0
+  <span class="keyword">val</span> s2e0<span class="keyword">:</span> <span class="staexp">s2exp</span> <span class="keyword">=</span>
+    <span class="keyword">if</span> s2exp_is_wth s2e0 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> iswth := 1<span class="keyword">;</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> d3exp_open_and_add d3e0
+    <span class="keyword">in</span>
+      s2exp_wth_instantiate <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      s2e0 <span class="comment">// not a type with state
+</span>    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $SOL<span class="keyword">.</span>s2exp_tyleq_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> d3e0<span class="keyword">.</span>d3exp_typ<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> iswth <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> funarg_varfin_check <span class="keyword">(</span>loc0<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> d3exp_typ_set <span class="keyword">(</span>d3e0<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+<span class="keyword">in</span>
+  d3e0
+<span class="keyword">end</span> <span class="comment">// end of [d2exp_tr_dn_rest]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+assert_bool_tr_dn <span class="keyword">(</span>loc0<span class="keyword">,</span> b<span class="keyword">,</span> s2e0<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2e0 <span class="keyword">=</span> s2exp_opnexi_and_add <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> s2e0<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> S2Eapp <span class="keyword">(</span>s2e_fun<span class="keyword">,</span> s2es_arg<span class="keyword">)</span> <span class="keyword">when</span>
+      s2cstref_exp_equ <span class="keyword">(</span>Bool_bool_t0ype<span class="keyword">,</span> s2e_fun<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> s2e_arg <span class="keyword">=</span> <span class="keyword">case+</span> s2es_arg <span class="keyword">of</span>
+      <span class="keyword">|</span> cons <span class="keyword">(</span>s2e<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> s2e
+      <span class="keyword">|</span> nil _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          prerr_loc_interror loc0<span class="keyword">;</span>
+          prerr ": assert_bool_tr_dn"<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>s2exp<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [nil]
+</span>      <span class="comment">// end of [s2e_arg]
+</span>    <span class="keyword">in</span>
+      trans3_env_hypo_add_eqeq <span class="keyword">(</span>loc0<span class="keyword">,</span> s2exp_bool b<span class="keyword">,</span> s2e_arg<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eapp]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      $SOL<span class="keyword">.</span>s2exp_tyleq_solve <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">,</span> s2exp_bool_t0ype <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_]
+</span><span class="keyword">end</span> <span class="comment">// end of [assert_bool_tr_dn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> m2atch_tr_up
+  <span class="keyword">(</span>m2at<span class="keyword">:</span> <span class="staexp">m2atch</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">m3atch</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> loc0 <span class="keyword">=</span> m2at<span class="keyword">.</span>m2atch_loc
+  <span class="keyword">val</span> d3e <span class="keyword">=</span> d2exp_tr_up <span class="keyword">(</span>m2at<span class="keyword">.</span>m2atch_exp<span class="keyword">)</span>
+  <span class="keyword">val</span> op3t <span class="keyword">=</span> <span class="keyword">(</span>
+    <span class="keyword">case+</span> m2at<span class="keyword">.</span>m2atch_pat <span class="keyword">of</span>
+    <span class="keyword">|</span> Some p2t <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        Some <span class="keyword">(</span>p2at_tr_dn <span class="keyword">(</span>p2t<span class="keyword">,</span> d3e<span class="keyword">.</span>d3exp_typ<span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [Some]
+</span>    <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert_bool_tr_dn <span class="keyword">(</span>loc0<span class="keyword">,</span> true<span class="keyword">,</span> d3e<span class="keyword">.</span>d3exp_typ<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        None <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [None]
+</span>  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">p3atopt</span>
+<span class="keyword">in</span>
+  m3atch_make <span class="keyword">(</span>loc0<span class="keyword">,</span> d3e<span class="keyword">,</span> op3t<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [m2atch_tr_up]
+</span>
+<span class="keyword">fn</span> m2atchlst_tr_up <span class="keyword">(</span>m2ats<span class="keyword">:</span> <span class="staexp">m2atchlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">m3atchlst</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_map_fun <span class="keyword">(</span>m2ats<span class="keyword">,</span> m2atch_tr_up<span class="keyword">)</span>
+
+<span class="keyword">implement</span> c2lau_tr_dn
+  <span class="keyword">(</span>c2l<span class="keyword">,</span> op2tcss<span class="keyword">,</span> d3es<span class="keyword">,</span> n<span class="keyword">,</span> s2es_pat<span class="keyword">,</span> s2e0<span class="keyword">,</span> osacsbis<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> loc0 <span class="keyword">=</span> c2l<span class="keyword">.</span>c2lau_loc
+  <span class="keyword">val</span> p2ts <span class="keyword">=</span> c2l<span class="keyword">.</span>c2lau_pat
+<span class="comment">(*
+  val () = begin
+    print "c2lau_tr_dn: p2ts = "; print p2ts; print_newline ();
+    print "c2lau_tr_dn: s2es_pat = "; print s2es_pat; print_newline ();
+    print "c2lau_tr_dn: s2e0 = "; print s2e0; print_newline ();
+  end
+*)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_push_sta <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_d2varset</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2varset_env_push_let <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2varset_env_add_p2atlst p2ts
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> op2tcss <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">~</span>Some_vt p2tcss <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="comment">// adding nonsequentiality assumptions
+</span>        trans3_env_hypo_add_p2atcstlstlst <span class="keyword">(</span>loc0<span class="keyword">,</span> p2tcss<span class="keyword">,</span> s2es_pat<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>    <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> p3ts <span class="keyword">=</span> p2atlst_tr_dn <span class="keyword">(</span>p2ts<span class="keyword">,</span> s2es_pat<span class="keyword">)</span>
+
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> aux <span class="keyword">(</span>d3es<span class="keyword">,</span> p3ts<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">fun</span> aux <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>d3es<span class="keyword">:</span> <span class="staexp">d3explst n</span><span class="keyword">,</span> p3ts<span class="keyword">:</span> <span class="staexp">p3atlst n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+      <span class="keyword">case+</span> d3es <span class="keyword">of</span>
+      <span class="keyword">|</span> cons <span class="keyword">(</span>d3e<span class="keyword">,</span> d3es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+          <span class="keyword">val+</span> cons <span class="keyword">(</span>p3t<span class="keyword">,</span> p3ts<span class="keyword">)</span> <span class="keyword">=</span> p3ts
+        <span class="keyword">in</span>
+          d3exp_lval_typ_set_pat <span class="keyword">(</span>d3e<span class="keyword">,</span> p3t<span class="keyword">)</span><span class="keyword">;</span> aux <span class="keyword">(</span>d3es<span class="keyword">,</span> p3ts<span class="keyword">)</span>
+        <span class="keyword">end</span>
+      <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>
+  <span class="keyword">val</span> gua <span class="keyword">=</span> m2atchlst_tr_up <span class="keyword">(</span>c2l<span class="keyword">.</span>c2lau_gua<span class="keyword">)</span>
+  <span class="keyword">val</span> seq <span class="keyword">=</span> c2l<span class="keyword">.</span>c2lau_seq <span class="keyword">and</span> neg <span class="keyword">=</span> c2l<span class="keyword">.</span>c2lau_neg
+  <span class="keyword">val</span> d3e_exp <span class="keyword">=</span> d2exp_tr_dn <span class="keyword">(</span>c2l<span class="keyword">.</span>c2lau_exp<span class="keyword">,</span> s2e_exp<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">val</span> s2e_exp <span class="keyword">=</span> <span class="keyword">begin</span>
+      <span class="keyword">if</span> neg <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> s2exp_bottom_viewt0ype_exi <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> s2e0
+    <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> osacsbis <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">~</span>SACSBISsome <span class="keyword">(</span>sac<span class="keyword">,</span> sbis<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+        <span class="keyword">if</span> c2lau_is_raised c2l <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+          staftscstr_stbefitemlst_merge <span class="keyword">(</span>loc0<span class="keyword">,</span> sac<span class="keyword">,</span> sbis<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">|</span> <span class="keyword">~</span>SACSBISnone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2varset_env_check loc0
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2varset_env_pop_let <span class="keyword">(</span><span class="prfexp">pf_d2varset</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_pop_sta_and_add_none <span class="keyword">(</span>loc0<span class="keyword">)</span>
+<span class="keyword">in</span>
+  c3lau_make <span class="keyword">(</span>loc0<span class="keyword">,</span> p3ts<span class="keyword">,</span> gua<span class="keyword">,</span> seq<span class="keyword">,</span> neg<span class="keyword">,</span> d3e_exp<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [c2lau_tr_dn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> pattern_match_is_redundant_errmsg <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  prerr_loc_error3 loc0<span class="keyword">;</span>
+  prerr ": this pattern match clause is redundant."<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+  $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [pattern_match_is_redundant_errmsg]
+</span>
+<span class="keyword">fn</span> c2laulst0_tr_dn <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> casknd<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp">i2nvresstate</span><span class="keyword">,</span>
+   n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">,</span> s2es_pat<span class="keyword">:</span> <span class="staexp">s2explst n</span><span class="keyword">,</span> s2e0<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  prerr_loc_interror loc0<span class="keyword">;</span>
+  prerr ": c2laulst0_tr_dn: not implemeted yet."<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+  $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [c2laulst0_tr_dn]
+</span>
+<span class="keyword">fn</span> c2laulst1_tr_dn <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span>
+   cmplt<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int</span><span class="keyword">,</span>
+   casknd<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span>
+   res<span class="keyword">:</span> <span class="staexp">i2nvresstate</span><span class="keyword">,</span>
+   c2l<span class="keyword">:</span> <span class="staexp">c2lau n</span><span class="keyword">,</span>
+   d3es<span class="keyword">:</span> <span class="staexp">d3explst n</span><span class="keyword">,</span>
+   n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">,</span> s2es_pat<span class="keyword">:</span> <span class="staexp">s2explst n</span><span class="keyword">,</span>
+   s2e0<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">c3lau n</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> p2tcss <span class="keyword">=</span> c2lau_pat_complement c2l
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> p2tcss <span class="keyword">of</span> cons _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">|</span> nil _ <span class="keyword">=&gt;</span> cmplt := 1
+  <span class="keyword">val</span> c3l <span class="keyword">=</span> c2lau_tr_dn
+    <span class="keyword">(</span>c2l<span class="keyword">,</span> None_vt <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3es<span class="keyword">,</span> n<span class="keyword">,</span> s2es_pat<span class="keyword">,</span> s2e0<span class="keyword">,</span> SACSBISnone <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="comment">// checking for pattern matching exhaustiveness
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> cmplt <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+    trans3_env_add_p2atcstlstlst_false <span class="keyword">(</span>loc0<span class="keyword">,</span> casknd<span class="keyword">,</span> p2tcss<span class="keyword">,</span> s2es_pat<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  c3l
+<span class="keyword">end</span> <span class="comment">(* end of [c2laulst1_tr] *)</span>
+
+<span class="keyword">fun</span> c2laulst2_tr_dn <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span>
+   cmplt<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int</span><span class="keyword">,</span> 
+   casknd<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span>
+   res<span class="keyword">:</span> <span class="staexp">i2nvresstate</span><span class="keyword">,</span>
+   c2l<span class="keyword">:</span> <span class="staexp">c2lau n</span><span class="keyword">,</span> c2ls<span class="keyword">:</span> <span class="staexp">c2laulst n</span><span class="keyword">,</span>
+   d3es<span class="keyword">:</span> <span class="staexp">d3explst n</span><span class="keyword">,</span>
+   n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">,</span> s2es_pat<span class="keyword">:</span> <span class="staexp">s2explst n</span><span class="keyword">,</span>
+   s2e0<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">c3laulst n</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "c2laulst2_tr_dn: s2es_pat = "; print s2es_pat; print_newline ();
+  end // end of [val]
+*)</span>
+  <span class="keyword">var</span> p2tcss<span class="keyword">:</span> <span class="staexp">p2atcstlstlst n</span> <span class="keyword">=</span> c2lau_pat_complement c2l
+  <span class="keyword">val</span> sbis <span class="keyword">=</span> the_d2varset_env_stbefitemlst_save <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> sac <span class="keyword">=</span> staftscstr_initialize <span class="keyword">(</span>res<span class="keyword">,</span> sbis<span class="keyword">)</span>
+  <span class="keyword">val</span> c3l <span class="keyword">=</span> c2lau_tr_dn
+    <span class="keyword">(</span>c2l<span class="keyword">,</span> None_vt <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> d3es<span class="keyword">,</span> n<span class="keyword">,</span> s2es_pat<span class="keyword">,</span> s2e0<span class="keyword">,</span> SACSBISsome <span class="keyword">(</span>sac<span class="keyword">,</span> sbis<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> c3ls <span class="keyword">=</span> c2laulst2_rest_tr_dn
+    <span class="keyword">(</span>loc0<span class="keyword">,</span> casknd<span class="keyword">,</span> c3l<span class="keyword">,</span> c2ls<span class="keyword">,</span> p2tcss<span class="keyword">,</span> d3es<span class="keyword">,</span> n<span class="keyword">,</span> s2es_pat<span class="keyword">,</span> s2e0<span class="keyword">,</span> sac<span class="keyword">,</span> sbis<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> p2tcss <span class="keyword">of</span> cons _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">|</span> nil _ <span class="keyword">=&gt;</span> cmplt := 1
+  <span class="comment">// checking for pattern matching exhaustiveness
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> cmplt <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+    trans3_env_add_p2atcstlstlst_false <span class="keyword">(</span>loc0<span class="keyword">,</span> casknd<span class="keyword">,</span> p2tcss<span class="keyword">,</span> s2es_pat<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> staftscstr_stbefitemlst_check <span class="keyword">(</span>loc0<span class="keyword">,</span> sac<span class="keyword">,</span> sbis<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> staftscstr_stbefitemlst_update <span class="keyword">(</span>loc0<span class="keyword">,</span> sac<span class="keyword">,</span> sbis<span class="keyword">)</span>
+<span class="keyword">in</span>
+  c3ls
+<span class="keyword">end</span> <span class="comment">(* end of [c2laulst2_tr_dn] *)</span>
+
+<span class="keyword">and</span> c2laulst2_rest_tr_dn <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>ni<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> 
+   casknd<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span>
+   c3l_fst<span class="keyword">:</span> <span class="staexp">c3lau n</span><span class="keyword">,</span>
+   c2ls_rst<span class="keyword">:</span> <span class="staexp">c2laulst n</span><span class="keyword">,</span>
+   p2tcss0<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>p2atcstlstlst n</span><span class="keyword">,</span>
+   d3es<span class="keyword">:</span> <span class="staexp">d3explst n</span><span class="keyword">,</span>
+   n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">,</span> s2es_pat<span class="keyword">:</span> <span class="staexp">s2explst n</span><span class="keyword">,</span>
+   s2e0<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span>
+   sac<span class="keyword">:</span> <span class="staexp">staftscstr_t ni</span><span class="keyword">,</span>
+   sbis<span class="keyword">:</span> <span class="staexp">stbefitemlst ni</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">c3laulst n</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux_main <span class="keyword">(</span>
+      c3ls<span class="keyword">:</span> <span class="staexp">List_vt <span class="keyword">(</span>c3lau n<span class="keyword">)</span></span>
+    <span class="keyword">,</span> p2tcss0<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>p2atcstlstlst n</span>
+    <span class="keyword">,</span> c2ls<span class="keyword">:</span> <span class="staexp">c2laulst n</span>
+    <span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">c3laulst n</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> c2ls <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>c2l<span class="keyword">,</span> c2ls<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> p2ts <span class="keyword">=</span> c2l<span class="keyword">.</span>c2lau_pat
+        <span class="keyword">val</span> p2tcs0 <span class="keyword">=</span> p2atcstlst_of_p2atlst p2ts
+<span class="comment">(*
+        val () = begin
+          print "c2laulst2_rest_tr_dn: p2tcs0 = "; print p2tcs0; print_newline ();
+          print "c2laulst2_rest_tr_dn: p2tcss0 = "; print p2tcss0; print_newline ();
+        end (* end of [val] *)
+*)</span>
+        <span class="keyword">val</span> p2tcss1 <span class="keyword">=</span> aux <span class="keyword">(</span>p2tcss0<span class="keyword">,</span> list_vt_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+          <span class="keyword">fun</span> aux <span class="keyword">(</span>
+              p2tcss<span class="keyword">:</span> <span class="staexp">p2atcstlstlst n</span>
+            <span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp">List_vt <span class="keyword">(</span>p2atcstlst n<span class="keyword">)</span></span>
+            <span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">p2atcstlstlst n</span> <span class="keyword">=</span> <span class="keyword">case+</span> p2tcss <span class="keyword">of</span>
+            <span class="keyword">|</span> list_cons <span class="keyword">(</span>p2tcs<span class="keyword">,</span> p2tcss<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+                <span class="keyword">if</span> p2atcstlst_intersect_test <span class="keyword">(</span>p2tcs<span class="keyword">,</span> p2tcs0<span class="keyword">)</span> <span class="keyword">then</span>
+                  aux <span class="keyword">(</span>p2tcss<span class="keyword">,</span> list_vt_cons <span class="keyword">(</span>p2tcs<span class="keyword">,</span> res<span class="keyword">)</span><span class="keyword">)</span>
+                <span class="keyword">else</span> <span class="keyword">begin</span>
+                  aux <span class="keyword">(</span>p2tcss<span class="keyword">,</span> res<span class="keyword">)</span>
+                <span class="keyword">end</span>
+              <span class="keyword">end</span> <span class="comment">// end of [begin]
+</span>            <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> $Lst<span class="keyword">.</span>list_vt_reverse_list res
+        <span class="keyword">}</span> <span class="comment">// end of [where]
+</span><span class="comment">(*
+        val () = begin
+          print "c2laulst2_rest_tr_dn: p2tcss1 = "; print p2tcss1; print_newline ();
+        end // end of [val]
+*)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> p2tcss1 <span class="keyword">of</span>
+          <span class="keyword">|</span> cons _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> casknd <span class="keyword">of</span>
+            <span class="keyword">|</span> 0 <span class="keyword">=&gt;</span> pattern_match_is_redundant_errmsg c2l<span class="keyword">.</span>c2lau_loc
+            <span class="keyword">|</span> 1 <span class="keyword">=&gt;</span> pattern_match_is_redundant_errmsg c2l<span class="keyword">.</span>c2lau_loc
+            <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>        
+            <span class="keyword">end</span>
+        <span class="keyword">val</span> op2tcss <span class="keyword">=</span> <span class="keyword">(</span>
+          <span class="keyword">if</span> c2l<span class="keyword">.</span>c2lau_seq <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> Some_vt p2tcss1 <span class="keyword">else</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">Option_vt <span class="keyword">(</span>p2atcstlstlst n<span class="keyword">)</span></span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> c2l<span class="keyword">.</span>c2lau_gua <span class="keyword">of</span>
+          <span class="keyword">|</span> list_nil _ <span class="keyword">=&gt;</span> p2tcss0 := aux <span class="keyword">(</span>p2tcss0<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+              <span class="keyword">fun</span> aux <span class="keyword">(</span>
+                  p2tcss<span class="keyword">:</span> <span class="staexp">p2atcstlstlst n</span><span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp">p2atcstlstlst n</span>
+                <span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">p2atcstlstlst n</span> <span class="keyword">=</span> <span class="keyword">case+</span> p2tcss <span class="keyword">of</span>
+                <span class="keyword">|</span> cons <span class="keyword">(</span>p2tcs<span class="keyword">,</span> p2tcss<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+                    <span class="keyword">val</span> p2tcss_diff <span class="keyword">=</span> p2atcstlst_difference <span class="keyword">(</span>p2tcs<span class="keyword">,</span> p2tcs0<span class="keyword">)</span>
+                  <span class="keyword">in</span>
+                    aux <span class="keyword">(</span>p2tcss<span class="keyword">,</span> $Lst<span class="keyword">.</span>list_append <span class="keyword">(</span>p2tcss_diff<span class="keyword">,</span> res<span class="keyword">)</span><span class="keyword">)</span>
+                  <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>                <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> res
+            <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>          <span class="keyword">|</span> list_cons _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="comment">// end of [val]
+</span><span class="comment">(*
+        val () = begin
+          print "c2laulst_rest_tr_dn: p2tcss0 = "; print p2tcss0; print_newline ();
+        end // end of [val]
+*)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> stbefitemlst_restore_lin_typ <span class="keyword">(</span>sbis<span class="keyword">)</span>
+        <span class="keyword">val</span> c3l <span class="keyword">=</span> c2lau_tr_dn
+          <span class="keyword">(</span>c2l<span class="keyword">,</span> op2tcss<span class="keyword">,</span> d3es<span class="keyword">,</span> n<span class="keyword">,</span> s2es_pat<span class="keyword">,</span> s2e0<span class="keyword">,</span> SACSBISsome <span class="keyword">(</span>sac<span class="keyword">,</span> sbis<span class="keyword">)</span><span class="keyword">)</span>
+        <span class="comment">// end of [val]
+</span>      <span class="keyword">in</span>
+        aux_main <span class="keyword">(</span>list_vt_cons <span class="keyword">(</span>c3l<span class="keyword">,</span> c3ls<span class="keyword">)</span><span class="keyword">,</span> p2tcss0<span class="keyword">,</span> c2ls<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> $Lst<span class="keyword">.</span>list_vt_reverse_list c3ls
+    <span class="keyword">end</span> <span class="comment">(* end of [aux_main] *)</span>
+  <span class="keyword">val</span> c3ls_rst  <span class="keyword">=</span> aux_main <span class="keyword">(</span>list_vt_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> p2tcss0<span class="keyword">,</span> c2ls_rst<span class="keyword">)</span>
+<span class="comment">(*
+  val () = begin
+    print "c2laulst2_rest_tr_dn: p2tcss0 = "; print p2tcss0; print_newline ();
+  end // end of [val]
+*)</span>
+<span class="keyword">in</span>
+  c3l_fst :: c3ls_rst
+<span class="keyword">end</span> <span class="comment">(* end of [c2laulst2_rest_tr_dn] *)</span>
+
+<span class="keyword">implement</span> c2laulst_tr_dn
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> cmplt<span class="keyword">,</span> casknd<span class="keyword">,</span> res<span class="keyword">,</span> c2ls<span class="keyword">,</span> d3es<span class="keyword">,</span> n<span class="keyword">,</span> s2es_pat<span class="keyword">,</span> s2e0<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> c2ls <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>c2l<span class="keyword">,</span> c2ls<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> c2ls <span class="keyword">of</span>
+    <span class="keyword">|</span> cons _ <span class="keyword">=&gt;</span> c2laulst2_tr_dn <span class="keyword">(</span>
+        loc0<span class="keyword">,</span> cmplt<span class="keyword">,</span> casknd<span class="keyword">,</span> res<span class="keyword">,</span> c2l<span class="keyword">,</span> c2ls<span class="keyword">,</span> d3es<span class="keyword">,</span> n<span class="keyword">,</span> s2es_pat<span class="keyword">,</span> s2e0
+      <span class="keyword">)</span> <span class="comment">// end [cons_]
+</span>    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> c3l <span class="keyword">=</span> c2laulst1_tr_dn
+          <span class="keyword">(</span>loc0<span class="keyword">,</span> cmplt<span class="keyword">,</span> casknd<span class="keyword">,</span> res<span class="keyword">,</span> c2l<span class="keyword">,</span> d3es<span class="keyword">,</span> n<span class="keyword">,</span> s2es_pat<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        cons <span class="keyword">(</span>c3l<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [nil]
+</span>    <span class="keyword">end</span> <span class="comment">(* end of [cons] *)</span>
+  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> c2laulst0_tr_dn <span class="keyword">(</span>loc0<span class="keyword">,</span> casknd<span class="keyword">,</span> res<span class="keyword">,</span> n<span class="keyword">,</span> s2es_pat<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      nil <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">(* end of [nil] *)</span>
+<span class="keyword">end</span> <span class="comment">(* end of [c2laulst_tr_dn] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+d2exp_caseof_tr_dn
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> casknd<span class="keyword">,</span> r2es<span class="keyword">,</span> n<span class="keyword">,</span> d2es<span class="keyword">,</span> c2ls<span class="keyword">,</span> s2e0<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "d2exp_caseof_tr_dn: s2e0 = "; print_s2exp s2e0; print_newline ()
+  end // end of [val]
+*)</span>
+  <span class="keyword">val</span> d3es <span class="keyword">=</span> d2explst_tr_up d2es
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> d3explst_open_and_add d3es
+  <span class="keyword">val</span> s2es_pat <span class="keyword">=</span> d3explst_typ_get d3es
+  <span class="keyword">val</span> r2es <span class="keyword">=</span> i2nvresstate_update <span class="keyword">(</span>r2es<span class="keyword">)</span> <span class="comment">// each var is replaced with its view
+</span>  <span class="keyword">var</span> cmplt<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> 0
+  <span class="keyword">val</span> c3ls <span class="keyword">=</span> c2laulst_tr_dn
+    <span class="keyword">(</span>loc0<span class="keyword">,</span> cmplt<span class="keyword">,</span> casknd<span class="keyword">,</span> r2es<span class="keyword">,</span> c2ls<span class="keyword">,</span> d3es<span class="keyword">,</span> n<span class="keyword">,</span> s2es_pat<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">if</span> cmplt <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">if</span> casknd <span class="keyword">&lt;</span> 1 <span class="keyword">then</span> the_effect_env_check_exn <span class="keyword">(</span>loc0<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  d3exp_caseof <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">,</span> casknd<span class="keyword">,</span> d3es<span class="keyword">,</span> c3ls<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">(* end of [d2exp_caseof_tr_dn] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d2exp_scaseof_tr_dn
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> r2es<span class="keyword">,</span> s2e_val<span class="keyword">,</span> sc2ls<span class="keyword">,</span> s2e0<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> r2es <span class="keyword">=</span> i2nvresstate_update <span class="keyword">(</span>r2es<span class="keyword">)</span>
+  <span class="keyword">val</span> sbis <span class="keyword">=</span> the_d2varset_env_stbefitemlst_save <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> sac <span class="keyword">=</span> staftscstr_initialize <span class="keyword">(</span>r2es<span class="keyword">,</span> sbis<span class="keyword">)</span>
+
+  <span class="keyword">fn</span> aux_one <span class="keyword">(</span>sc2l<span class="keyword">:</span> <span class="staexp">sc2lau</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">sc3lau</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> sp2t <span class="keyword">=</span> sc2l<span class="keyword">.</span>sc2lau_pat
+    <span class="keyword">val</span> d2e_body <span class="keyword">=</span> sc2l<span class="keyword">.</span>sc2lau_exp
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_push_sta <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+      <span class="keyword">val+</span> SP2Tcon <span class="keyword">(</span>_<span class="keyword">,</span> s2vs<span class="keyword">)</span> <span class="keyword">=</span> sp2t<span class="keyword">.</span>sp2at_node <span class="keyword">in</span> trans3_env_add_svarlst s2vs
+    <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $SOL<span class="keyword">.</span>s2exp_hypo_equal_solve <span class="keyword">(</span>sp2t<span class="keyword">.</span>sp2at_loc<span class="keyword">,</span> s2e_val<span class="keyword">,</span> sp2t<span class="keyword">.</span>sp2at_exp<span class="keyword">)</span>
+    <span class="keyword">val</span> d3e_body <span class="keyword">=</span> d2exp_tr_dn <span class="keyword">(</span>d2e_body<span class="keyword">,</span> s2e0<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> staftscstr_stbefitemlst_merge <span class="keyword">(</span>loc0<span class="keyword">,</span> sac<span class="keyword">,</span> sbis<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_pop_sta_and_add_none <span class="keyword">(</span>d2e_body<span class="keyword">.</span>d2exp_loc<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    sc3lau_make <span class="keyword">(</span>sc2l<span class="keyword">.</span>sc2lau_loc<span class="keyword">,</span> sp2t<span class="keyword">,</span> d3e_body<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [aux_one]
+</span>
+  <span class="keyword">fun</span> aux_rest
+    <span class="keyword">(</span>sc2ls<span class="keyword">:</span> <span class="staexp">sc2laulst</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">sc3laulst</span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> sc2ls <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>sc2l<span class="keyword">,</span> sc2ls<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> stbefitemlst_restore_lin_typ <span class="keyword">(</span>sbis<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        list_cons <span class="keyword">(</span>aux_one sc2l<span class="keyword">,</span> aux_rest sc2ls<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> list_nil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="comment">// end of [aux_rest]
+</span>
+  <span class="keyword">val</span> sc3ls <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> sc2ls <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>sc2l<span class="keyword">,</span> sc2ls<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> sc3l <span class="keyword">=</span> aux_one <span class="keyword">(</span>sc2l<span class="keyword">)</span><span class="keyword">;</span> <span class="keyword">val</span> sc3ls <span class="keyword">=</span> aux_rest <span class="keyword">(</span>sc2ls<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        list_cons <span class="keyword">(</span>sc3l<span class="keyword">,</span> sc3ls<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> list_nil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">sc3laulst</span> <span class="comment">// end of [val]
+</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> staftscstr_stbefitemlst_check <span class="keyword">(</span>loc0<span class="keyword">,</span> sac<span class="keyword">,</span> sbis<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> staftscstr_stbefitemlst_update <span class="keyword">(</span>loc0<span class="keyword">,</span> sac<span class="keyword">,</span> sbis<span class="keyword">)</span>
+<span class="keyword">in</span>
+  d3exp_scaseof <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e0<span class="keyword">,</span> s2e_val<span class="keyword">,</span> sc3ls<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2exp_scaseof_tr_dn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_trans3_exp_dn.dats] *)</span>
+</pre>
+</body>
+</html>

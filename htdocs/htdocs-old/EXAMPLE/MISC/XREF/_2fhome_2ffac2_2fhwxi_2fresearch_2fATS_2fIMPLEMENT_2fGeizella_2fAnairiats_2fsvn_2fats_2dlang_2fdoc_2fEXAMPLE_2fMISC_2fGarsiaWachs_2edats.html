@@ -1,0 +1,515 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">//
+</span><span class="comment">//
+</span><span class="comment">// An Implementation of the Garsia-Wachs Algorithm
+</span><span class="comment">//
+</span><span class="comment">// The code uses a doubly-linked list to support a technique that
+</span><span class="comment">// is often dubbed Huet's "zipper" in functional programming. See
+</span><span class="comment">// the attached ocaml code at the end for an application of "zipper"
+</span><span class="comment">//
+</span>
+<span class="comment">//
+</span><span class="comment">// Time: July 15, 2008
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">//
+</span>
+
+<span class="extern">%{^
+
+typedef ats_ptr_type tree1 ;
+
+typedef struct treelst_struct {
+  int weight ; tree1 tree ;
+  struct treelst_struct *prev ;
+  struct treelst_struct *next ;
+} *treelst ;
+
+//
+
+static inline
+void treelst_free (treelst ts) { ATS_FREE (ts) ; return ; }
+
+//
+
+static inline
+treelst TREELSTnil () { return (treelst)0 ; }
+
+static inline
+treelst TREELSTcons (int w, tree1 t, treelst ts) {
+  treelst ts_new ;
+  ts_new = ATS_MALLOC (sizeof(struct treelst_struct)) ;
+  ts_new-&gt;weight = w ; ts_new-&gt;tree = t ;
+  ts_new-&gt;prev = (treelst)0 ;
+  ts_new-&gt;next = ts; if (ts) ts-&gt;prev = ts_new ;
+  return ts_new ;
+}
+
+//
+
+extern tree1 Node1_make (tree1 t1, tree1 t2) ;
+
+// [ts] is required to be not null
+treelst combine_and_insert (treelst ts1, treelst ts2) {
+  int w ; tree1 t ; treelst ts, ts_prev, ts_next, ts2_next ;
+/*
+  fprintf (stderr, "combine_and_insert: ts1 = %p\n", ts1) ;
+  fprintf (stderr, "combine_and_insert: ts2 = %p\n", ts2) ;
+*/
+  w = ts1-&gt;weight + ts2-&gt;weight ;
+  t = Node1_make (ts1-&gt;tree, ts2-&gt;tree) ; treelst_free (ts2) ;
+  ts1-&gt;weight = w ; ts1-&gt;tree = t ;
+/*
+  fprintf (stderr, "combine_and_insert: 1\n") ;
+*/
+  ts = ts1-&gt;prev ; ts2_next = ts2-&gt;next ;
+
+  if (ts == (treelst)0) {
+    ts1-&gt;next = ts2_next ; if (ts2_next) ts2_next-&gt;prev = ts1 ;
+    return ts1 ;
+  }
+
+  ts-&gt;next = ts2_next ; if (ts2_next) ts2_next-&gt;prev = ts ;
+
+  while (1) { // [ts] is not null at this point!
+
+    if (ts-&gt;weight &gt;= w) {
+      ts_next = ts-&gt;next ;
+      ts-&gt;next = ts1 ; ts1-&gt;prev = ts ;
+      ts1-&gt;next = ts_next ; if (ts_next) ts_next-&gt;prev = ts1 ;
+      return ts ;
+    }
+
+    ts_prev = ts-&gt;prev ;
+
+    if (ts_prev == (treelst)0) {
+      ts1-&gt;prev = (treelst)0 ; ts1-&gt;next = ts ; ts-&gt;prev = ts1 ;
+      return ts1 ;
+    }
+
+    ts = ts_prev ;
+  }
+} /* end of [trans2_one] */
+
+//
+
+static inline
+treelst trans2_one (treelst ts) {
+  treelst ts1, ts2, ts3 ;
+
+  ts1 = ts ; ts2 = ts1-&gt;next ; ts3 = ts2-&gt;next ;
+
+  while (ts3) {
+/*
+    fprintf (stderr, "trans2_one: ts1 = %p\n", ts1);
+    fprintf (stderr, "trans2_one: ts2 = %p\n", ts2);
+    fprintf (stderr, "trans2_one: ts3 = %p\n", ts3);
+*/
+    if (ts1-&gt;weight &lt;= ts3-&gt;weight) break ;
+    ts1 = ts2; ts2 = ts3 ; ts3 = ts2-&gt;next ;
+  }
+
+  return combine_and_insert (ts1, ts2) ;
+}
+
+static inline
+tree1 trans2_all (treelst ts, int n) {
+  tree1 t ;
+  while (n &gt;= 2) { ts = trans2_one (ts) ; n -= 1 ; }
+  t = ts-&gt;tree ; treelst_free (ts) ;
+  return t ;
+}
+
+%}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="2764"><span class="stacstdec">depth <span class="keyword">=</span> Nat</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="2784"><span class="stacstdec">weight <span class="keyword">=</span> Nat</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="2805"><span class="stacstdec">refdep <span class="keyword">=</span> ref depth</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX:
+</span><span class="comment">// The function attaches a ref cell to each element in the input list
+</span><span class="comment">// It also computes the length of the input list
+</span><span class="comment">//
+</span><span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> trans0 <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>xws<span class="keyword">:</span> <span class="staexp">list <span class="keyword">(</span><span class="keyword">@(</span>a<span class="keyword">,</span> weight<span class="keyword">)</span><span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> len<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int? &gt;&gt; int n</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">list_vt <span class="keyword">(</span><span class="keyword">@(</span>a<span class="keyword">,</span> weight<span class="keyword">,</span> refdep<span class="keyword">)</span><span class="keyword">,</span> n<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> xws <span class="keyword">of</span>
+  <span class="keyword">|</span> list_cons <span class="keyword">(</span>xw<span class="keyword">,</span> xws<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> r <span class="keyword">=</span> ref_make_elt&lt;<span class="staexp">depth</span><span class="keyword">&gt;</span> 0
+      <span class="keyword">val</span> xwrs <span class="keyword">=</span> trans0 <span class="keyword">(</span>xws<span class="keyword">,</span> len<span class="keyword">)</span><span class="keyword">;</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> len := len + 1
+    <span class="keyword">in</span>
+      list_vt_cons <span class="keyword">(</span><span class="keyword">@(</span>xw<span class="keyword">.</span>0<span class="keyword">,</span> xw<span class="keyword">.</span>1<span class="keyword">,</span> r<span class="keyword">)</span><span class="keyword">,</span> xwrs<span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>len := 0<span class="keyword">;</span> list_vt_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [trans0]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">dataviewtype</span> <span class="staexp"><a name="3407"><span class="stacstdec">tree1 <span class="keyword">(</span>a<span class="keyword">:</span>t@ype<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> Node1 <span class="staexp"><span class="keyword">(</span>a<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>tree1 a<span class="keyword">,</span> tree1 a<span class="keyword">)</span></span> <span class="keyword">|</span> Leaf1 <span class="staexp"><span class="keyword">(</span>a<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>a<span class="keyword">,</span> refdep<span class="keyword">)</span></span>
+<span class="comment">// end of [tree1]
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="3518"><span class="dyncstdec">tree1_free <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>t@ype<span class="keyword">}</span></span> <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">tree1 a</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "tree1_free"
+
+<span class="keyword">implement</span> tree1_free <span class="keyword">(</span>t<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> t <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>Node1 <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>tree1_free t1<span class="keyword">;</span> tree1_free t2<span class="keyword">)</span> <span class="keyword">|</span> <span class="keyword">~</span>Leaf1 _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [tree1_free]
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="3728"><span class="dyncstdec">Node1_make <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>t@ype<span class="keyword">}</span></span>
+  <span class="keyword">(</span>t1<span class="keyword">:</span> <span class="staexp">tree1 a</span><span class="keyword">,</span> t2<span class="keyword">:</span> <span class="staexp">tree1 a</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">tree1 a</span></span></a> <span class="keyword">=</span> "Node1_make"
+<span class="keyword">implement</span> Node1_make <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span> <span class="keyword">=</span> Node1 <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">absviewt@ype</span> <span class="staexp"><a name="3884"><span class="stacstdec">treelst <span class="keyword">(</span>a<span class="keyword">:</span>t@ype<span class="keyword">,</span> n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">$extype</span> "treelst"</span></a></span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="3941"><span class="dyncstdec">TREELSTnil <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>t@ype<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">treelst <span class="keyword">(</span>a<span class="keyword">,</span> 0<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "TREELSTnil"
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="4008"><span class="dyncstdec">TREELSTcons <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>t@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>w<span class="keyword">:</span> <span class="staexp">weight</span><span class="keyword">,</span> t<span class="keyword">:</span> <span class="staexp">tree1 a</span><span class="keyword">,</span> ts<span class="keyword">:</span> <span class="staexp">treelst <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">treelst <span class="keyword">(</span>a<span class="keyword">,</span> n+1<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "TREELSTcons"
+
+<span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> trans1 <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>xwrs<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>list_vt <span class="keyword">(</span><span class="keyword">@(</span>a<span class="keyword">,</span> weight<span class="keyword">,</span> refdep<span class="keyword">)</span><span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">treelst <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> xwrs <span class="keyword">of</span>
+  <span class="keyword">|</span> list_vt_cons <span class="keyword">(</span>xwr<span class="keyword">,</span> <span class="keyword">!</span>xwrs1<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> ts <span class="keyword">=</span> TREELSTcons <span class="keyword">(</span>xwr<span class="keyword">.</span>1<span class="keyword">,</span> Leaf1 <span class="keyword">(</span>xwr<span class="keyword">.</span>0<span class="keyword">,</span> xwr<span class="keyword">.</span>2<span class="keyword">)</span><span class="keyword">,</span> trans1 <span class="keyword">!</span>xwrs1<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      fold@ xwrs<span class="keyword">;</span> ts
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> list_vt_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>fold@ xwrs<span class="keyword">;</span> TREELSTnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [trans1]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="4484"><span class="dyncstdec">trans2_all <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>t@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>int <span class="keyword">|</span> n &gt;= 1<span class="keyword">}</span></span>
+  <span class="keyword">(</span>ts<span class="keyword">:</span> <span class="staexp">treelst <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">tree1 a</span></span></a> <span class="keyword">=</span> "trans2_all"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span>
+mark_depth_and_free <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">tree1 a</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">tree1 a</span><span class="keyword">,</span> d<span class="keyword">:</span> <span class="staexp">depth</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> t <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">~</span>Node1 <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">let</span> <span class="keyword">val</span> d1 <span class="keyword">=</span> d+1 <span class="keyword">in</span> aux <span class="keyword">(</span>t1<span class="keyword">,</span> d1<span class="keyword">)</span><span class="keyword">;</span> aux <span class="keyword">(</span>t2<span class="keyword">,</span> d1<span class="keyword">)</span> <span class="keyword">end</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> <span class="keyword">~</span>Leaf1 <span class="keyword">(</span>x<span class="keyword">,</span> r<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">!</span>r := d
+  <span class="keyword">end</span> <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>t<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [mark_depth_and_free]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="4953"><span class="stacstdec">tree <span class="keyword">(</span>a<span class="keyword">:</span>t@ype<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> Node <span class="staexp"><span class="keyword">(</span>a<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>tree a<span class="keyword">,</span> tree a<span class="keyword">)</span></span> <span class="keyword">|</span> Leaf <span class="staexp"><span class="keyword">(</span>a<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>a<span class="keyword">)</span></span>
+
+<span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> tree_build
+  <span class="keyword">(</span>xwrs<span class="keyword">:</span> <span class="staexp">List_vt <span class="keyword">@(</span>a<span class="keyword">,</span> weight<span class="keyword">,</span> refdep<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">tree a</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">typedef</span> <span class="staexp"><a name="5109"><span class="stacstdec">T <span class="keyword">=</span> <span class="keyword">@(</span>a<span class="keyword">,</span> weight<span class="keyword">,</span> refdep<span class="keyword">)</span></span></a></span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>xwrs<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>List_vt T</span><span class="keyword">,</span> d<span class="keyword">:</span> <span class="staexp">depth</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">tree a</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> xwrs <span class="keyword">of</span>
+    <span class="keyword">|</span> list_vt_cons <span class="keyword">(</span>xwr<span class="keyword">,</span> <span class="keyword">!</span>xwrs1<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> r <span class="keyword">=</span> xwr<span class="keyword">.</span>2
+      <span class="keyword">in</span>
+        <span class="keyword">if</span> <span class="keyword">!</span>r &lt;&gt; d <span class="keyword">then</span> <span class="keyword">begin</span>
+          fold@ xwrs<span class="keyword">;</span> Node <span class="keyword">(</span>aux <span class="keyword">(</span>xwrs<span class="keyword">,</span> d+1<span class="keyword">)</span><span class="keyword">,</span> aux <span class="keyword">(</span>xwrs<span class="keyword">,</span> d+1<span class="keyword">)</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> xwrs_v <span class="keyword">=</span> <span class="keyword">!</span>xwrs1
+        <span class="keyword">in</span>
+          free@ <span class="keyword">{</span>T<span class="keyword">}</span> <span class="keyword">{</span>0<span class="keyword">}</span> <span class="keyword">(</span>xwrs<span class="keyword">)</span><span class="keyword">;</span> xwrs := xwrs_v<span class="keyword">;</span> Leaf <span class="keyword">(</span>xwr<span class="keyword">.</span>0<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>      <span class="keyword">end</span> <span class="comment">// end of [list_vt_cons]
+</span>    <span class="keyword">|</span> list_vt_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        fold@ xwrs<span class="keyword">;</span>
+        prerr "Fatal Error: tree_build: aux: [xwrs] is empty!"<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+        exit <span class="staexp"><span class="keyword">{</span>tree a<span class="keyword">}</span></span> <span class="keyword">(</span>1<span class="keyword">)</span>
+      <span class="keyword">end</span>
+  <span class="keyword">end</span> <span class="comment">// end of [aux]
+</span>  <span class="keyword">var</span> xwrs <span class="keyword">=</span> xwrs<span class="keyword">;</span> <span class="keyword">val</span> t <span class="keyword">=</span> aux <span class="keyword">(</span>xwrs<span class="keyword">,</span> 0<span class="keyword">)</span><span class="keyword">;</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> xwrs <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">~</span>list_vt_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">|</span> list_vt_cons _ <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+          prerr "Fatal Error: tree_build: aux: [xwrs] is not nil!"<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          exit <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span>1<span class="keyword">)</span>
+        <span class="keyword">end</span>
+      <span class="keyword">in</span>
+        fold@ xwrs<span class="keyword">;</span> list_vt_free&lt;<span class="staexp">T</span><span class="keyword">&gt;</span> <span class="keyword">(</span>xwrs<span class="keyword">)</span>
+      <span class="keyword">end</span>
+<span class="keyword">in</span>
+  t <span class="comment">// the return value
+</span><span class="keyword">end</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymous*)</span> <span class="keyword">=</span> "prelude/DATS/list.dats"</span>
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymous*)</span> <span class="keyword">=</span> "prelude/DATS/list_vt.dats"</span>
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymous*)</span> <span class="keyword">=</span> "prelude/DATS/reference.dats"</span>
+
+<span class="comment">// for the purpose of debugging
+</span><span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> print_list <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>xwrs<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>list_vt <span class="keyword">(</span><span class="keyword">@(</span>a<span class="keyword">,</span> weight<span class="keyword">,</span> refdep<span class="keyword">)</span><span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> xwrs <span class="keyword">of</span>
+  <span class="keyword">|</span> list_vt_cons <span class="keyword">(</span>xwr<span class="keyword">,</span> <span class="keyword">!</span>xwrs1<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      print xwr<span class="keyword">.</span>1<span class="keyword">;</span> print "(w)"<span class="keyword">;</span> print <span class="keyword">!</span><span class="keyword">(</span>xwr<span class="keyword">.</span>2<span class="keyword">)</span><span class="keyword">;</span> print "(r)"<span class="keyword">;</span> print_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      print_list <span class="keyword">(</span><span class="keyword">!</span>xwrs1<span class="keyword">)</span><span class="keyword">;</span> fold@ <span class="keyword">(</span>xwrs<span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [print_list]
+</span>
+<span class="comment">// for the purpose of debugging
+</span><span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> print_tree <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">tree a</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">tree a</span><span class="keyword">,</span> d<span class="keyword">:</span> <span class="staexp">depth</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> t <span class="keyword">of</span> 
+    <span class="keyword">|</span> Node <span class="keyword">(</span>t1<span class="keyword">,</span> t2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>aux <span class="keyword">(</span>t1<span class="keyword">,</span> d+1<span class="keyword">)</span><span class="keyword">;</span> aux <span class="keyword">(</span>t2<span class="keyword">,</span> d+1<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">|</span> Leaf _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>printf <span class="keyword">(</span>"Leaf(%i)"<span class="keyword">,</span> <span class="keyword">@(</span>d<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span> print_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">end</span>
+<span class="keyword">in</span>
+  aux <span class="keyword">(</span>t<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [print_tree]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// [GW] implements the Garsia-Wachs algorithm
+</span><span class="keyword">extern</span> <span class="keyword">fun</span> <span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <a name="7013"><span class="dyncstdec">GW <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>pos<span class="keyword">}</span></span> <span class="keyword">(</span>xws<span class="keyword">:</span> <span class="staexp">list <span class="keyword">(</span><span class="keyword">@(</span>a<span class="keyword">,</span> weight<span class="keyword">)</span><span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">tree a</span></span></a>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span> GW <span class="keyword">(</span>xws<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> len<span class="keyword">:</span> <span class="staexp">int?</span><span class="keyword">;</span> <span class="keyword">val</span> xwrs <span class="keyword">=</span> trans0 <span class="keyword">(</span>xws<span class="keyword">,</span> len<span class="keyword">)</span>
+  <span class="keyword">val</span> ts <span class="keyword">=</span> trans1 <span class="keyword">(</span>xwrs<span class="keyword">)</span><span class="keyword">;</span> <span class="keyword">val</span> t1 <span class="keyword">=</span> trans2_all <span class="keyword">(</span>ts<span class="keyword">,</span> len<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> mark_depth_and_free <span class="keyword">(</span>t1<span class="keyword">)</span>
+<span class="comment">(*
+  val () = print_list (xwrs)
+*)</span>
+  <span class="keyword">val</span> t <span class="keyword">=</span> tree_build <span class="keyword">(</span>xwrs<span class="keyword">)</span>
+<span class="comment">(*
+  val () = print_tree (t)
+*)</span>
+<span class="keyword">in</span>
+  t <span class="comment">// return value
+</span><span class="keyword">end</span> <span class="comment">// end of [GW]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> main <span class="keyword">(</span>argc<span class="keyword">,</span> argv<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> xws <span class="keyword">=</span> <span class="keyword">'[</span>
+    <span class="keyword">(</span>' '<span class="keyword">,</span> 186<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'a'<span class="keyword">,</span>  64<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'b'<span class="keyword">,</span>  13<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'c'<span class="keyword">,</span>  22<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'d'<span class="keyword">,</span>  32<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'e'<span class="keyword">,</span> 103<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'f'<span class="keyword">,</span>  21<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'g'<span class="keyword">,</span>  15<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'h'<span class="keyword">,</span>  47<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'i'<span class="keyword">,</span>  57<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'j'<span class="keyword">,</span>   1<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'k'<span class="keyword">,</span>   5<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'l'<span class="keyword">,</span>  32<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'m'<span class="keyword">,</span>  20<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'n'<span class="keyword">,</span>  57<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'o'<span class="keyword">,</span>  63<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'p'<span class="keyword">,</span>  15<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'q'<span class="keyword">,</span>   1<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'r'<span class="keyword">,</span>  48<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'s'<span class="keyword">,</span>  51<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'t'<span class="keyword">,</span>  80<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'u'<span class="keyword">,</span>  23<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'v'<span class="keyword">,</span>   8<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'w'<span class="keyword">,</span>  18<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'x'<span class="keyword">,</span>   1<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'y'<span class="keyword">,</span>  16<span class="keyword">)</span>
+  <span class="keyword">,</span> <span class="keyword">(</span>'z'<span class="keyword">,</span>   1<span class="keyword">)</span>
+  <span class="keyword">]</span>
+<span class="comment">(*
+  // for the purpose of measurement
+  val xws = xws + xws // 2
+  val xws = xws + xws // 4
+  val xws = xws + xws // 8
+  val xws = xws + xws // 16
+  val xws = xws + xws // 32
+  val xws = xws + xws // 64
+  val xws = xws + xws // 128
+  val xws = xws + xws // 256
+  val xws = xws + xws // 512
+  val xws = xws + xws // 1024
+*)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> nxws <span class="keyword">=</span> list_length <span class="keyword">(</span>xws<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    print "nxws = "<span class="keyword">;</span> print nxws<span class="keyword">;</span> print_newline <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> _<span class="comment">(*tree*)</span> <span class="keyword">=</span> GW&lt;<span class="staexp">char</span><span class="keyword">&gt;</span> <span class="keyword">(</span>xws<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">fun</span> loop <span class="keyword">(</span>n<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+      <span class="keyword">if</span> n <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span> <span class="keyword">val</span> _ <span class="keyword">=</span> GW&lt;<span class="staexp">char</span><span class="keyword">&gt;</span> <span class="keyword">(</span>xws<span class="keyword">)</span> <span class="keyword">in</span> loop <span class="keyword">(</span>n-1<span class="keyword">)</span> <span class="keyword">end</span>
+    <span class="keyword">end</span>
+  <span class="keyword">in</span>
+    loop <span class="keyword">(</span>100<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [GarsiaWachs.dats] *)</span>
+
+<span class="comment">////
+
+(*
+
+Author: Jean-Christophe Fillatre
+
+*)
+
+(* Garsia-Wachs algorithm for optimum binary tree. 
+   See TAOCP vol. 3 page 451. *)
+
+type 'a tree =
+  | Leaf of 'a
+  | Node of 'a tree * 'a tree
+
+(* phase 1 : build an optimum tree, with leaves in any order *)
+
+let phase1 l =
+  let rec extract before = function
+    | [] | [_] -&gt;
+	assert false
+    | [t1,w1; t2,w2] -&gt;
+	before, (Node (t1, t2), w1 + w2), []
+    | (t1, w1) :: (t2, w2) :: ((_, w3) :: _ as after) when w1 &lt;= w3 -&gt;
+	before, (Node (t1, t2), w1 + w2), after
+    | e1 :: r -&gt;
+	extract (e1 :: before) r
+  in
+  let rec insert after ((_,wk) as tk) = function
+    | [] -&gt; 
+	tk :: after (* insertion at the beginning *)
+    | (_, wj) :: _ as before when wj &gt;= wk -&gt;
+	List.rev_append before (tk :: after) (* inefficient *)
+    | tj :: before -&gt;
+	insert (tj :: after) tk before
+  in
+  let rec loop = function
+    | [] -&gt; 
+	assert false
+    | [t,_] -&gt; 
+	t
+    | l -&gt; 
+	let before, tk, after = extract [] l in
+	loop (insert after tk before)
+  in
+  loop l
+
+(* optimization (efficient use of the Zipper, to avoid [List.rev_append]) *)
+
+let phase1opt l =
+  let rec extract before = function
+    | [] -&gt;
+	assert false
+    | [t,_] -&gt;
+	t
+    | [t1,w1; t2,w2] -&gt;
+	insert [] (Node (t1, t2), w1 + w2) before
+    | (t1, w1) :: (t2, w2) :: ((_, w3) :: _ as after) when w1 &lt;= w3 -&gt;
+	insert after (Node (t1, t2), w1 + w2) before
+    | e1 :: r -&gt;
+	extract (e1 :: before) r
+  and insert after ((_,wt) as t) = function
+    | [] -&gt; 
+	extract [] (t :: after)
+    | (_, wj_1) as tj_1 :: before when wj_1 &gt;= wt -&gt;
+    	begin match before with
+	  | [] -&gt; extract [] (tj_1 :: t :: after)
+	  | tj_2 :: before -&gt; extract before (tj_2 :: tj_1 :: t :: after)
+	end
+    | tj :: before -&gt;
+	insert (tj :: after) t before
+  in
+  extract [] l
+
+(* phase 2 : mark each leaf with its depth *)
+
+let rec mark d = function
+  | Leaf (_, dx) -&gt; dx := d
+  | Node (l, r) -&gt; mark (d + 1) l; mark (d + 1) r
+
+(* phase 3 : build a tree from the list of leaves/depths *)
+
+let rec build d = function
+  | [] | (Node _, _) :: _ -&gt;
+      assert false
+  | (Leaf (x, dx), _) :: r when !dx = d -&gt; 
+      Leaf x, r
+  | l -&gt; 
+      let left,l = build (d+1) l in
+      let right,l = build (d+1) l in
+      Node (left, right), l
+
+let garsia_wachs l =
+  let l = List.map (fun (x, wx) -&gt; Leaf (x, ref 0), wx) l in
+  let t = phase1opt l in
+  mark 0 t;
+  let t, l = build 0 l in
+  assert (l = []);
+  t
+
+(* test *)
+
+let alpha = 
+  [' ', 186; 'a', 64; 'b', 13; 'c', 22; 'd', 32;
+   'e', 103; 'f', 21; 'g', 15; 'h', 47; 'i', 57;
+   'j', 1;   'k', 5;  'l', 32; 'm', 20; 'n', 57;
+   'o', 63;  'p', 15; 'q', 1;  'r', 48; 's', 51;
+   't', 80;  'u', 23; 'v', 8;  'w', 18; 'x', 1;
+   'y', 16;  'z', 1
+  ]
+
+let xws = alpha
+(*
+// for the purpose of measurements
+*)
+let xws = xws @ xws (* 2 *)
+let xws = xws @ xws (* 4 *)
+let xws = xws @ xws (* 8 *)
+let xws = xws @ xws (* 16 *)
+let xws = xws @ xws (* 32 *)
+let xws = xws @ xws (* 64 *)
+let xws = xws @ xws (* 128 *)
+let xws = xws @ xws (* 256 *)
+let xws = xws @ xws (* 512 *)
+let xws = xws @ xws (* 1024 *)
+let nxws = List.length (xws)
+let () = (print_string "nxws = "; print_int nxws; print_newline ())
+
+let rec loop (n) = begin
+  if n &gt; 0 then let t = garsia_wachs xws in loop (n-1)
+end
+  
+let () = loop (100)
+
+(* end of [GarsiaWachs.ml] *)
+</span></pre>
+</body>
+</html>

@@ -1,0 +1,321 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>Constraint-Solving during Typechecking</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+TITLE="Introduction to Programming in ATS"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Introduction to Dependent Types"
+HREF="c2083.html"><LINK
+REL="PREVIOUS"
+TITLE="Introduction to Dependent Types"
+HREF="c2083.html"><LINK
+REL="NEXT"
+TITLE="Example: String Processing"
+HREF="x2300.html"></HEAD
+><BODY
+CLASS="sect1"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>Introduction to Programming in ATS: </TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="c2083.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+>Introduction to Dependent Types</TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="x2300.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="sect1"
+><H1
+CLASS="sect1"
+><A
+NAME="constraint-solving_during_typechecking"
+>Constraint-Solving during Typechecking</A
+></H1
+><P
+>Typechecking in ATS involves generating and solving constraints.  As an
+example, the code below gives an implementation of the factorial function:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN2274"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun fact {n:nat}
+  (x: int n): [r:nat] int r = if x &#62; 0 then x * fact (x-1) else 1
+// end of [fact]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+In this implementation, the function <FONT
+COLOR="RED"
+>fact</FONT
+> is assigned the
+following type:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN2277"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>{n:nat} int(n) -&#62; [r:nat] int(r)
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+which means that <FONT
+COLOR="RED"
+>fact</FONT
+> returns a natural number r when applied to
+a natural number n. When the code is typechecked, the following
+constraints need to be solved:
+
+<P
+></P
+><UL
+><LI
+><P
+>&#13;For each natural number n, n &#62; 0 implies n - 1 &#62;= 0
+</P
+></LI
+><LI
+><P
+>For each natural number n and each natural number
+r<SUB
+>1</SUB
+>, n &#62; 0 implies n * r<SUB
+>1</SUB
+> &#62;= 0 </P
+></LI
+><LI
+><P
+>&#13;For each natural number n, 1 &#62;= 0 holds.
+</P
+></LI
+></UL
+>
+
+The first constraint is generated due to the call <FONT
+COLOR="RED"
+>fact(x-1)</FONT
+>,
+which requires that <FONT
+COLOR="RED"
+>x-1</FONT
+> be a natural number. The second
+constraint is generated in order to verify that <FONT
+COLOR="RED"
+>x * fact(x-1)</FONT
+>
+is a natural number under the assumption that <FONT
+COLOR="RED"
+>fact(x-1)</FONT
+> is a
+natural number.  The third constraint is generated in order to verify that
+<FONT
+COLOR="RED"
+>1</FONT
+> is a natural number.  The first and the third constraints
+can be readily solved by the constraint solver in ATS, which is based on
+the Fourier-Motzkin variable elimination method. However, the second
+constraint cannot be handled by the constraint solver as it is nonlinear:
+The constraint cannot be turned into a linear integer programming problem
+due to the occurrence of the nonlinear term (n*r<SUB
+>1</SUB
+>).
+While nonlinear constraints cannot be handled automatically by the
+constraint solver in ATS, the programmer can verify them by constructing
+proofs in ATS explicitly. I will coven the issue of explicit proof
+construction in an elaborated manner elsewhere.
+</P
+><P
+>As a more interesting example, the following code implements
+MacCarthy's famous 91-function:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN2296"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun f91 {i:int} (x: int i)
+  : [j:int | (i &#60; 101 &#38;&#38; j==91) || (i &#62;= 101 &#38;&#38; j==i-10)] int (j) =
+  if x &#62;= 101 then x-10 else f91 (f91 (x+11))
+// end of [f91]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+The type assigned to <FONT
+COLOR="RED"
+>f91</FONT
+> clearly indicates that the function
+always returns 91 if its argument is less than 101 or it returns the
+difference between its argument and 10. The constraints generated during
+typechecking in this example are all linear and can be readily solved by
+the the constraint-solver employed by the typechecker of ATS.
+</P
+><P
+>Currently, the constraint-solver implemented for ATS/Anairiats makes
+use of machine-level arithmetic (in contrast to the standard arithmetic of
+infinite precision). This is done primarily for the sake of efficiency. In
+the presence of machine-level arithmetic overflow during
+constraint-solving, results returned by the constraint-solver are likely to
+be incorrect. While such cases can be readily constructed, their
+appearances in practice seem rare.
+</P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="c2083.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="x2300.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Introduction to Dependent Types</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="c2083.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Example: String Processing</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

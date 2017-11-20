@@ -1,0 +1,375 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2010 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the  terms of the  GNU General Public License as published by the Free
+** Software Foundation; either version 2.1, or (at your option) any later
+** version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* author: Hongwei Xi (hwxi AT cs DOT bu DOT edu) *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{#
+#include "libc/CATS/time.cats"
+%}</span> <span class="comment">// end of [%{#]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">TYPES <span class="keyword">=</span> "libc/sys/SATS/types.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="1631"><span class="stacstdec">tm_struct <span class="keyword">=</span>
+  <span class="keyword">$extype_struct</span> "ats_tm_struct_type" <span class="keyword">of</span> <span class="keyword">{</span>
+  tm_sec<span class="keyword">=</span> int <span class="comment">(* seconds *)</span>
+<span class="keyword">,</span> tm_min<span class="keyword">=</span> int <span class="comment">(* minutes *)</span>
+<span class="keyword">,</span> tm_hour<span class="keyword">=</span> int <span class="comment">(* hours *)</span>
+<span class="keyword">,</span> tm_mday<span class="keyword">=</span> int <span class="comment">(* day of the month *)</span>
+<span class="keyword">,</span> tm_mon<span class="keyword">=</span> int <span class="comment">(* month *)</span>
+<span class="keyword">,</span> tm_year<span class="keyword">=</span> int <span class="comment">(* year *)</span>
+<span class="keyword">,</span> tm_wday<span class="keyword">=</span> int <span class="comment">(* day of the week *)</span>
+<span class="keyword">,</span> tm_yday<span class="keyword">=</span> int <span class="comment">(* day in the year *)</span>
+<span class="keyword">,</span> tm_isdst<span class="keyword">=</span> int <span class="comment">(* daylight saving time *)</span>
+<span class="keyword">}</span></span></a></span> <span class="comment">// end of [tm_struct]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="2030"><span class="stacstdec">time_t <span class="keyword">=</span> $TYPES<span class="keyword">.</span>time_t</span></a></span>
+<span class="comment">//
+</span><span class="comment">// HX: these are implemented in libc/sys/CATS/types.cats
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="2120"><span class="dyncstdec">lint_of_time <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">time_t</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">lint</span></span></a> <span class="keyword">=</span> "atslib_lint_of_time"
+<span class="neuexp"><span class="keyword">overload</span> lint_of <span class="keyword">with</span> lint_of_time</span>
+<span class="keyword">fun</span> <a name="2216"><span class="dyncstdec">double_of_time <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">time_t</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">double</span></span></a> <span class="keyword">=</span> "atslib_double_of_time"
+<span class="neuexp"><span class="keyword">overload</span> double_of <span class="keyword">with</span> double_of_time</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="2344"><span class="dyncstdec">difftime
+  <span class="keyword">(</span>finish<span class="keyword">:</span> <span class="staexp">time_t</span><span class="keyword">,</span> start<span class="keyword">:</span> <span class="staexp">time_t</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">double</span></span></a> <span class="keyword">=</span> "#atslib_difftime"
+<span class="comment">// end of [difftime]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+** HX (2010-01-15):
+** These functions are now kept for backward compatibility
+*)</span>
+<span class="keyword">fun</span> <a name="2550"><span class="dyncstdec">tm_get_sec
+  <span class="keyword">(</span>tm<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>tm_struct<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "atslib_tm_get_sec"
+<span class="keyword">fun</span> <a name="2619"><span class="dyncstdec">tm_get_min
+  <span class="keyword">(</span>tm<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>tm_struct<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "atslib_tm_get_min"
+<span class="keyword">fun</span> <a name="2688"><span class="dyncstdec">tm_get_hour
+  <span class="keyword">(</span>tm<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>tm_struct<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "atslib_tm_get_hour"
+<span class="keyword">fun</span> <a name="2759"><span class="dyncstdec">tm_get_mday
+  <span class="keyword">(</span>tm<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>tm_struct<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "atslib_tm_get_mday"
+<span class="keyword">fun</span> <a name="2830"><span class="dyncstdec">tm_get_mon
+  <span class="keyword">(</span>tm<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>tm_struct<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "atslib_tm_get_mon"
+<span class="keyword">fun</span> <a name="2899"><span class="dyncstdec">tm_get_year
+  <span class="keyword">(</span>tm<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>tm_struct<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "atslib_tm_get_year"
+<span class="keyword">fun</span> <a name="2970"><span class="dyncstdec">tm_get_wday
+  <span class="keyword">(</span>tm<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>tm_struct<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "atslib_tm_get_wday"
+<span class="keyword">fun</span> <a name="3041"><span class="dyncstdec">tm_get_yday
+  <span class="keyword">(</span>tm<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>tm_struct<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "atslib_tm_get_yday"
+<span class="keyword">fun</span> <a name="3112"><span class="dyncstdec">tm_get_isdst
+  <span class="keyword">(</span>tm<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>tm_struct<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "atslib_tm_get_isdst"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="neuexp"><span class="keyword">symintr</span></span> time
+
+<span class="comment">// HX: error-checking is nor forced
+</span><span class="keyword">fun</span> <a name="3257"><span class="dyncstdec">time_get <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">time_t</span></span></a> <span class="keyword">=</span> "atslib_time_get"
+<span class="neuexp"><span class="keyword">overload</span> time <span class="keyword">with</span> time_get</span>
+
+<span class="keyword">fun</span> <a name="3330"><span class="dyncstdec">time_get_and_set <span class="comment">// HX: error must be checked!
+</span>  <span class="keyword">(</span>p<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>time_t? &gt;&gt; opt <span class="keyword">(</span>time_t<span class="keyword">,</span> b<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>b<span class="keyword">:</span>bool<span class="keyword">]</span> bool <span class="keyword">(</span>b<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atslib_time_get_and_set" <span class="comment">// function!
+</span><span class="neuexp"><span class="keyword">overload</span> time <span class="keyword">with</span> time_get_and_set</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// non-reentrant
+</span><span class="keyword">fun</span> <a name="3554"><span class="dyncstdec">ctime <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>time_t<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span>
+  <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>strptr l <span class="keyword">-&lt;</span>lin<span class="keyword">,</span>prf<span class="keyword">&gt;</span> void <span class="keyword">|</span> strptr l<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_ctime"
+<span class="comment">// end of [ctime]
+</span>
+<span class="keyword">#define</span> <span class="neuexp">CTIME_BUFLEN 26</span>
+<span class="keyword">dataview</span> <span class="prfexp"><span class="staexp"><a name="3705"><span class="stacstdec">ctime_v <span class="keyword">(</span>m<span class="keyword">:</span>int<span class="keyword">,</span> addr<span class="keyword">,</span> addr<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">l<span class="keyword">:</span>addr</span> <span class="keyword">|</span> <span class="staexp">l <span class="keyword">&gt;</span> null</span><span class="keyword">}</span>
+    ctime_v_succ <span class="staexp"><span class="keyword">(</span>m<span class="keyword">,</span> l<span class="keyword">,</span> l<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">strbuf <span class="keyword">(</span>m<span class="keyword">,</span> CTIME_BUFLEN - 1<span class="keyword">)</span> @ l</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">l<span class="keyword">:</span>addr</span><span class="keyword">}</span> ctime_v_fail <span class="staexp"><span class="keyword">(</span>m<span class="keyword">,</span> l<span class="keyword">,</span> null<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">b0ytes <span class="keyword">(</span>m<span class="keyword">)</span> @ l</span></span>
+<span class="keyword">fun</span> <a name="3883"><span class="dyncstdec">ctime_r <span class="comment">// reentrant
+</span>  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>int <span class="keyword">|</span> m &gt;= CTIME_BUFLEN<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span> b0ytes <span class="keyword">(</span>m<span class="keyword">)</span> @ l &gt;&gt; ctime_v <span class="keyword">(</span>m<span class="keyword">,</span> l<span class="keyword">,</span> l1<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> t<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>time_t<span class="keyword">)</span></span><span class="keyword">,</span> p_buf<span class="keyword">:</span> <span class="staexp">ptr l</span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">#[</span>l1<span class="keyword">:</span>addr<span class="keyword">]</span> ptr l1</span></span></a> <span class="keyword">=</span> "#atslib_ctime_r"
+<span class="comment">// end of [ctime_r]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// [localtime] is non-reentrant
+</span><span class="keyword">fun</span> <a name="4151"><span class="dyncstdec">localtime <span class="keyword">(</span>time<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>time_t<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span>
+  <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>vptroutopt <span class="keyword">(</span>tm_struct<span class="keyword">,</span> l<span class="keyword">)</span> <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_localtime"
+<span class="comment">// end of [localtime]
+</span>
+<span class="comment">// [localtime_r] is reentrant
+</span><span class="keyword">fun</span> <a name="4316"><span class="dyncstdec">localtime_r <span class="keyword">(</span>
+    time<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>time_t<span class="keyword">)</span></span><span class="keyword">,</span> tm<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>tm_struct? &gt;&gt; opt <span class="keyword">(</span>tm_struct<span class="keyword">,</span> l <span class="keyword">&gt;</span> null<span class="keyword">)</span></span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">#[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> ptr l</span></span></a> <span class="keyword">=</span> "#atslib_localtime_r"
+<span class="comment">// end of [localtime_r]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// [gmtime] is non-reentrant
+</span><span class="keyword">fun</span> <a name="4527"><span class="dyncstdec">gmtime <span class="keyword">(</span>time<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>time_t<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span>
+  <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>vptroutopt <span class="keyword">(</span>tm_struct<span class="keyword">,</span> l<span class="keyword">)</span> <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_gmtime"
+<span class="comment">// end of [gmtime]
+</span>
+<span class="comment">// [gmtime_r] is reentrant
+</span><span class="keyword">fun</span> <a name="4680"><span class="dyncstdec">gmtime_r <span class="keyword">(</span>
+    time<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>time_t<span class="keyword">)</span></span><span class="keyword">,</span> tm<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>tm_struct? &gt;&gt; opt <span class="keyword">(</span>tm_struct<span class="keyword">,</span> l <span class="keyword">&gt;</span> null<span class="keyword">)</span></span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">#[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> ptr l</span></span></a> <span class="keyword">=</span> "#atslib_gmtime_r"
+<span class="comment">// end of [gmtime_r]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="4853"><span class="dyncstdec">mktime
+  <span class="keyword">(</span>tm<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>tm_struct<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">time_t</span></span></a> <span class="keyword">=</span> "#atslib_mktime" <span class="comment">// returns -1 on error
+</span><span class="comment">// end of [mktime]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="4980"><span class="dyncstdec">asctime <span class="keyword">(</span>tm<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>tm_struct<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span>
+  <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>strptr l <span class="keyword">-&lt;</span>lin<span class="keyword">,</span>prf<span class="keyword">&gt;</span> void <span class="keyword">|</span> strptr l<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_asctime"
+<span class="comment">// end of [asctime]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="5133"><span class="dyncstdec">strftime <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>pos<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>b0ytes m @ l &gt;&gt; strbuf <span class="keyword">(</span>m<span class="keyword">,</span> n<span class="keyword">)</span> @ l</span></span>
+  <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">,</span> m<span class="keyword">:</span> <span class="staexp">size_t m</span><span class="keyword">,</span> fmt<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>READ<span class="keyword">(</span>string<span class="keyword">)</span></span><span class="keyword">,</span> tm<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>tm_struct<span class="keyword">)</span></span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">#[</span>n<span class="keyword">:</span>nat <span class="keyword">|</span> n <span class="keyword">&lt;</span> m<span class="keyword">]</span> size_t n</span></span></a>
+  <span class="keyword">=</span> "#atslib_strftime" <span class="comment">// this a macro!
+</span><span class="comment">// end of [strftime]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+//
+// HX-2010-09-26:
+// the function is not in FreeBSD or Darwin;
+// [getdate] sets [getdate_err] if an error occurs
+//
+fun getdate_err_get ():&lt;&gt; int = "atslib_getdate_err_get"
+fun getdate_err_set (x: int):&lt;&gt; void = "atslib_getdate_err_set"
+fun getdate (str: !READ(string)):&lt;!ref&gt;
+  [l:addr] (ptroutopt (tm_struct, l) | ptr l) = "#atslib_getdate"
+// end of [getdate]
+*)</span>
+
+<span class="comment">//
+</span><span class="comment">// -D_XOPEN_SOURCE
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="5792"><span class="dyncstdec">strptime <span class="keyword">(</span>
+    str<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>READ<span class="keyword">(</span>string<span class="keyword">)</span></span>
+  <span class="keyword">,</span> fmt<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>READ<span class="keyword">(</span>string<span class="keyword">)</span></span>
+  <span class="keyword">,</span> tm<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>tm_struct? &gt;&gt; opt <span class="keyword">(</span>tm_struct<span class="keyword">,</span> l <span class="keyword">&gt;</span> null<span class="keyword">)</span></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> ptr l</span></span></a> <span class="keyword">=</span> "#atslib_strptime" <span class="comment">// HX: it returns NULL on error
+</span><span class="comment">// end of [strptime]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+extern int daylight ; // not in FreeBSD or Darwin
+extern long int timezone ; // not in FreeBSD or Darwin
+extern char *tzname[2] ; // not in FreeBSD or Darwin
+*)</span>
+<span class="keyword">fun</span> <a name="6184"><span class="dyncstdec">tzsset <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "#atslib_tzset"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="6254"><span class="stacstdec">clock_t <span class="keyword">=</span> $TYPES<span class="keyword">.</span>clock_t</span></a></span>
+<span class="keyword">macdef</span> <span class="neuexp">CLOCKS_PER_SEC <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>clock_t<span class="keyword">,</span> "CLOCKS_PER_SEC"<span class="keyword">)</span></span>
+<span class="comment">//
+</span><span class="comment">// HX: these are implemented in libc/sys/CATS/types.cats
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="6406"><span class="dyncstdec">lint_of_clock <span class="keyword">(</span>c<span class="keyword">:</span> <span class="staexp">clock_t</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">lint</span></span></a> <span class="keyword">=</span> "atslib_lint_of_clock"
+<span class="neuexp"><span class="keyword">overload</span> lint_of <span class="keyword">with</span> lint_of_clock</span>
+<span class="keyword">fun</span> <a name="6506"><span class="dyncstdec">double_of_clock <span class="keyword">(</span>c<span class="keyword">:</span> <span class="staexp">clock_t</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">double</span></span></a> <span class="keyword">=</span> "atslib_double_of_clock"
+<span class="neuexp"><span class="keyword">overload</span> double_of <span class="keyword">with</span> double_of_clock</span>
+<span class="comment">//
+</span><span class="keyword">fun</span> <a name="6619"><span class="dyncstdec">clock <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">clock_t</span></span></a> <span class="keyword">=</span> "#atslib_clock" <span class="comment">// HX: it returns -1 on error
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span>
+<span class="staexp"><a name="6715"><span class="stacstdec">timespec_struct <span class="keyword">=</span>
+<span class="keyword">$extype_struct</span>
+"ats_timespec_type" <span class="keyword">of</span> <span class="keyword">{</span>
+  tv_sec<span class="keyword">=</span> time_t <span class="comment">// seconds
+</span><span class="keyword">,</span> tv_nsec<span class="keyword">=</span> lint  <span class="comment">// nanoseconds
+</span><span class="keyword">}</span></span></a></span> <span class="comment">// end of [timespec_struct]
+</span><span class="keyword">typedef</span> <span class="staexp"><a name="6871"><span class="stacstdec">timespec <span class="keyword">=</span> timespec_struct</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: 0/-1 : succ/fail // errno set to EINTR
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="6975"><span class="dyncstdec">nanosleep <span class="keyword">(</span>
+  nsec<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>timespec<span class="keyword">)</span></span><span class="keyword">,</span> rem<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>timespec? &gt;&gt; opt <span class="keyword">(</span>timespec<span class="keyword">,</span> i==0<span class="keyword">)</span></span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &lt;= 0<span class="keyword">]</span> int<span class="keyword">(</span>i<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_nanosleep"
+<span class="comment">// end of [nanosleep]
+</span>
+<span class="keyword">fun</span> <a name="7130"><span class="dyncstdec">nanosleep_null <span class="keyword">(</span>nsec<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>timespec<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_nanosleep_null"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="7231"><span class="stacstdec">clockid_t <span class="keyword">=</span> $TYPES<span class="keyword">.</span>clockid_t</span></a></span>
+<span class="keyword">macdef</span> <span class="neuexp">CLOCK_REALTIME <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>clockid_t<span class="keyword">,</span> "CLOCK_REALTIME"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">CLOCK_MONOTONIC <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>clockid_t<span class="keyword">,</span> "CLOCK_MONOTONIC"<span class="keyword">)</span></span>
+<span class="comment">(*
+macdef CLOCK_THREAD_CPUTIME_ID = $extval (clockid_t, "CLOCK_THREAD_CPUTIME_ID")
+macdef CLOCK_PROCESS_CPUTIME_ID = $extval (clockid_t, "CLOCK_PROCESS_CPUTIME_ID")
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: 0/-1 : succ/fail // errno set
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="7622"><span class="dyncstdec">clock_gettime <span class="keyword">(</span>
+  id<span class="keyword">:</span> <span class="staexp">clockid_t</span>
+<span class="keyword">,</span> tp<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>timespec? &gt;&gt; opt <span class="keyword">(</span>timespec<span class="keyword">,</span> i==0<span class="keyword">)</span></span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &lt;= 0<span class="keyword">]</span> int<span class="keyword">(</span>i<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_clock_gettime"
+<span class="comment">// end of [clock_gettime]
+</span><span class="comment">//
+</span><span class="comment">// HX: 0/-1 : succ/fail // errno set
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="7823"><span class="dyncstdec">clock_getres <span class="keyword">(</span>
+  id<span class="keyword">:</span> <span class="staexp">clockid_t</span>
+<span class="keyword">,</span> tp<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>timespec? &gt;&gt; opt <span class="keyword">(</span>timespec<span class="keyword">,</span> i==0<span class="keyword">)</span></span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &lt;= 0<span class="keyword">]</span> int<span class="keyword">(</span>i<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_clock_getres"
+<span class="comment">// end of [clock_getres]
+</span>
+<span class="comment">// HX: superuser privilege is needed for this one
+</span><span class="keyword">fun</span> <a name="8029"><span class="dyncstdec">clock_settime <span class="comment">// HX: 0/-1 : succ/fail // errno set
+</span>  <span class="keyword">(</span>id<span class="keyword">:</span> <span class="staexp">clockid_t</span><span class="keyword">,</span> tp<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>timespec<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_clock_settime"
+<span class="comment">// end of [clock_settime]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">absview</span> <span class="staexp"><a name="8206"><span class="stacstdec">timer_v</span></a></span> <span class="keyword">(</span>i<span class="keyword">:</span>int<span class="keyword">)</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="8229"><span class="stacstdec">timer_t <span class="keyword">=</span> $TYPES<span class="keyword">.</span>timer_t</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span>
+<span class="staexp"><a name="8284"><span class="stacstdec">itimerspec_struct <span class="keyword">=</span>
+<span class="keyword">$extype_struct</span>
+"ats_itimerspec_type" <span class="keyword">of</span> <span class="keyword">{</span>
+  it_interval<span class="keyword">=</span> timespec <span class="comment">(* reset value *)</span>
+<span class="keyword">,</span> it_value<span class="keyword">=</span> timespec    <span class="comment">(* current value *)</span>
+<span class="keyword">}</span></span></a></span> <span class="comment">// end of [itimerspec_struct]
+</span><span class="keyword">typedef</span> <span class="staexp"><a name="8472"><span class="stacstdec">itimerspec <span class="keyword">=</span> itimerspec_struct</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: 0/-1 : succ/fail // errno set
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="8571"><span class="dyncstdec">timer_create_null <span class="keyword">(</span>
+  cid<span class="keyword">:</span> <span class="staexp">clockid_t</span><span class="keyword">,</span> tid<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>timer_t? &gt;&gt; opt <span class="keyword">(</span>timer_t<span class="keyword">(</span>id<span class="keyword">)</span><span class="keyword">,</span> i==0<span class="keyword">)</span></span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">,</span>id<span class="keyword">:</span>int <span class="keyword">|</span> i &lt;= 0<span class="keyword">]</span> <span class="keyword">(</span>option_v <span class="keyword">(</span>timer_v<span class="keyword">(</span>id<span class="keyword">)</span><span class="keyword">,</span> i==0<span class="keyword">)</span> <span class="keyword">|</span> int<span class="keyword">(</span>i<span class="keyword">)</span><span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "#atslib_timer_create_null"
+<span class="comment">// end of [timer_create_null]
+</span>
+<span class="comment">//
+</span><span class="comment">// HX: 0/-1 : succ/fail // errno set
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="8826"><span class="dyncstdec">timer_delete <span class="staexp"><span class="keyword">{</span>id<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>timer_v<span class="keyword">(</span>id<span class="keyword">)</span> &gt;&gt; option_v <span class="keyword">(</span>timer_v<span class="keyword">(</span>id<span class="keyword">)</span><span class="keyword">,</span> i <span class="keyword">&lt;</span> 0<span class="keyword">)</span></span></span> <span class="keyword">|</span> tid<span class="keyword">:</span> <span class="staexp">timer_t <span class="keyword">(</span>id<span class="keyword">)</span></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &lt;= 0<span class="keyword">]</span> int <span class="keyword">(</span>i<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_timer_delete"
+<span class="comment">// end of [timer_delete]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: 0/-1 : succ/fail // errno set
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="9074"><span class="dyncstdec">timer_gettime <span class="staexp"><span class="keyword">{</span>id<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>timer_v <span class="keyword">(</span>id<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> tid<span class="keyword">:</span> <span class="staexp">timer_t <span class="keyword">(</span>id<span class="keyword">)</span></span>
+  <span class="keyword">,</span> itp<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>itimerspec? &gt;&gt; opt <span class="keyword">(</span>itimerspec<span class="keyword">,</span> i==0<span class="keyword">)</span></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span> int <span class="keyword">|</span> i &lt;= 0<span class="keyword">]</span> int i</span></span></a> <span class="keyword">=</span> "#atslib_timer_gettime"
+<span class="comment">// end of [timer_gettime]
+</span>
+<span class="keyword">fun</span> <a name="9279"><span class="dyncstdec">timer_settime <span class="staexp"><span class="keyword">{</span>id<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>timer_v <span class="keyword">(</span>id<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> tid<span class="keyword">:</span> <span class="staexp">timer_t <span class="keyword">(</span>id<span class="keyword">)</span></span>
+  <span class="keyword">,</span> newitp<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>READ<span class="keyword">(</span>itimerspec<span class="keyword">)</span></span>
+  <span class="keyword">,</span> olditp<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>itimerspec? &gt;&gt; opt <span class="keyword">(</span>itimerspec<span class="keyword">,</span> i==0<span class="keyword">)</span></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span> int <span class="keyword">|</span> i &lt;= 0<span class="keyword">]</span> int i</span></span></a> <span class="keyword">=</span> "#atslib_timer_settime"
+<span class="comment">// end of [timer_settime]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: 0/-1 : succ/fail // errno set
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="9580"><span class="dyncstdec">timer_getoverrun <span class="staexp"><span class="keyword">{</span>id<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>timer_v <span class="keyword">(</span>id<span class="keyword">)</span></span></span> <span class="keyword">|</span> tid<span class="keyword">:</span> <span class="staexp">timer_t <span class="keyword">(</span>id<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">intGte <span class="keyword">(</span>~1<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_timer_getoverrun"
+<span class="comment">// end of [timer_getoverrun]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [time.sats] *)</span>
+</pre>
+</body>
+</html>

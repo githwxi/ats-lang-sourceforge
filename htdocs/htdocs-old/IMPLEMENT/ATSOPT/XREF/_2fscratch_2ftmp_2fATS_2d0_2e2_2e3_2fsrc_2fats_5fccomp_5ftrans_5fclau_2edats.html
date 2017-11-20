@@ -1,0 +1,675 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: May 2008
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+
+#include "ats_intinf.cats"
+
+%}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">IntInf <span class="keyword">=</span> "ats_intinf.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Lab <span class="keyword">=</span> "ats_label.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Lst <span class="keyword">=</span> "ats_list.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp2.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_hiexp.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_ccomp.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_ccomp_env.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="1878"><span class="stacstdec">branchlst_vt <span class="keyword">=</span> List_vt branch</span></a></span>
+
+<span class="keyword">fn</span> branch_make <span class="keyword">(</span>tl<span class="keyword">:</span> <span class="staexp">tmplab_t</span><span class="keyword">,</span> inss<span class="keyword">:</span> <span class="staexp">instrlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">branch</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  branch_lab<span class="keyword">=</span> tl<span class="keyword">,</span> branch_inss<span class="keyword">=</span> inss
+<span class="keyword">}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="2037"><span class="stacstdec">tmpmovlst</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> TMPMOVLSTcons <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>tmpvar_t<span class="keyword">,</span> tmpvar_t<span class="keyword">,</span> tmpmovlst<span class="keyword">)</span></span>
+  <span class="keyword">|</span> TMPMOVLSTnil
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="2128"><span class="stacstdec">matpnt <span class="keyword">=</span> <span class="keyword">'{</span>
+  matpnt_kont<span class="keyword">=</span> kont<span class="keyword">,</span> matpnt_tmpmovlst<span class="keyword">=</span> tmpmovlst
+<span class="keyword">}</span></span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="2224"><span class="dyncstdec">kont_matpnt <span class="keyword">(</span>mpt<span class="keyword">:</span> <span class="staexp">matpnt_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">kont</span></span></a>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="2269"><span class="dyncstdec">matpnt_make <span class="keyword">(</span>k<span class="keyword">:</span> <span class="staexp">kont</span><span class="keyword">,</span> xs<span class="keyword">:</span> <span class="staexp">tmpmovlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">matpnt_t</span></span></a>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="2328"><span class="dyncstdec">matpnt_tmpmovlst_get <span class="keyword">(</span>mpt<span class="keyword">:</span> <span class="staexp">matpnt_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">tmpmovlst</span></span></a>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="2387"><span class="dyncstdec">matpnt_tmpmovlst_set <span class="keyword">(</span>mpt<span class="keyword">:</span> <span class="staexp">matpnt_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">tmpmovlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atsccomp_matpnt_tmpmovlst_set"
+
+<span class="keyword">local</span>
+
+<span class="keyword">fn</span> _matpnt_make <span class="keyword">(</span>k<span class="keyword">:</span> <span class="staexp">kont</span><span class="keyword">,</span> xs<span class="keyword">:</span> <span class="staexp">tmpmovlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">matpnt</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  matpnt_kont<span class="keyword">=</span> k<span class="keyword">,</span> matpnt_tmpmovlst<span class="keyword">=</span> xs
+<span class="keyword">}</span> <span class="comment">// end of [matpnt_make]
+</span>
+<span class="keyword">assume</span> <span class="staexp">matpnt_t <span class="keyword">=</span> matpnt</span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">extern</span> <span class="keyword">typedef</span> <span class="staexp">"matpnt_t" <span class="keyword">=</span> matpnt</span>
+
+<span class="keyword">implement</span> kont_matpnt <span class="keyword">(</span>mpt<span class="keyword">)</span> <span class="keyword">=</span> KONTmatpnt <span class="keyword">(</span>mpt<span class="keyword">)</span>
+
+<span class="keyword">implement</span> matpnt_make <span class="keyword">(</span>k<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=</span> _matpnt_make <span class="keyword">(</span>k<span class="keyword">,</span> xs<span class="keyword">)</span>
+<span class="keyword">implement</span> matpnt_kont_get <span class="keyword">(</span>mpt<span class="keyword">)</span> <span class="keyword">=</span> mpt<span class="keyword">.</span>matpnt_kont
+<span class="keyword">implement</span> matpnt_tmpmovlst_get <span class="keyword">(</span>mpt<span class="keyword">)</span> <span class="keyword">=</span> mpt<span class="keyword">.</span>matpnt_tmpmovlst
+
+<span class="keyword">implement</span> emit_matpnt <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> mpt<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> tmpmovlst <span class="keyword">=</span> matpnt_tmpmovlst_get <span class="keyword">(</span>mpt<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> aux <span class="keyword">(</span>out<span class="keyword">,</span> tmpmovlst<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">fun</span> aux
+      <span class="keyword">(</span>out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> xs<span class="keyword">:</span> <span class="staexp">tmpmovlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> xs <span class="keyword">of</span>
+      <span class="keyword">|</span> TMPMOVLSTcons <span class="keyword">(</span>tmp1<span class="keyword">,</span> tmp2<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=&gt;</span> aux <span class="keyword">(</span>out<span class="keyword">,</span> xs<span class="keyword">)</span>  <span class="keyword">where</span> <span class="keyword">{</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> emit_tmpvar <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> tmp2<span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> " = "<span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> emit_tmpvar <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> tmp1<span class="keyword">)</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> " ; "<span class="keyword">)</span>
+        <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>      <span class="keyword">|</span> TMPMOVLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [aux]
+</span>  <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> emit_kont <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> matpnt_kont_get mpt<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [emit_matpnt]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span>
+<span class="keyword">fun</span> <a name="3630"><span class="dyncstdec">ccomp_hiclau <span class="keyword">(</span>
+  loc0<span class="keyword">:</span> <span class="staexp">loc_t</span>
+<span class="keyword">,</span> level<span class="keyword">:</span> <span class="staexp">int</span>
+<span class="keyword">,</span> branchlst<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>branchlst_vt</span>
+<span class="keyword">,</span> tl<span class="keyword">:</span> <span class="staexp">tmplab_t</span>
+<span class="keyword">,</span> vps<span class="keyword">:</span> <span class="staexp">valprimlst</span>
+<span class="keyword">,</span> hicl<span class="keyword">:</span> <span class="staexp">hiclau</span>
+<span class="keyword">,</span> tmp_res<span class="keyword">:</span> <span class="staexp">tmpvar_t</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">@(</span>matpntlst<span class="keyword">,</span> matpntopt<span class="keyword">)</span></span></span></a>
+
+<span class="keyword">implement</span> ccomp_hiclau
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> level<span class="keyword">,</span> branchlst<span class="keyword">,</span> tl<span class="keyword">,</span> vps<span class="keyword">,</span> hicl<span class="keyword">,</span> tmp_res<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">//
+</span>  <span class="keyword">fun</span> aux_pat <span class="keyword">(</span>
+      res<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>instrlst_vt</span>
+    <span class="keyword">,</span> tl<span class="keyword">:</span> <span class="staexp">tmplab_t</span>
+    <span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int &gt;&gt; int</span>
+    <span class="keyword">,</span> vps<span class="keyword">:</span> <span class="staexp">valprimlst</span>
+    <span class="keyword">,</span> hips<span class="keyword">:</span> <span class="staexp">hipatlst</span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">matpntlst</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> <span class="keyword">(</span>vps<span class="keyword">,</span> hips<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>list_cons <span class="keyword">(</span>vp<span class="keyword">,</span> vps<span class="keyword">)</span><span class="keyword">,</span> list_cons <span class="keyword">(</span>hip<span class="keyword">,</span> hips<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> loc <span class="keyword">=</span> hip<span class="keyword">.</span>hipat_loc
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> instr_add_tmplabint <span class="keyword">(</span>res<span class="keyword">,</span> loc<span class="keyword">,</span> tl<span class="keyword">,</span> i<span class="keyword">)</span>
+        <span class="keyword">val</span> mpt <span class="keyword">=</span> matpnt_make <span class="keyword">(</span>KONTnone <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> TMPMOVLSTnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> ccomp_patck <span class="keyword">(</span>res<span class="keyword">,</span> vp<span class="keyword">,</span> hip<span class="keyword">,</span> kont_matpnt mpt<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> i := i + 1
+        <span class="keyword">val</span> mpts <span class="keyword">=</span> aux_pat <span class="keyword">(</span>res<span class="keyword">,</span> tl<span class="keyword">,</span> i<span class="keyword">,</span> vps<span class="keyword">,</span> hips<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        list_cons <span class="keyword">(</span>mpt<span class="keyword">,</span> mpts<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>    <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> list_nil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">(* end of [aux_patck] *)</span>
+<span class="comment">//
+</span>  <span class="keyword">fun</span> aux_mat <span class="keyword">(</span>
+      res<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>instrlst_vt</span>
+    <span class="keyword">,</span> level<span class="keyword">:</span> <span class="staexp">int</span>
+    <span class="keyword">,</span> vps<span class="keyword">:</span> <span class="staexp">valprimlst</span>
+    <span class="keyword">,</span> hips<span class="keyword">:</span> <span class="staexp">hipatlst</span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> <span class="keyword">(</span>vps<span class="keyword">,</span> hips<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>list_cons <span class="keyword">(</span>vp<span class="keyword">,</span> vps<span class="keyword">)</span><span class="keyword">,</span> list_cons <span class="keyword">(</span>hip<span class="keyword">,</span> hips<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> ccomp_match <span class="keyword">(</span>res<span class="keyword">,</span> level<span class="keyword">,</span> vp<span class="keyword">,</span> hip<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        aux_mat <span class="keyword">(</span>res<span class="keyword">,</span> level<span class="keyword">,</span> vps<span class="keyword">,</span> hips<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [list_cons _, list_cons _]
+</span>    <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">(* end of [aux_mat] *)</span>
+<span class="comment">//
+</span>  <span class="keyword">fun</span> aux_gua <span class="keyword">(</span>
+      res<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>instrlst_vt</span>
+    <span class="keyword">,</span> level<span class="keyword">:</span> <span class="staexp">int</span>
+    <span class="keyword">,</span> himats<span class="keyword">:</span> <span class="staexp">himatlst</span>
+    <span class="keyword">,</span> fail<span class="keyword">:</span> <span class="staexp">kont</span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> himats <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>himat<span class="keyword">,</span> himats<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> hip <span class="keyword">=</span> <span class="keyword">(</span>
+          <span class="keyword">case+</span> himat<span class="keyword">.</span>himat_pat <span class="keyword">of</span>
+          <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> hipat_bool <span class="keyword">(</span>himat<span class="keyword">.</span>himat_loc<span class="keyword">,</span> hityp_bool<span class="keyword">,</span> true<span class="keyword">)</span>
+          <span class="keyword">|</span> Some hip <span class="keyword">=&gt;</span> hip
+        <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">hipat</span>
+        <span class="keyword">val</span> vp <span class="keyword">=</span> ccomp_exp <span class="keyword">(</span>res<span class="keyword">,</span> himat<span class="keyword">.</span>himat_exp<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> ccomp_patck <span class="keyword">(</span>res<span class="keyword">,</span> vp<span class="keyword">,</span> hip<span class="keyword">,</span> fail<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> ccomp_match <span class="keyword">(</span>res<span class="keyword">,</span> level<span class="keyword">,</span> vp<span class="keyword">,</span> hip<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        aux_gua <span class="keyword">(</span>res<span class="keyword">,</span> level<span class="keyword">,</span> himats<span class="keyword">,</span> fail<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">(* end of [aux_gua] *)</span>
+<span class="comment">//
+</span>  <span class="keyword">var</span> i<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> 0
+  <span class="keyword">var</span> res<span class="keyword">:</span> <span class="staexp">instrlst_vt</span> <span class="keyword">=</span> list_vt_nil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> hips <span class="keyword">=</span> hicl<span class="keyword">.</span>hiclau_pat
+  <span class="keyword">val</span> mpts <span class="keyword">=</span> aux_pat <span class="keyword">(</span>res<span class="keyword">,</span> tl<span class="keyword">,</span> i<span class="keyword">,</span> vps<span class="keyword">,</span> hips<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    instr_add_tmplabint <span class="keyword">(</span>res<span class="keyword">,</span> loc0<span class="keyword">,</span> tl<span class="keyword">,</span> i<span class="keyword">)</span> <span class="comment">// [i] = the length of [hicls]
+</span>  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> aux_mat <span class="keyword">(</span>res<span class="keyword">,</span> level<span class="keyword">,</span> vps<span class="keyword">,</span> hips<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">var</span> ompt<span class="keyword">:</span> <span class="staexp">matpntopt</span> <span class="keyword">=</span> None <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> himats <span class="keyword">=</span> hicl<span class="keyword">.</span>hiclau_gua
+  <span class="keyword">in</span>
+    <span class="keyword">case+</span> himats <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons _ <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> mpt <span class="keyword">=</span> matpnt_make <span class="keyword">(</span>KONTnone <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> TMPMOVLSTnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> aux_gua <span class="keyword">(</span>res<span class="keyword">,</span> level<span class="keyword">,</span> himats<span class="keyword">,</span> kont_matpnt mpt<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        ompt := Some mpt
+      <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> instr_add_valprimlst_free <span class="keyword">(</span>res<span class="keyword">,</span> hicl<span class="keyword">.</span>hiclau_loc<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> ccomp_exp_tmpvar <span class="keyword">(</span>res<span class="keyword">,</span> hicl<span class="keyword">.</span>hiclau_exp<span class="keyword">,</span> tmp_res<span class="keyword">)</span>
+  <span class="keyword">val</span> res <span class="keyword">=</span> $Lst<span class="keyword">.</span>list_vt_reverse_list res
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> branchlst := list_vt_cons <span class="keyword">(</span>branch_make <span class="keyword">(</span>tl<span class="keyword">,</span> res<span class="keyword">)</span><span class="keyword">,</span> branchlst<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">(</span>mpts<span class="keyword">,</span> ompt<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [ccomp_hiclau]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="6540"><span class="dyncstdec">hipat_test_int <span class="keyword">(</span>hip1<span class="keyword">:</span> <span class="staexp">hipat</span><span class="keyword">,</span> hip2<span class="keyword">:</span> <span class="staexp">hipat</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span></span></a>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="6599"><span class="dyncstdec">hipatlst_test_int <span class="keyword">(</span>hips1<span class="keyword">:</span> <span class="staexp">hipatlst</span><span class="keyword">,</span> hips2<span class="keyword">:</span> <span class="staexp">hipatlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span></span></a>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="6670"><span class="dyncstdec">labhipatlst_test_int
+  <span class="keyword">(</span>lhips1<span class="keyword">:</span> <span class="staexp">labhipatlst</span><span class="keyword">,</span> lhips2<span class="keyword">:</span> <span class="staexp">labhipatlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span></span></a>
+
+<span class="keyword">implement</span> hipat_test_int <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "hipat_test_int: hip1 = "; print hip1; print_newline ();
+    print "hipat_test_int: hip2 = "; print hip2; print_newline ();
+  end // end of [val]
+*)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>hip1<span class="keyword">.</span>hipat_node<span class="keyword">,</span> hip2<span class="keyword">.</span>hipat_node<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPann <span class="keyword">(</span>hip1<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> hipat_test_int <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> HIPann <span class="keyword">(</span>hip2<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> hipat_test_int <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPany _<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> HIPany _<span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPas <span class="keyword">(</span>_<span class="comment">(*knd*)</span><span class="keyword">,</span> _<span class="comment">(*d2v*)</span><span class="keyword">,</span> hip1<span class="keyword">)</span><span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> hipat_test_int <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> HIPas <span class="keyword">(</span>_<span class="comment">(*knd*)</span><span class="keyword">,</span> _<span class="comment">(*d2v*)</span><span class="keyword">,</span> hip2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> hipat_test_int <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPvar _<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> HIPvar _<span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPbool b1<span class="keyword">,</span> HIPbool b2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>b1 <span class="keyword">=</span> b2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPchar c1<span class="keyword">,</span> HIPchar c2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>c1 <span class="keyword">=</span> c2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPcon <span class="keyword">(</span>_<span class="keyword">,</span> d2c1<span class="keyword">,</span> hips1<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">,</span> HIPcon <span class="keyword">(</span>_<span class="keyword">,</span> d2c2<span class="keyword">,</span> hips2<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">if</span> d2c1 <span class="keyword">=</span> d2c2 <span class="keyword">then</span> hipatlst_test_int <span class="keyword">(</span>hips1<span class="keyword">,</span> hips2<span class="keyword">)</span> <span class="keyword">else</span> false
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPcon <span class="keyword">(</span>_<span class="keyword">,</span> d2c1<span class="keyword">,</span> _<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">,</span> HIPcon_any <span class="keyword">(</span>_<span class="keyword">,</span> d2c2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> d2c1 <span class="keyword">=</span> d2c2
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPcon_any <span class="keyword">(</span>_<span class="keyword">,</span> d2c1<span class="keyword">)</span><span class="keyword">,</span> HIPcon <span class="keyword">(</span>_<span class="keyword">,</span> d2c2<span class="keyword">,</span> _<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> d2c1 <span class="keyword">=</span> d2c2
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPcon_any <span class="keyword">(</span>_<span class="keyword">,</span> d2c1<span class="keyword">)</span><span class="keyword">,</span> HIPcon_any <span class="keyword">(</span>_<span class="keyword">,</span> d2c2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> d2c1 <span class="keyword">=</span> d2c2
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPempty _<span class="keyword">,</span> HIPempty _<span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPfloat f1<span class="keyword">,</span> HIPfloat f2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>f1 <span class="keyword">=</span> f2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPint <span class="keyword">(</span>_<span class="keyword">,</span> i1<span class="keyword">)</span><span class="keyword">,</span> HIPint <span class="keyword">(</span>_<span class="keyword">,</span> i2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      $IntInf<span class="keyword">.</span>eq_intinf_intinf <span class="keyword">(</span>i1<span class="keyword">,</span> i2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPlst <span class="keyword">(</span>_<span class="keyword">,</span> hips1<span class="keyword">)</span><span class="keyword">,</span> HIPlst <span class="keyword">(</span>_<span class="keyword">,</span> hips2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      hipatlst_test_int <span class="keyword">(</span>hips1<span class="keyword">,</span> hips2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPrec <span class="keyword">(</span>_<span class="keyword">,</span> lhips1<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">,</span> HIPrec <span class="keyword">(</span>_<span class="keyword">,</span> lhips2<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      labhipatlst_test_int <span class="keyword">(</span>lhips1<span class="keyword">,</span> lhips2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPstring s1<span class="keyword">,</span> HIPstring s2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>s1 <span class="keyword">=</span> s2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> false
+<span class="keyword">end</span> <span class="comment">// end of [hipat_test_int]
+</span>
+<span class="comment">(* [hips1] and [hips2] are of the same length *)</span>
+<span class="keyword">implement</span> hipatlst_test_int
+  <span class="keyword">(</span>hips1<span class="keyword">,</span> hips2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> hips1 <span class="keyword">of</span>
+  <span class="keyword">|</span> list_cons <span class="keyword">(</span>hip1<span class="keyword">,</span> hips1<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> hips2 <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>hip2<span class="keyword">,</span> hips2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> hipat_test_int <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">)</span> <span class="keyword">then</span> hipatlst_test_int <span class="keyword">(</span>hips1<span class="keyword">,</span> hips2<span class="keyword">)</span>
+        <span class="keyword">else</span> false
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> false
+    <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>  <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> hips2 <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons _ <span class="keyword">=&gt;</span> false <span class="keyword">|</span> list_nil _ <span class="keyword">=&gt;</span> true
+    <span class="keyword">end</span> <span class="comment">// end of [list_nil]
+</span><span class="keyword">end</span> <span class="comment">(* end of [hipatlst_test_int] *)</span>
+
+<span class="keyword">implement</span> labhipatlst_test_int
+  <span class="keyword">(</span>lhips1<span class="keyword">,</span> lhips2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> lhips1 <span class="keyword">of</span>
+  <span class="keyword">|</span> LABHIPATLSTcons <span class="keyword">(</span>l1<span class="keyword">,</span> hip1<span class="keyword">,</span> hips1<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> lhips2 <span class="keyword">of</span>
+    <span class="keyword">|</span> LABHIPATLSTcons <span class="keyword">(</span>l2<span class="keyword">,</span> hip2<span class="keyword">,</span> hips2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+      <span class="keyword">|</span> _ <span class="keyword">when</span> $Lab<span class="keyword">.</span>eq_label_label <span class="keyword">(</span>l1<span class="keyword">,</span> l2<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+          <span class="keyword">if</span> hipat_test_int <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">)</span> <span class="keyword">then</span>
+            labhipatlst_test_int <span class="keyword">(</span>lhips1<span class="keyword">,</span> lhips2<span class="keyword">)</span>
+          <span class="keyword">else</span> false
+      <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> false <span class="comment">// end of [_]
+</span>      <span class="keyword">end</span> <span class="comment">(* end of [LABHIPATLSTcons] *)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> true
+    <span class="keyword">end</span> <span class="comment">(* end of [LABHIPATLSTcons] *)</span>
+  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> lhips2 <span class="keyword">of</span>
+    <span class="keyword">|</span> LABHIPATLSTcons _ <span class="keyword">=&gt;</span> false <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> true
+    <span class="keyword">end</span> <span class="comment">// end of [_]
+</span><span class="keyword">end</span> <span class="comment">// end of [labhipatlst_test_int]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="9429"><span class="dyncstdec">hipat_test_sub <span class="keyword">(</span>hip1<span class="keyword">:</span> <span class="staexp">hipat</span><span class="keyword">,</span> hip2<span class="keyword">:</span> <span class="staexp">hipat</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span></span></a>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="9488"><span class="dyncstdec">hipatlst_test_sub <span class="keyword">(</span>hips1<span class="keyword">:</span> <span class="staexp">hipatlst</span><span class="keyword">,</span> hips2<span class="keyword">:</span> <span class="staexp">hipatlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span></span></a>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="9559"><span class="dyncstdec">labhipatlst_test_sub
+  <span class="keyword">(</span>lhips1<span class="keyword">:</span> <span class="staexp">labhipatlst</span><span class="keyword">,</span> lhips2<span class="keyword">:</span> <span class="staexp">labhipatlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span></span></a>
+
+<span class="keyword">fun</span> hipat_is_any <span class="keyword">(</span>hip0<span class="keyword">:</span> <span class="staexp">hipat</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> hip0<span class="keyword">.</span>hipat_node <span class="keyword">of</span>
+  <span class="keyword">|</span> HIPann <span class="keyword">(</span>hip<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> hipat_is_any hip
+  <span class="keyword">|</span> HIPany _ <span class="keyword">=&gt;</span> true
+  <span class="keyword">|</span> HIPas <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">,</span> hip<span class="keyword">)</span> <span class="keyword">=&gt;</span> hipat_is_any hip
+  <span class="keyword">|</span> HIPvar _ <span class="keyword">=&gt;</span> true
+  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> false
+<span class="keyword">end</span> <span class="comment">// end of [hipat_is_any]
+</span>
+<span class="keyword">fun</span> hipatlst_is_any <span class="keyword">(</span>hips<span class="keyword">:</span> <span class="staexp">hipatlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> hips <span class="keyword">of</span>
+  <span class="keyword">|</span> list_cons <span class="keyword">(</span>hip<span class="keyword">,</span> hips<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">if</span> hipat_is_any hip <span class="keyword">then</span> hipatlst_is_any hips <span class="keyword">else</span> false
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> false
+<span class="keyword">end</span> <span class="comment">// end of [hipatlst_is_any]
+</span>
+<span class="keyword">implement</span> hipat_test_sub <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "hipat_test_sub: hip1 = "; print hip1; print_newline ();
+    print "hipat_test_sub: hip2 = "; print hip2; print_newline ();
+  end // end of [val]
+*)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>hip1<span class="keyword">.</span>hipat_node<span class="keyword">,</span> hip2<span class="keyword">.</span>hipat_node<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> HIPany _<span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> HIPvar _<span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> HIPann <span class="keyword">(</span>hip2<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> hipat_test_sub <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> HIPas <span class="keyword">(</span>_<span class="comment">(*knd*)</span><span class="keyword">,</span> _<span class="comment">(*d2v*)</span><span class="keyword">,</span> hip2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> hipat_test_sub <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPann <span class="keyword">(</span>hip1<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> hipat_test_sub <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPas <span class="keyword">(</span>_<span class="comment">(*knd*)</span><span class="keyword">,</span> _<span class="comment">(*d2v*)</span><span class="keyword">,</span> hip1<span class="keyword">)</span><span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> hipat_test_sub <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPbool b1<span class="keyword">,</span> HIPbool b2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>b1 <span class="keyword">=</span> b2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPchar c1<span class="keyword">,</span> HIPchar c2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>c1 <span class="keyword">=</span> c2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPcon <span class="keyword">(</span>_<span class="keyword">,</span> d2c1<span class="keyword">,</span> hips1<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">,</span> HIPcon <span class="keyword">(</span>_<span class="keyword">,</span> d2c2<span class="keyword">,</span> hips2<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">if</span> d2c1 <span class="keyword">=</span> d2c2 <span class="keyword">then</span> hipatlst_test_sub <span class="keyword">(</span>hips1<span class="keyword">,</span> hips2<span class="keyword">)</span> <span class="keyword">else</span> false
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPcon <span class="keyword">(</span>_<span class="keyword">,</span> d2c1<span class="keyword">,</span> hips1<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">,</span> HIPcon_any <span class="keyword">(</span>_<span class="keyword">,</span> d2c2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> d2c1 <span class="keyword">=</span> d2c2
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPcon_any <span class="keyword">(</span>_<span class="keyword">,</span> d2c1<span class="keyword">)</span><span class="keyword">,</span> HIPcon <span class="keyword">(</span>_<span class="keyword">,</span> d2c2<span class="keyword">,</span> hips2<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">if</span> d2c1 <span class="keyword">=</span> d2c2 <span class="keyword">then</span> hipatlst_is_any hips2 <span class="keyword">else</span> false
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPcon_any <span class="keyword">(</span>_<span class="keyword">,</span> d2c1<span class="keyword">)</span><span class="keyword">,</span> HIPcon_any <span class="keyword">(</span>_<span class="keyword">,</span> d2c2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> d2c1 <span class="keyword">=</span> d2c2
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPempty _<span class="keyword">,</span> HIPempty _<span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPfloat f1<span class="keyword">,</span> HIPfloat f2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>f1 <span class="keyword">=</span> f2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPint <span class="keyword">(</span>_<span class="keyword">,</span> i1<span class="keyword">)</span><span class="keyword">,</span> HIPint <span class="keyword">(</span>_<span class="keyword">,</span> i2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      $IntInf<span class="keyword">.</span>eq_intinf_intinf <span class="keyword">(</span>i1<span class="keyword">,</span> i2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPlst <span class="keyword">(</span>_<span class="keyword">,</span> hips1<span class="keyword">)</span><span class="keyword">,</span> HIPlst <span class="keyword">(</span>_<span class="keyword">,</span> hips2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      hipatlst_test_sub <span class="keyword">(</span>hips1<span class="keyword">,</span> hips2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPrec <span class="keyword">(</span>_<span class="keyword">,</span> lhips1<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">,</span> HIPrec <span class="keyword">(</span>_<span class="keyword">,</span> lhips2<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      labhipatlst_test_sub <span class="keyword">(</span>lhips1<span class="keyword">,</span> lhips2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>HIPstring s1<span class="keyword">,</span> HIPstring s2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>s1 <span class="keyword">=</span> s2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> false
+<span class="keyword">end</span> <span class="comment">// end of [hipat_test_sub]
+</span>
+<span class="comment">(* [hips1] and [hips2] are of the same length *)</span>
+<span class="keyword">implement</span> hipatlst_test_sub
+  <span class="keyword">(</span>hips1<span class="keyword">,</span> hips2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> hips1 <span class="keyword">of</span>
+  <span class="keyword">|</span> list_cons <span class="keyword">(</span>hip1<span class="keyword">,</span> hips1<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> hips2 <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>hip2<span class="keyword">,</span> hips2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> hipat_test_sub <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">)</span> <span class="keyword">then</span> hipatlst_test_sub <span class="keyword">(</span>hips1<span class="keyword">,</span> hips2<span class="keyword">)</span>
+        <span class="keyword">else</span> false
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> false
+    <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>  <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> hips2 <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons _ <span class="keyword">=&gt;</span> false <span class="keyword">|</span> list_nil _ <span class="keyword">=&gt;</span> true
+    <span class="keyword">end</span> <span class="comment">// end of [list_nil]
+</span><span class="keyword">end</span> <span class="comment">(* end of [hipatlst_test_sub] *)</span>
+
+<span class="keyword">implement</span> labhipatlst_test_sub
+  <span class="keyword">(</span>lhips1<span class="keyword">,</span> lhips2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> lhips1 <span class="keyword">of</span>
+  <span class="keyword">|</span> LABHIPATLSTcons <span class="keyword">(</span>l1<span class="keyword">,</span> hip1<span class="keyword">,</span> hips1<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> lhips2 <span class="keyword">of</span>
+    <span class="keyword">|</span> LABHIPATLSTcons <span class="keyword">(</span>l2<span class="keyword">,</span> hip2<span class="keyword">,</span> hips2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+      <span class="keyword">|</span> _ <span class="keyword">when</span> $Lab<span class="keyword">.</span>eq_label_label <span class="keyword">(</span>l1<span class="keyword">,</span> l2<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+          <span class="keyword">if</span> hipat_test_sub <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">)</span> <span class="keyword">then</span>
+            labhipatlst_test_sub <span class="keyword">(</span>lhips1<span class="keyword">,</span> lhips2<span class="keyword">)</span>
+          <span class="keyword">else</span> false
+      <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> false
+      <span class="keyword">end</span> <span class="comment">// end of [LABHIPATLSTcons]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> true
+    <span class="keyword">end</span> <span class="comment">// end of [LABHIPATLSTcons]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> lhips2 <span class="keyword">of</span>
+    <span class="keyword">|</span> LABHIPATLSTcons _ <span class="keyword">=&gt;</span> false <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> true
+    <span class="keyword">end</span> <span class="comment">// end of [_]
+</span><span class="keyword">end</span> <span class="comment">(* end of [labhipatlst_test_sub] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="12781"><span class="stacstdec">l0st</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> L0STcons <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>tmplab_t<span class="keyword">,</span> hiclau<span class="keyword">,</span> matpntlst<span class="keyword">,</span> matpntopt<span class="keyword">,</span> l0st<span class="keyword">)</span></span>
+  <span class="keyword">|</span> L0STnil
+
+<span class="keyword">fun</span> hipatlst_prefix_test_int
+  <span class="keyword">(</span>i<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> hips1<span class="keyword">:</span> <span class="staexp">hipatlst</span><span class="keyword">,</span> hips2<span class="keyword">:</span> <span class="staexp">hipatlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> hips1 <span class="keyword">of</span>
+   <span class="keyword">|</span> list_cons <span class="keyword">(</span>hip1<span class="keyword">,</span> hips1<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> hips2 <span class="keyword">of</span>
+      <span class="keyword">|</span> list_cons <span class="keyword">(</span>hip2<span class="keyword">,</span> hips2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          <span class="keyword">if</span> hipat_test_int <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">)</span> <span class="keyword">then</span>
+            hipatlst_prefix_test_int <span class="keyword">(</span>i-1<span class="keyword">,</span> hips1<span class="keyword">,</span> hips2<span class="keyword">)</span>
+          <span class="keyword">else</span> false
+        <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>      <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+      <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>    <span class="comment">// this clause should never be chosen:
+</span>    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> hips2 <span class="keyword">of</span>
+      <span class="keyword">|</span> list_cons _ <span class="keyword">=&gt;</span> false <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+      <span class="keyword">end</span> <span class="comment">// end of [list_nil]
+</span>  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+    true <span class="comment">// return value
+</span>  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">(* end of [hipatlst_test_int] *)</span>
+
+<span class="keyword">fun</span> aux_major <span class="keyword">(</span>i<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> hips0<span class="keyword">:</span> <span class="staexp">hipatlst</span><span class="keyword">,</span> xs<span class="keyword">:</span> <span class="staexp">l0st</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">Option_vt <span class="keyword">@(</span>tmplab_t<span class="keyword">,</span> hiclau<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> xs <span class="keyword">of</span>
+  <span class="keyword">|</span> L0STcons <span class="keyword">(</span>tl<span class="keyword">,</span> hicl<span class="keyword">,</span> _<span class="keyword">,</span> _<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> isint <span class="keyword">=</span> hipatlst_prefix_test_int <span class="keyword">(</span>i<span class="keyword">,</span> hips0<span class="keyword">,</span> hicl<span class="keyword">.</span>hiclau_pat<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> isint <span class="keyword">then</span> Some_vt <span class="keyword">@(</span>tl<span class="keyword">,</span> hicl<span class="keyword">)</span> <span class="keyword">else</span> aux_major <span class="keyword">(</span>i<span class="keyword">,</span> hips0<span class="keyword">,</span> xs<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [L0STcons]
+</span>  <span class="keyword">|</span> L0STnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">(* end [aux_major] *)</span>
+
+<span class="keyword">fun</span> aux_minor
+  <span class="keyword">(</span>i0<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> hips0<span class="keyword">:</span> <span class="staexp">hipatlst</span><span class="keyword">,</span> hicl<span class="keyword">:</span> <span class="staexp">hiclau</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> f <span class="keyword">(</span>i<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> hips1<span class="keyword">:</span> <span class="staexp">hipatlst</span><span class="keyword">,</span> hips2<span class="keyword">:</span> <span class="staexp">hipatlst</span><span class="keyword">)</span>
+    <span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp">int</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> i <span class="keyword">of</span>
+    <span class="keyword">|</span> _ <span class="keyword">when</span> i <span class="keyword">&lt;</span> i0 <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> <span class="keyword">(</span>hips1<span class="keyword">,</span> hips2<span class="keyword">)</span> <span class="keyword">of</span>
+      <span class="keyword">|</span> <span class="keyword">(</span>list_cons <span class="keyword">(</span>hip1<span class="keyword">,</span> hips1<span class="keyword">)</span><span class="keyword">,</span> list_cons <span class="keyword">(</span>hip2<span class="keyword">,</span> hips2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span>
+          <span class="keyword">if</span> hipat_test_sub <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">)</span> <span class="keyword">then</span> f <span class="keyword">(</span>i+1<span class="keyword">,</span> hips1<span class="keyword">,</span> hips2<span class="keyword">)</span> <span class="keyword">else</span> i
+      <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> i <span class="comment">// this clause should never be taken
+</span>      <span class="keyword">end</span> <span class="comment">// end of [_ when ...]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> i
+  <span class="keyword">end</span> <span class="comment">(* end of [f] *)</span>
+<span class="keyword">in</span>
+  f <span class="keyword">(</span>0<span class="keyword">,</span> hips0<span class="keyword">,</span> hicl<span class="keyword">.</span>hiclau_pat<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [aux_minor]
+</span>
+<span class="keyword">fun</span> aux_tmpmov
+  <span class="keyword">(</span>i<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> hips0<span class="keyword">:</span> <span class="staexp">hipatlst</span><span class="keyword">,</span> hicl<span class="keyword">:</span> <span class="staexp">hiclau</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">tmpmovlst</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> auxpat <span class="keyword">(</span>
+      hip1<span class="keyword">:</span> <span class="staexp">hipat</span>
+    <span class="keyword">,</span> hip2<span class="keyword">:</span> <span class="staexp">hipat</span>
+    <span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>tmpmovlst</span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> <span class="keyword">(</span>hip1<span class="keyword">.</span>hipat_node<span class="keyword">,</span> hip2<span class="keyword">.</span>hipat_node<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>HIPann <span class="keyword">(</span>hip1<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> auxpat <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">,</span> res<span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> HIPann <span class="keyword">(</span>hip2<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> auxpat <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">,</span> res<span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>HIPcon <span class="keyword">(</span>_<span class="keyword">,</span> d2c1<span class="keyword">,</span> hips1<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">,</span> HIPcon <span class="keyword">(</span>_<span class="keyword">,</span> d2c2<span class="keyword">,</span> hips2<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> d2c1 <span class="keyword">=</span> d2c2 <span class="keyword">then</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> od2v1 <span class="keyword">=</span> hip1<span class="keyword">.</span>hipat_asvar<span class="keyword">;</span> <span class="keyword">val</span> od2v2 <span class="keyword">=</span> hip2<span class="keyword">.</span>hipat_asvar
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> <span class="keyword">(</span>od2v1<span class="keyword">,</span> od2v2<span class="keyword">)</span> <span class="keyword">of</span>
+            <span class="keyword">|</span> <span class="keyword">(</span>D2VAROPTsome d2v1<span class="keyword">,</span> D2VAROPTsome d2v2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+                <span class="keyword">val</span> vp1 <span class="keyword">=</span> the_dynctx_find d2v1 <span class="keyword">in</span> <span class="keyword">case+</span> vp1<span class="keyword">.</span>valprim_node <span class="keyword">of</span>
+                <span class="keyword">|</span> VPtmp tmp1 <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+                    <span class="keyword">val</span> vp2 <span class="keyword">=</span> the_dynctx_find d2v2 <span class="keyword">in</span>
+                    <span class="keyword">case+</span> vp2<span class="keyword">.</span>valprim_node <span class="keyword">of</span>
+                    <span class="keyword">|</span> VPtmp tmp2 <span class="keyword">=&gt;</span> <span class="keyword">(</span>res := TMPMOVLSTcons <span class="keyword">(</span>tmp1<span class="keyword">,</span> tmp2<span class="keyword">,</span> res<span class="keyword">)</span><span class="keyword">)</span>
+                    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// deadcode!
+</span>                  <span class="keyword">end</span> <span class="comment">// end of [VPtmp]
+</span>                <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+              <span class="keyword">end</span> <span class="comment">(* end of [D2VAROPTsome, D2VAROPTsome] *)</span>
+            <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">in</span>
+          auxpatlst <span class="keyword">(</span>hips1<span class="keyword">,</span> hips2<span class="keyword">,</span> res<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>      <span class="keyword">end</span> <span class="comment">(* end of [HIPcon, HIPcon] *)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>HIPrec <span class="keyword">(</span>_<span class="keyword">,</span> lhips1<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">,</span> HIPrec <span class="keyword">(</span>_<span class="keyword">,</span> lhips2<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span>
+        auxlabpatlst <span class="keyword">(</span>lhips1<span class="keyword">,</span> lhips2<span class="keyword">,</span> res<span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [auxpat]
+</span>
+  <span class="keyword">and</span> auxpatlst <span class="keyword">(</span>
+      hips1<span class="keyword">:</span> <span class="staexp">hipatlst</span>
+    <span class="keyword">,</span> hips2<span class="keyword">:</span> <span class="staexp">hipatlst</span>
+    <span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>tmpmovlst</span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> <span class="keyword">(</span>hips1<span class="keyword">,</span> hips2<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>list_cons <span class="keyword">(</span>hip1<span class="keyword">,</span> hips1<span class="keyword">)</span><span class="keyword">,</span> list_cons <span class="keyword">(</span>hip2<span class="keyword">,</span> hips2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span>
+        <span class="keyword">(</span>auxpat <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">,</span> res<span class="keyword">)</span><span class="keyword">;</span> auxpatlst <span class="keyword">(</span>hips1<span class="keyword">,</span> hips2<span class="keyword">,</span> res<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [auxpatlst]
+</span>
+  <span class="keyword">and</span> auxlabpatlst <span class="keyword">(</span>
+      lhips1<span class="keyword">:</span> <span class="staexp">labhipatlst</span>
+    <span class="keyword">,</span> lhips2<span class="keyword">:</span> <span class="staexp">labhipatlst</span>
+    <span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>tmpmovlst</span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> <span class="keyword">(</span>lhips1<span class="keyword">,</span> lhips2<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>LABHIPATLSTcons <span class="keyword">(</span>_<span class="comment">(*l1*)</span><span class="keyword">,</span> hip1<span class="keyword">,</span> lhips1<span class="keyword">)</span><span class="keyword">,</span>
+       LABHIPATLSTcons <span class="keyword">(</span>_<span class="comment">(*l2*)</span><span class="keyword">,</span> hip2<span class="keyword">,</span> lhips2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        auxpat <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">,</span> res<span class="keyword">)</span><span class="keyword">;</span> auxlabpatlst <span class="keyword">(</span>lhips1<span class="keyword">,</span> lhips2<span class="keyword">,</span> res<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [LABHIPATLSTcons, LABHIPATLSTcons]
+</span>    <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>       
+  <span class="keyword">end</span> <span class="comment">// end of [auxlabpatlst]
+</span>
+  <span class="keyword">fun</span> auxpatlst_prefix <span class="keyword">(</span>
+      i<span class="keyword">:</span> <span class="staexp">int</span>
+    <span class="keyword">,</span> hips1<span class="keyword">:</span> <span class="staexp">hipatlst</span>
+    <span class="keyword">,</span> hips2<span class="keyword">:</span> <span class="staexp">hipatlst</span>
+    <span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>tmpmovlst</span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+    <span class="keyword">|</span> _ <span class="keyword">when</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> <span class="keyword">(</span>hips1<span class="keyword">,</span> hips2<span class="keyword">)</span> <span class="keyword">of</span>
+      <span class="keyword">|</span> <span class="keyword">(</span>list_cons <span class="keyword">(</span>hip1<span class="keyword">,</span> hips1<span class="keyword">)</span><span class="keyword">,</span>
+         list_cons <span class="keyword">(</span>hip2<span class="keyword">,</span> hips2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> auxpat <span class="keyword">(</span>hip1<span class="keyword">,</span> hip2<span class="keyword">,</span> res<span class="keyword">)</span>
+        <span class="keyword">in</span>
+          auxpatlst_prefix <span class="keyword">(</span>i-1<span class="keyword">,</span> hips1<span class="keyword">,</span> hips2<span class="keyword">,</span> res<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [list_cons, list_cons]
+</span>      <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [_ when i &gt; 0]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">(* end of [auxpatlst_prefix] *)</span>
+
+  <span class="keyword">var</span> res<span class="keyword">:</span> <span class="staexp">tmpmovlst</span> <span class="keyword">=</span> TMPMOVLSTnil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> auxpatlst_prefix <span class="keyword">(</span>i<span class="keyword">,</span> hips0<span class="keyword">,</span> hicl<span class="keyword">.</span>hiclau_pat<span class="keyword">,</span> res<span class="keyword">)</span>
+  <span class="keyword">val</span> res <span class="keyword">=</span> auxrev <span class="keyword">(</span>res<span class="keyword">,</span> TMPMOVLSTnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">fun</span> auxrev <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">tmpmovlst</span><span class="keyword">,</span> ys<span class="keyword">:</span> <span class="staexp">tmpmovlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">tmpmovlst</span> <span class="keyword">=</span>
+      <span class="keyword">case+</span> xs <span class="keyword">of</span>
+      <span class="keyword">|</span> TMPMOVLSTcons <span class="keyword">(</span>tmp1<span class="keyword">,</span> tmp2<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          auxrev <span class="keyword">(</span>xs<span class="keyword">,</span> TMPMOVLSTcons <span class="keyword">(</span>tmp1<span class="keyword">,</span> tmp2<span class="keyword">,</span> ys<span class="keyword">)</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [TMPMOVLSTcons]
+</span>      <span class="keyword">|</span> TMPMOVLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> ys
+  <span class="keyword">}</span> <span class="comment">// end [where]
+</span><span class="keyword">in</span>
+  res
+<span class="keyword">end</span> <span class="comment">// end of [aux_tmpmov]
+</span>
+<span class="keyword">fun</span> matpnt_kont_set_all
+  <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">l0st</span><span class="keyword">,</span> fail_default<span class="keyword">:</span> <span class="staexp">kont</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> xs <span class="keyword">of</span>
+  <span class="keyword">|</span> L0STcons <span class="keyword">(</span>tl<span class="keyword">,</span> hicl<span class="keyword">,</span> mpts<span class="keyword">,</span> ompt<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">fn</span> aux <span class="keyword">(</span>
+          i<span class="keyword">:</span> <span class="staexp">int</span>
+        <span class="keyword">,</span> hips0<span class="keyword">:</span> <span class="staexp">hipatlst</span>
+        <span class="keyword">,</span> mpt<span class="keyword">:</span> <span class="staexp">matpnt_t</span>
+        <span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+        <span class="keyword">case+</span> aux_major <span class="keyword">(</span>i<span class="keyword">,</span> hips0<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">of</span>
+        <span class="keyword">|</span> <span class="keyword">~</span>Some_vt <span class="keyword">(</span>tl_hicl<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+            <span class="keyword">val</span> tl <span class="keyword">=</span> tl_hicl<span class="keyword">.</span>0 <span class="keyword">and</span> hicl <span class="keyword">=</span> tl_hicl<span class="keyword">.</span>1
+            <span class="keyword">val</span> j <span class="keyword">=</span> aux_minor <span class="keyword">(</span>i<span class="keyword">,</span> hips0<span class="keyword">,</span> hicl<span class="keyword">)</span>
+            <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> matpnt_kont_set <span class="keyword">(</span>mpt<span class="keyword">,</span> kont<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+              <span class="keyword">val</span> kont <span class="keyword">=</span> KONTtmplabint <span class="keyword">(</span>tl<span class="keyword">,</span> j<span class="keyword">)</span>
+            <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>            <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> matpnt_tmpmovlst_set <span class="keyword">(</span>mpt<span class="keyword">,</span> tmpmovlst<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+              <span class="keyword">val</span> tmpmovlst <span class="keyword">=</span> aux_tmpmov <span class="keyword">(</span>j<span class="keyword">,</span> hips0<span class="keyword">,</span> hicl<span class="keyword">)</span>
+            <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>          <span class="keyword">in</span>
+            <span class="comment">// empty
+</span>          <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>        <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> matpnt_kont_set <span class="keyword">(</span>mpt<span class="keyword">,</span> fail_default<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [aux]
+</span>
+      <span class="keyword">fun</span> auxlst <span class="keyword">(</span>
+          i<span class="keyword">:</span> <span class="staexp">int</span>
+        <span class="keyword">,</span> hips0<span class="keyword">:</span> <span class="staexp">hipatlst</span>
+        <span class="keyword">,</span> mpts<span class="keyword">:</span> <span class="staexp">matpntlst</span>
+        <span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp">int</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> mpts <span class="keyword">of</span>
+        <span class="keyword">|</span> list_cons <span class="keyword">(</span>mpt<span class="keyword">,</span> mpts<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+            aux <span class="keyword">(</span>i<span class="keyword">,</span> hips0<span class="keyword">,</span> mpt<span class="keyword">)</span><span class="keyword">;</span> auxlst <span class="keyword">(</span>i+1<span class="keyword">,</span> hips0<span class="keyword">,</span> mpts<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>        <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> i
+      <span class="keyword">end</span> <span class="comment">// end of [auxlst]
+</span>
+      <span class="keyword">fn</span> auxopt <span class="keyword">(</span>
+          i<span class="keyword">:</span> <span class="staexp">int</span>
+        <span class="keyword">,</span> hips0<span class="keyword">:</span> <span class="staexp">hipatlst</span>
+        <span class="keyword">,</span> ompt<span class="keyword">:</span> <span class="staexp">matpntopt</span>
+        <span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> ompt <span class="keyword">of</span>
+        <span class="keyword">|</span> Some mpt <span class="keyword">=&gt;</span> aux <span class="keyword">(</span>i<span class="keyword">,</span> hips0<span class="keyword">,</span> mpt<span class="keyword">)</span> <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [auxopt]
+</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> auxopt <span class="keyword">(</span>i<span class="keyword">,</span> hips0<span class="keyword">,</span> ompt<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> hips0 <span class="keyword">=</span> hicl<span class="keyword">.</span>hiclau_pat<span class="keyword">;</span> <span class="keyword">val</span> i <span class="keyword">=</span> auxlst <span class="keyword">(</span>0<span class="keyword">,</span> hips0<span class="keyword">,</span> mpts<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>    <span class="keyword">in</span>
+      matpnt_kont_set_all <span class="keyword">(</span>xs<span class="keyword">,</span> fail_default<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end ofl[L0STcons]
+</span>  <span class="keyword">|</span> L0STnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [matpnt_kont_set_all]
+</span>
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> ccomp_hiclaulst
+  <span class="keyword">(</span>level<span class="keyword">,</span> vps<span class="keyword">,</span> hicls<span class="keyword">,</span> tmp_res<span class="keyword">,</span> fail_default<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> auxlst <span class="keyword">(</span>
+      branchlst<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>branchlst_vt</span>
+    <span class="keyword">,</span> hicls<span class="keyword">:</span> <span class="staexp">hiclaulst</span>
+    <span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp">l0st</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> hicls <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>hicl<span class="keyword">,</span> hicls<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> tl <span class="keyword">=</span> tmplab_make <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">val</span> xy <span class="keyword">=</span> ccomp_hiclau
+          <span class="keyword">(</span>hicl<span class="keyword">.</span>hiclau_loc<span class="keyword">,</span> level<span class="keyword">,</span> branchlst<span class="keyword">,</span> tl<span class="keyword">,</span> vps<span class="keyword">,</span> hicl<span class="keyword">,</span> tmp_res<span class="keyword">)</span>
+        <span class="keyword">val</span> xys <span class="keyword">=</span> auxlst <span class="keyword">(</span>branchlst<span class="keyword">,</span> hicls<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        L0STcons <span class="keyword">(</span>tl<span class="keyword">,</span> hicl<span class="keyword">,</span> xy<span class="keyword">.</span>0<span class="keyword">,</span> xy<span class="keyword">.</span>1<span class="keyword">,</span> xys<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> L0STnil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [auxlst]
+</span>
+  <span class="keyword">var</span> branchlst<span class="keyword">:</span> <span class="staexp">branchlst_vt</span> <span class="keyword">=</span> list_vt_nil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> xs<span class="comment">(*l0st*)</span> <span class="keyword">=</span> auxlst <span class="keyword">(</span>branchlst<span class="keyword">,</span> hicls<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> matpnt_kont_set_all <span class="keyword">(</span>xs<span class="keyword">,</span> fail_default<span class="keyword">)</span>
+<span class="keyword">in</span>
+  $Lst<span class="keyword">.</span>list_vt_reverse_list <span class="keyword">(</span>branchlst<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [ccomp_hiclaulst]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{$
+
+ats_void_type
+atsccomp_matpnt_kont_set
+  (ats_ptr_type mpt, ats_ptr_type kont) {
+  ((matpnt_t)mpt)-&gt;atslab_matpnt_kont = kont ;
+  return ;
+} // end of [atsccomp_matpnt_kont_set]
+
+ats_void_type
+atsccomp_matpnt_tmpmovlst_set
+  (ats_ptr_type mpt, ats_ptr_type tmpmovlst) {
+  ((matpnt_t)mpt)-&gt;atslab_matpnt_tmpmovlst = tmpmovlst ;
+  return ;
+} // end of [atsccomp_matpnt_tmpmovlst_set]
+
+%}</span> <span class="comment">// end of [%{$]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_ccomp_trans_clau.dats] *)</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,497 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(*
+**
+** Automatic Differentiation
+**
+** Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+** Time: January, 2008
+**
+*)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/math.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">LIST <span class="keyword">=</span> "prelude/DATS/list.dats"</span>
+<span class="keyword">staload</span> <span class="staexp">REF <span class="keyword">=</span> "prelude/DATS/reference.dats"</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="242"><span class="stacstdec">dualnum</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> Base <span class="keyword">of</span> <span class="staexp">double</span> <span class="keyword">|</span> Bundle <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>int<span class="keyword">,</span> dualnum<span class="keyword">,</span> dualnum<span class="keyword">)</span></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="316"><span class="stacstdec">dualnumlst <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> list <span class="keyword">(</span>dualnum<span class="keyword">,</span> n<span class="keyword">)</span></span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="363"><span class="stacstdec">dualnumlst1 <span class="keyword">=</span> dualnumlst 1</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="398"><span class="stacstdec">dualnumlst2 <span class="keyword">=</span> dualnumlst 2</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="433"><span class="stacstdec">dualnumLst <span class="keyword">=</span> <span class="keyword">[</span>n<span class="keyword">:</span>nat<span class="keyword">]</span> dualnumlst <span class="keyword">(</span>n<span class="keyword">)</span></span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">val</span> zero_dualnum<span class="keyword">:</span> <span class="staexp">dualnum</span> <span class="keyword">=</span> Base 0.0
+<span class="keyword">val</span> one_dualnum<span class="keyword">:</span> <span class="staexp">dualnum</span> <span class="keyword">=</span> Base 1.0
+<span class="keyword">val</span> negone_dualnum<span class="keyword">:</span> <span class="staexp">dualnum</span> <span class="keyword">=</span> Base <span class="keyword">(</span>~1.0<span class="keyword">)</span>
+<span class="keyword">val</span> two_dualnum<span class="keyword">:</span> <span class="staexp">dualnum</span> <span class="keyword">=</span> Base 2.0
+
+<span class="keyword">fn</span> epsilon <span class="keyword">(</span>p<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> p <span class="keyword">of</span> Base _ <span class="keyword">=&gt;</span> 0 <span class="keyword">|</span> Bundle <span class="keyword">(</span>e<span class="keyword">,</span> _<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> e
+<span class="keyword">end</span> <span class="comment">// end of [epsilon]
+</span>
+<span class="keyword">fn</span> primal <span class="keyword">(</span>e<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> p<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnum</span> <span class="keyword">=</span> <span class="keyword">case+</span> p <span class="keyword">of</span>
+  <span class="keyword">|</span> Base _ <span class="keyword">=&gt;</span> p <span class="keyword">|</span> Bundle <span class="keyword">(</span>e1<span class="keyword">,</span> x<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">if</span> e1 <span class="keyword">&lt;</span> e <span class="keyword">then</span> p <span class="keyword">else</span> x
+<span class="comment">// end of [primal]
+</span>
+<span class="keyword">fn</span> perturbation <span class="keyword">(</span>e<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> p<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnum</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> p <span class="keyword">of</span>
+  <span class="keyword">|</span> Base _ <span class="keyword">=&gt;</span> zero_dualnum
+  <span class="keyword">|</span> Bundle <span class="keyword">(</span>e1<span class="keyword">,</span> _<span class="keyword">,</span> x'<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">if</span> e1 <span class="keyword">&lt;</span> e <span class="keyword">then</span> zero_dualnum <span class="keyword">else</span> x'
+<span class="keyword">end</span> <span class="comment">// end of [perturbation]
+</span>
+<span class="keyword">val</span> EPSILON <span class="keyword">=</span> ref_make_elt&lt;<span class="staexp">int</span><span class="keyword">&gt;</span> <span class="keyword">(</span>0<span class="keyword">)</span>
+<span class="keyword">fn</span> derivative <span class="keyword">(</span>f<span class="keyword">:</span> <span class="staexp">dualnum <span class="keyword">-&lt;</span>cloref1<span class="keyword">&gt;</span> dualnum</span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">dualnum</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> e <span class="keyword">=</span> <span class="keyword">!</span>EPSILON + 1
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>EPSILON := e
+  <span class="keyword">val</span> result <span class="keyword">=</span> perturbation <span class="keyword">(</span>e<span class="keyword">,</span> f <span class="keyword">(</span>Bundle <span class="keyword">(</span>e<span class="keyword">,</span> x<span class="keyword">,</span> one_dualnum<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>EPSILON := e - 1
+<span class="keyword">in</span>
+  result
+<span class="keyword">end</span> <span class="comment">// end of [derivative]
+</span>
+<span class="keyword">fun</span> print_dualnum <span class="keyword">(</span>p<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> p <span class="keyword">of</span>
+  <span class="keyword">|</span> Bundle <span class="keyword">(</span>_<span class="keyword">,</span> x<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> print_dualnum x <span class="keyword">|</span> Base x <span class="keyword">=&gt;</span> printf <span class="keyword">(</span>"%.18g"<span class="keyword">,</span> <span class="keyword">@(</span>x<span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [print_dualnum]
+</span>
+<span class="keyword">fn</span> print_dualnumlst <span class="keyword">(</span>ps<span class="keyword">:</span> <span class="staexp">dualnumLst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>i<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> ps<span class="keyword">:</span> <span class="staexp">dualnumLst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">case+</span> ps <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>p<span class="keyword">,</span> ps<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> print ", "<span class="keyword">;</span> print_dualnum p<span class="keyword">;</span> aux <span class="keyword">(</span>i+1<span class="keyword">,</span> ps<span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  aux <span class="keyword">(</span>0<span class="keyword">,</span> ps<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [print_dualnumlst]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="1840"><span class="dyncstdec">neg_dualnum <span class="keyword">(</span>p<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnum</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">~</span> <span class="keyword">with</span> neg_dualnum</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="1914"><span class="dyncstdec">recip_dualnum <span class="keyword">(</span>p<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnum</span></span></a>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="1962"><span class="dyncstdec">add_dualnum_dualnum <span class="keyword">(</span>p1<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">,</span> p2<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnum</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> + <span class="keyword">with</span> add_dualnum_dualnum</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="2066"><span class="dyncstdec">sub_dualnum_dualnum <span class="keyword">(</span>p1<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">,</span> p2<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnum</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> - <span class="keyword">with</span> sub_dualnum_dualnum</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="2170"><span class="dyncstdec">mul_dualnum_dualnum <span class="keyword">(</span>p1<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">,</span> p2<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnum</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> * <span class="keyword">with</span> mul_dualnum_dualnum</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="2274"><span class="dyncstdec">div_dualnum_dualnum <span class="keyword">(</span>p1<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">,</span> p2<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnum</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> / <span class="keyword">with</span> div_dualnum_dualnum</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> neg_dualnum <span class="keyword">(</span>p<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> p <span class="keyword">of</span>
+  <span class="keyword">|</span> Bundle <span class="keyword">(</span>e<span class="keyword">,</span> x<span class="keyword">,</span> x'<span class="keyword">)</span> <span class="keyword">=&gt;</span> Bundle <span class="keyword">(</span>e<span class="keyword">,</span> <span class="keyword">~</span>x<span class="keyword">,</span> <span class="keyword">~</span>x'<span class="keyword">)</span> <span class="keyword">|</span> Base x <span class="keyword">=&gt;</span> Base <span class="keyword">(</span><span class="keyword">~</span>x<span class="keyword">)</span>
+<span class="comment">// end of [neg_dualnum]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> add_dualnum_dualnum <span class="keyword">(</span>p1<span class="keyword">,</span> p2<span class="keyword">)</span> <span class="keyword">=</span> 
+  <span class="keyword">case+</span> p1 <span class="keyword">of</span>
+  <span class="keyword">|</span> Bundle <span class="keyword">(</span>e1<span class="keyword">,</span> x1<span class="keyword">,</span> x1'<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> p2 <span class="keyword">of</span>
+    <span class="keyword">|</span> Bundle <span class="keyword">(</span>e2<span class="keyword">,</span> x2<span class="keyword">,</span> x2'<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> e<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> <span class="keyword">if</span> e1 &lt;= e2 <span class="keyword">then</span> e2 <span class="keyword">else</span> e1
+        <span class="keyword">val</span> x <span class="keyword">=</span> primal <span class="keyword">(</span>e<span class="keyword">,</span> p1<span class="keyword">)</span> + primal <span class="keyword">(</span>e<span class="keyword">,</span> p2<span class="keyword">)</span>
+        <span class="keyword">val</span> x' <span class="keyword">=</span> perturbation <span class="keyword">(</span>e<span class="keyword">,</span> p1<span class="keyword">)</span> + perturbation <span class="keyword">(</span>e<span class="keyword">,</span> p2<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        Bundle <span class="keyword">(</span>e<span class="keyword">,</span> x<span class="keyword">,</span> x'<span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> Base x2 <span class="keyword">=&gt;</span> Bundle <span class="keyword">(</span>e1<span class="keyword">,</span> x1 + p2<span class="keyword">,</span> x1'<span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> Base x1 <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> p2 <span class="keyword">of</span>
+    <span class="keyword">|</span> Bundle <span class="keyword">(</span>e2<span class="keyword">,</span> x2<span class="keyword">,</span> x2'<span class="keyword">)</span> <span class="keyword">=&gt;</span> Bundle <span class="keyword">(</span>e2<span class="keyword">,</span> p1 + x2<span class="keyword">,</span> x2'<span class="keyword">)</span>
+    <span class="keyword">|</span> Base x2 <span class="keyword">=&gt;</span> Base <span class="keyword">(</span>x1 + x2<span class="keyword">)</span>
+    <span class="keyword">end</span>
+<span class="comment">// end of [add_dualnum_dualnum]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> sub_dualnum_dualnum <span class="keyword">(</span>p1<span class="keyword">,</span> p2<span class="keyword">)</span> <span class="keyword">=</span> 
+  <span class="keyword">case+</span> p1 <span class="keyword">of</span>
+  <span class="keyword">|</span> Bundle <span class="keyword">(</span>e1<span class="keyword">,</span> x1<span class="keyword">,</span> x1'<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> p2 <span class="keyword">of</span>
+    <span class="keyword">|</span> Bundle <span class="keyword">(</span>e2<span class="keyword">,</span> x2<span class="keyword">,</span> x2'<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> e<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> <span class="keyword">if</span> e1 &lt;= e2 <span class="keyword">then</span> e2 <span class="keyword">else</span> e1
+        <span class="keyword">val</span> x <span class="keyword">=</span> primal <span class="keyword">(</span>e<span class="keyword">,</span> p1<span class="keyword">)</span> - primal <span class="keyword">(</span>e<span class="keyword">,</span> p2<span class="keyword">)</span>
+        <span class="keyword">val</span> x' <span class="keyword">=</span> perturbation <span class="keyword">(</span>e<span class="keyword">,</span> p1<span class="keyword">)</span> - perturbation <span class="keyword">(</span>e<span class="keyword">,</span> p2<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        Bundle <span class="keyword">(</span>e<span class="keyword">,</span> x<span class="keyword">,</span> x'<span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> Base x2 <span class="keyword">=&gt;</span> Bundle <span class="keyword">(</span>e1<span class="keyword">,</span> x1 - p2<span class="keyword">,</span> x1'<span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> Base x1 <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> p2 <span class="keyword">of</span>
+    <span class="keyword">|</span> Bundle <span class="keyword">(</span>e2<span class="keyword">,</span> x2<span class="keyword">,</span> x2'<span class="keyword">)</span> <span class="keyword">=&gt;</span> Bundle <span class="keyword">(</span>e2<span class="keyword">,</span> p1 - x2<span class="keyword">,</span> <span class="keyword">~</span>x2'<span class="keyword">)</span>
+    <span class="keyword">|</span> Base x2 <span class="keyword">=&gt;</span> Base <span class="keyword">(</span>x1 - x2<span class="keyword">)</span>
+    <span class="keyword">end</span>
+<span class="comment">// end of [sub_dualnum_dualnum]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> mul_dualnum_dualnum <span class="keyword">(</span>p1<span class="keyword">,</span> p2<span class="keyword">)</span> <span class="keyword">=</span> 
+  <span class="keyword">case+</span> p1 <span class="keyword">of</span>
+  <span class="keyword">|</span> Bundle <span class="keyword">(</span>e1<span class="keyword">,</span> x1<span class="keyword">,</span> x1'<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> p2 <span class="keyword">of</span>
+    <span class="keyword">|</span> Bundle <span class="keyword">(</span>e2<span class="keyword">,</span> x2<span class="keyword">,</span> x2'<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> e<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> <span class="keyword">if</span> e1 &lt;= e2 <span class="keyword">then</span> e2 <span class="keyword">else</span> e1
+        <span class="keyword">val</span> x1 <span class="keyword">=</span> primal <span class="keyword">(</span>e<span class="keyword">,</span> p1<span class="keyword">)</span> <span class="keyword">and</span> x2 <span class="keyword">=</span> primal <span class="keyword">(</span>e<span class="keyword">,</span> p2<span class="keyword">)</span>
+        <span class="keyword">val</span> x <span class="keyword">=</span> x1 * x2
+        <span class="keyword">val</span> x' <span class="keyword">=</span> x1 * perturbation <span class="keyword">(</span>e<span class="keyword">,</span> p2<span class="keyword">)</span> + x2 * perturbation <span class="keyword">(</span>e<span class="keyword">,</span> p1<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        Bundle <span class="keyword">(</span>e<span class="keyword">,</span> x<span class="keyword">,</span> x'<span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> Base x2 <span class="keyword">=&gt;</span> Bundle <span class="keyword">(</span>e1<span class="keyword">,</span> x1 * p2<span class="keyword">,</span> p2 * x1'<span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> Base x1 <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> p2 <span class="keyword">of</span>
+    <span class="keyword">|</span> Bundle <span class="keyword">(</span>e2<span class="keyword">,</span> x2<span class="keyword">,</span> x2'<span class="keyword">)</span> <span class="keyword">=&gt;</span> Bundle <span class="keyword">(</span>e2<span class="keyword">,</span> p1 * x2<span class="keyword">,</span> p1 * x2'<span class="keyword">)</span>
+    <span class="keyword">|</span> Base x2 <span class="keyword">=&gt;</span> Base <span class="keyword">(</span>x1 * x2<span class="keyword">)</span>
+    <span class="keyword">end</span>
+<span class="comment">// end of [mul_dualnum_dualnum]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> recip_dualnum <span class="keyword">(</span>p<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> p <span class="keyword">of</span>
+  <span class="keyword">|</span> Bundle <span class="keyword">(</span>e<span class="keyword">,</span> x<span class="keyword">,</span> x'<span class="keyword">)</span> <span class="keyword">=&gt;</span> Bundle <span class="keyword">(</span>e<span class="keyword">,</span> recip_dualnum x<span class="keyword">,</span> <span class="keyword">(</span><span class="keyword">~</span>x'<span class="keyword">)</span> / <span class="keyword">(</span>x * x<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">|</span> Base x <span class="keyword">=&gt;</span> Base <span class="keyword">(</span>1.0 / x<span class="keyword">)</span>
+<span class="comment">// end of [recip_dualnum_dualnum]
+</span>
+<span class="keyword">implement</span> div_dualnum_dualnum <span class="keyword">(</span>p1<span class="keyword">,</span> p2<span class="keyword">)</span> <span class="keyword">=</span> p1 * <span class="keyword">(</span>recip_dualnum p2<span class="keyword">)</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="4483"><span class="dyncstdec">sqrt_dualnum <span class="keyword">(</span>p<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnum</span></span></a>
+
+<span class="keyword">implement</span> sqrt_dualnum <span class="keyword">(</span>p<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> p <span class="keyword">of</span>
+  <span class="keyword">|</span> Bundle <span class="keyword">(</span>e<span class="keyword">,</span> x<span class="keyword">,</span> x'<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> x_sqrt <span class="keyword">=</span> sqrt_dualnum x<span class="keyword">;</span> <span class="keyword">val</span> x'_sqrt <span class="keyword">=</span> x' / <span class="keyword">(</span>x_sqrt + x_sqrt<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      Bundle <span class="keyword">(</span>e<span class="keyword">,</span> x_sqrt<span class="keyword">,</span> x'_sqrt<span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> Base x <span class="keyword">=&gt;</span> Base <span class="keyword">(</span>sqrt x<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [sqrt_dualnum]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="4788"><span class="dyncstdec">lt_dualnum_dualnum <span class="keyword">(</span>p1<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">,</span> p2<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">&lt;</span> <span class="keyword">with</span> lt_dualnum_dualnum</span>
+
+<span class="keyword">implement</span> lt_dualnum_dualnum <span class="keyword">(</span>p1<span class="keyword">,</span> p2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> p1 <span class="keyword">of</span>
+  <span class="keyword">|</span> Bundle <span class="keyword">(</span>_<span class="keyword">,</span> x1<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> p2 <span class="keyword">of</span>
+    <span class="keyword">|</span> Bundle <span class="keyword">(</span>_<span class="keyword">,</span> x2<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> x1 <span class="keyword">&lt;</span> x2 <span class="keyword">|</span> Base x2 <span class="keyword">=&gt;</span> x1 <span class="keyword">&lt;</span> p2
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> Base x1 <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> p2 <span class="keyword">of</span>
+    <span class="keyword">|</span> Bundle <span class="keyword">(</span>_<span class="keyword">,</span> x2<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> p1 <span class="keyword">&lt;</span> x2 <span class="keyword">|</span> Base x2 <span class="keyword">=&gt;</span> x1 <span class="keyword">&lt;</span> x2
+    <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [lt_dualnum_dualnum]
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="5187"><span class="dyncstdec">lte_dualnum_dualnum <span class="keyword">(</span>p1<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">,</span> p2<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> &lt;= <span class="keyword">with</span> lte_dualnum_dualnum</span>
+
+<span class="keyword">implement</span> lte_dualnum_dualnum <span class="keyword">(</span>p1<span class="keyword">,</span> p2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> p1 <span class="keyword">of</span>
+  <span class="keyword">|</span> Bundle <span class="keyword">(</span>_<span class="keyword">,</span> x1<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> p2 <span class="keyword">of</span>
+    <span class="keyword">|</span> Bundle <span class="keyword">(</span>_<span class="keyword">,</span> x2<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> x1 &lt;= x2 <span class="keyword">|</span> Base x2 <span class="keyword">=&gt;</span> x1 &lt;= p2
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> Base x1 <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> p2 <span class="keyword">of</span>
+    <span class="keyword">|</span> Bundle <span class="keyword">(</span>_<span class="keyword">,</span> x2<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> p1 &lt;= x2 <span class="keyword">|</span> Base x2 <span class="keyword">=&gt;</span> x1 &lt;= x2
+    <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [lte_dualnum_dualnum]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> square <span class="keyword">(</span>p<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnum</span> <span class="keyword">=</span> p * p
+
+<span class="keyword">fn</span> list_tabulate <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>f<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>natLt n <span class="keyword">-&lt;</span>cloptr1<span class="keyword">&gt;</span> dualnum</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnumlst n</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>int <span class="keyword">|</span> ~1 &lt;= i<span class="keyword">;</span> i <span class="keyword">&lt;</span> n<span class="keyword">}</span></span>
+    <span class="keyword">(</span>f<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>natLt n <span class="keyword">-&lt;</span>cloptr1<span class="keyword">&gt;</span> dualnum</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int i</span><span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp">list <span class="keyword">(</span>dualnum<span class="keyword">,</span> n-i-1<span class="keyword">)</span></span><span class="keyword">)</span>
+    <span class="keyword">:</span> <span class="staexp">list <span class="keyword">(</span>dualnum<span class="keyword">,</span> n<span class="keyword">)</span></span> <span class="keyword">=</span>
+    <span class="keyword">if</span> i &gt;= 0 <span class="keyword">then</span> aux <span class="keyword">(</span>f<span class="keyword">,</span> i-1<span class="keyword">,</span> list_cons <span class="keyword">(</span>f i<span class="keyword">,</span> res<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">else</span> res
+<span class="keyword">in</span>
+  aux <span class="keyword">(</span>f<span class="keyword">,</span> n-1<span class="keyword">,</span> list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [list_tabulate]
+</span>
+<span class="keyword">fun</span> vplus <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n<span class="keyword">&gt;.</span></span>
+  <span class="keyword">(</span>us<span class="keyword">:</span> <span class="staexp">dualnumlst n</span><span class="keyword">,</span> vs<span class="keyword">:</span> <span class="staexp">dualnumlst n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnumlst n</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> us <span class="keyword">of</span>
+  <span class="keyword">|</span> list_cons <span class="keyword">(</span>u<span class="keyword">,</span> us<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val+</span> list_cons <span class="keyword">(</span>v<span class="keyword">,</span> vs<span class="keyword">)</span> <span class="keyword">=</span> vs
+    <span class="keyword">in</span>
+      list_cons <span class="keyword">(</span>u + v<span class="keyword">,</span> vplus <span class="keyword">(</span>us<span class="keyword">,</span> vs<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> _ <span class="keyword">=&gt;&gt;</span> list_nil <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [vplus]
+</span>
+<span class="keyword">fun</span> vminus <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n<span class="keyword">&gt;.</span></span>
+  <span class="keyword">(</span>us<span class="keyword">:</span> <span class="staexp">dualnumlst n</span><span class="keyword">,</span> vs<span class="keyword">:</span> <span class="staexp">dualnumlst n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnumlst n</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> us <span class="keyword">of</span>
+  <span class="keyword">|</span> list_cons <span class="keyword">(</span>u<span class="keyword">,</span> us<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val+</span> list_cons <span class="keyword">(</span>v<span class="keyword">,</span> vs<span class="keyword">)</span> <span class="keyword">=</span> vs
+    <span class="keyword">in</span>
+      list_cons <span class="keyword">(</span>u - v<span class="keyword">,</span> vminus <span class="keyword">(</span>us<span class="keyword">,</span> vs<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> _ <span class="keyword">=&gt;&gt;</span> list_nil <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [vminus]
+</span>
+<span class="keyword">fun</span> vscale <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>k<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">,</span> xs<span class="keyword">:</span> <span class="staexp">dualnumlst n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnumlst n</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> xs <span class="keyword">of</span>
+  <span class="keyword">|</span> list_cons <span class="keyword">(</span>x<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=&gt;</span> list_cons <span class="keyword">(</span>k * x<span class="keyword">,</span> vscale <span class="keyword">(</span>k<span class="keyword">,</span> xs<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> list_nil <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [vscale]
+</span>
+<span class="keyword">fn</span> magnitude_squared <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">dualnumLst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnum</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">dualnumlst n</span><span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnum</span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> xs <span class="keyword">of</span> list_cons <span class="keyword">(</span>x<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=&gt;</span> aux <span class="keyword">(</span>xs<span class="keyword">,</span> res + x * x<span class="keyword">)</span> <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> res
+<span class="keyword">in</span>
+  aux <span class="keyword">(</span>xs<span class="keyword">,</span> zero_dualnum<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [magnitude_squared]
+</span>
+<span class="keyword">fn</span> magnitude <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">dualnumLst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnum</span> <span class="keyword">=</span>
+  sqrt_dualnum <span class="keyword">(</span>magnitude_squared xs<span class="keyword">)</span>
+
+<span class="keyword">fn</span> distance <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>us<span class="keyword">:</span> <span class="staexp">dualnumlst n</span><span class="keyword">,</span> vs<span class="keyword">:</span> <span class="staexp">dualnumlst n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnum</span> <span class="keyword">=</span>
+  magnitude <span class="keyword">(</span>vminus <span class="keyword">(</span>us<span class="keyword">,</span> vs<span class="keyword">)</span><span class="keyword">)</span>
+
+<span class="keyword">fun</span> list_nth_get <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n<span class="keyword">&gt;.</span></span>
+  <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">dualnumlst n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">natLt n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnum</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+    <span class="keyword">let</span> <span class="keyword">val+</span> list_cons <span class="keyword">(</span>_<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=</span> xs <span class="keyword">in</span> list_nth_get <span class="keyword">(</span>xs<span class="keyword">,</span> i-1<span class="keyword">)</span> <span class="keyword">end</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+    <span class="keyword">let</span> <span class="keyword">val+</span> list_cons <span class="keyword">(</span>x<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=</span> xs <span class="keyword">in</span> x <span class="keyword">end</span>
+  <span class="keyword">end</span>
+<span class="comment">// end of [list_nth_get]
+</span>
+<span class="keyword">fun</span> list_nth_set <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n<span class="keyword">&gt;.</span></span>
+  <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">dualnumlst n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">natLt n</span><span class="keyword">,</span> x0<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnumlst n</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">val+</span> list_cons <span class="keyword">(</span>x<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=</span> xs
+  <span class="keyword">in</span>
+    list_cons <span class="keyword">(</span>x<span class="keyword">,</span> list_nth_set <span class="keyword">(</span>xs<span class="keyword">,</span> i-1<span class="keyword">,</span> x0<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+    <span class="keyword">let</span> <span class="keyword">val+</span> list_cons <span class="keyword">(</span>_<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=</span> xs <span class="keyword">in</span> list_cons <span class="keyword">(</span>x0<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">end</span>
+  <span class="keyword">end</span>
+<span class="comment">// end of [list_nth_set]
+</span>
+<span class="keyword">fn</span> gradient <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>f<span class="keyword">:</span> <span class="staexp">dualnumlst n <span class="keyword">-&lt;</span>cloref1<span class="keyword">&gt;</span> dualnum</span><span class="keyword">,</span> xs<span class="keyword">:</span> <span class="staexp">dualnumlst n</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">dualnumlst n</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> fi <span class="keyword">=</span> <span class="keyword">lam</span> <span class="keyword">(</span>i<span class="keyword">:</span> <span class="staexp">natLt n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnum</span> <span class="keyword">=&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span>
+    derivative <span class="keyword">(</span><span class="keyword">lam</span> xi <span class="keyword">=&gt;</span> f <span class="keyword">(</span>list_nth_set <span class="keyword">(</span>xs<span class="keyword">,</span> i<span class="keyword">,</span> xi<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">,</span> list_nth_get <span class="keyword">(</span>xs<span class="keyword">,</span> i<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> gxs <span class="keyword">=</span> list_tabulate <span class="keyword">(</span>fi<span class="keyword">,</span> list_length xs<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cloptr_free <span class="keyword">(</span>fi<span class="keyword">)</span>
+<span class="comment">(*
+  val () = begin
+    print "gradient: xs = "; print_dualnumlst xs; print_newline ();
+    print "gradient: gxs = "; print_dualnumlst gxs; print_newline ();
+  end
+*)</span>
+<span class="keyword">in</span>
+  gxs
+<span class="keyword">end</span> <span class="comment">// end of [gradient]
+</span>
+<span class="keyword">val</span> PRECISION <span class="keyword">=</span> Base 1e-5
+
+<span class="keyword">fn</span> multivariate_argmin <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>f<span class="keyword">:</span> <span class="staexp">dualnumlst n <span class="keyword">-&lt;</span>cloref1<span class="keyword">&gt;</span> dualnum</span><span class="keyword">,</span> xs<span class="keyword">:</span> <span class="staexp">dualnumlst n</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">dualnumlst n</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">macdef</span> <span class="neuexp">g <span class="keyword">(</span>xs<span class="keyword">)</span> <span class="keyword">=</span> gradient <span class="keyword">(</span>f<span class="keyword">,</span> <span class="keyword">,(</span>xs<span class="keyword">)</span><span class="keyword">)</span></span>
+  <span class="keyword">fun</span> loop <span class="keyword">(</span>
+      f<span class="keyword">:</span> <span class="staexp">dualnumlst n <span class="keyword">-&lt;</span>cloref1<span class="keyword">&gt;</span> dualnum</span>
+    <span class="keyword">,</span> xs<span class="keyword">:</span> <span class="staexp">dualnumlst n</span><span class="keyword">,</span> fxs<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">,</span> gxs<span class="keyword">:</span> <span class="staexp">dualnumlst n</span><span class="keyword">,</span> eta<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int</span>
+    <span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">fun1</span><span class="keyword">&gt;</span> <span class="staexp">dualnumlst n</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">macdef</span> <span class="neuexp">g <span class="keyword">(</span>xs<span class="keyword">)</span> <span class="keyword">=</span> gradient <span class="keyword">(</span>f<span class="keyword">,</span> <span class="keyword">,(</span>xs<span class="keyword">)</span><span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="keyword">if</span> magnitude gxs &lt;= PRECISION <span class="keyword">then</span> xs
+    <span class="keyword">else</span> <span class="keyword">if</span> i <span class="keyword">=</span> 10 <span class="keyword">then</span> loop <span class="keyword">(</span>f<span class="keyword">,</span> xs<span class="keyword">,</span> fxs<span class="keyword">,</span> gxs<span class="keyword">,</span> two_dualnum * eta<span class="keyword">,</span> 0<span class="keyword">)</span>
+    <span class="keyword">else</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> xs' <span class="keyword">=</span> vminus <span class="keyword">(</span>xs<span class="keyword">,</span> vscale <span class="keyword">(</span>eta<span class="keyword">,</span> gxs<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> distance <span class="keyword">(</span>xs<span class="keyword">,</span> xs'<span class="keyword">)</span> &lt;= PRECISION <span class="keyword">then</span>
+        xs
+      <span class="keyword">else</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> fxs' <span class="keyword">=</span> f xs'
+      <span class="keyword">in</span>
+        <span class="keyword">if</span> fxs' <span class="keyword">&lt;</span> fxs <span class="keyword">then</span>
+          loop <span class="keyword">(</span>f<span class="keyword">,</span> xs'<span class="keyword">,</span> fxs'<span class="keyword">,</span> g xs'<span class="keyword">,</span> eta<span class="keyword">,</span> i+1<span class="keyword">)</span>
+        <span class="keyword">else</span>
+          loop <span class="keyword">(</span>f<span class="keyword">,</span> xs<span class="keyword">,</span> fxs<span class="keyword">,</span> gxs<span class="keyword">,</span> eta / two_dualnum<span class="keyword">,</span> 0<span class="keyword">)</span>
+        <span class="comment">// end of [if]
+</span>      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">end</span> <span class="comment">// end of [loop
+</span><span class="keyword">in</span>
+  loop <span class="keyword">(</span>f<span class="keyword">,</span> xs<span class="keyword">,</span> f xs<span class="keyword">,</span> g xs<span class="keyword">,</span> PRECISION<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [multivariate_argmin]
+</span>
+<span class="keyword">fn</span> multivariate_argmax <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>f<span class="keyword">:</span> <span class="staexp">dualnumlst n <span class="keyword">-&lt;</span>cloref1<span class="keyword">&gt;</span> dualnum</span><span class="keyword">,</span> xs<span class="keyword">:</span> <span class="staexp">dualnumlst n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnumlst n</span> <span class="keyword">=</span>
+  multivariate_argmin <span class="keyword">(</span><span class="keyword">lam</span> xs <span class="keyword">=&gt;</span> <span class="keyword">~</span><span class="keyword">(</span>f xs<span class="keyword">)</span><span class="keyword">,</span> xs<span class="keyword">)</span>
+<span class="comment">// end of [multivariate_argmax]
+</span>
+<span class="keyword">fn</span> multivariate_max <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>f<span class="keyword">:</span> <span class="staexp">dualnumlst n <span class="keyword">-&lt;</span>cloref1<span class="keyword">&gt;</span> dualnum</span><span class="keyword">,</span> xs<span class="keyword">:</span> <span class="staexp">dualnumlst n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnum</span> <span class="keyword">=</span>
+  f <span class="keyword">(</span>multivariate_argmax <span class="keyword">(</span>f<span class="keyword">,</span> xs<span class="keyword">)</span><span class="keyword">)</span>
+<span class="comment">// end of [multivariate_max]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> saddle <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+
+<span class="keyword">val</span> start<span class="keyword">:</span> <span class="staexp">dualnumlst2</span> <span class="keyword">=</span>
+  list_cons <span class="keyword">(</span>one_dualnum<span class="keyword">,</span> list_cons <span class="keyword">(</span>one_dualnum<span class="keyword">,</span> list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+
+<span class="keyword">val</span> xy1_star<span class="keyword">:</span> <span class="staexp">dualnumlst2</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fn</span> f1 <span class="keyword">(</span>xy1<span class="keyword">:</span> <span class="staexp">dualnumlst2</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">dualnum</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val+</span> list_cons <span class="keyword">(</span>x1<span class="keyword">,</span> list_cons <span class="keyword">(</span>y1<span class="keyword">,</span> list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> xy1
+    <span class="keyword">val</span> sum <span class="keyword">=</span> x1 * x1 + y1 * y1
+    <span class="keyword">fn</span> f2 <span class="keyword">(</span>xy2<span class="keyword">:</span> <span class="staexp">dualnumlst2</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">dualnum</span> <span class="keyword">=</span> <span class="keyword">let</span>
+      <span class="keyword">val+</span> list_cons <span class="keyword">(</span>x2<span class="keyword">,</span> list_cons <span class="keyword">(</span>y2<span class="keyword">,</span> list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> xy2
+    <span class="keyword">in</span>
+      sum - <span class="keyword">(</span>x2 * x2 + y2 * y2<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [f2]
+</span>  <span class="keyword">in</span>
+    multivariate_max <span class="keyword">(</span>f2<span class="keyword">,</span> start<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [f1]
+</span><span class="keyword">in</span>
+  multivariate_argmin <span class="keyword">(</span>f1<span class="keyword">,</span> start<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [xy1_star]
+</span>
+<span class="keyword">val+</span> list_cons <span class="keyword">(</span>x1_star<span class="keyword">,</span> list_cons <span class="keyword">(</span>y1_star<span class="keyword">,</span> list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> xy1_star
+
+<span class="keyword">val</span> xy2_star<span class="keyword">:</span> <span class="staexp">dualnumlst2</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> sum <span class="keyword">=</span> x1_star * x1_star + y1_star * y1_star
+  <span class="keyword">fn</span> f3 <span class="keyword">(</span>xy2<span class="keyword">:</span> <span class="staexp">dualnumlst2</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">dualnum</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val+</span> list_cons <span class="keyword">(</span>x2<span class="keyword">,</span> list_cons <span class="keyword">(</span>y2<span class="keyword">,</span> list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> xy2
+  <span class="keyword">in</span>
+    sum - <span class="keyword">(</span>x2 * x2 + y2 * y2<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [f3]
+</span><span class="keyword">in</span>
+  multivariate_argmax <span class="keyword">(</span>f3<span class="keyword">,</span> start<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [xy2_star]
+</span>
+<span class="keyword">val+</span> list_cons <span class="keyword">(</span>x2_star<span class="keyword">,</span> list_cons <span class="keyword">(</span>y2_star<span class="keyword">,</span> list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> xy2_star
+
+<span class="keyword">in</span> <span class="comment">// in of [let]
+</span>
+print_dualnum x1_star<span class="keyword">;</span> print_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+print_dualnum y1_star<span class="keyword">;</span> print_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+print_dualnum x2_star<span class="keyword">;</span> print_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+print_dualnum y2_star<span class="keyword">;</span> print_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+
+<span class="keyword">end</span> <span class="comment">// end of [saddle]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> particle <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+
+<span class="keyword">fn</span> naive_euler <span class="keyword">(</span>w<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">dualnum</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> ten_dualnum <span class="keyword">=</span> Base 10.0
+  <span class="keyword">val</span> delta_t <span class="keyword">=</span> Base 1e-1
+  <span class="keyword">val</span> charge1 <span class="keyword">=</span> <span class="keyword">'[</span>ten_dualnum<span class="keyword">,</span> ten_dualnum - w<span class="keyword">]</span>
+  <span class="keyword">val</span> charge2 <span class="keyword">=</span> <span class="keyword">'[</span>ten_dualnum<span class="keyword">,</span> zero_dualnum<span class="keyword">]</span>
+  <span class="keyword">val</span> charges<span class="keyword">:</span> <span class="staexp">list <span class="keyword">(</span>dualnumlst2<span class="keyword">,</span> 2<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">'[</span>charge1<span class="keyword">,</span> charge2<span class="keyword">]</span>
+  <span class="keyword">fn</span> p <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">dualnumlst2</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">dualnum</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">fun</span> aux <span class="keyword">(</span>charges<span class="keyword">:</span> <span class="staexp">List dualnumlst2</span><span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp">dualnum</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">dualnum</span> <span class="keyword">=</span>
+      <span class="keyword">case+</span> charges <span class="keyword">of</span>
+      <span class="keyword">|</span> list_cons <span class="keyword">(</span>charge<span class="keyword">,</span> charges<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+          aux <span class="keyword">(</span>charges<span class="keyword">,</span> res + recip_dualnum <span class="keyword">(</span>distance <span class="keyword">(</span>xs<span class="keyword">,</span> charge<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> res
+  <span class="keyword">in</span>
+    aux <span class="keyword">(</span>charges<span class="keyword">,</span> zero_dualnum<span class="keyword">)</span>
+  <span class="keyword">end</span>
+  <span class="keyword">fun</span> loop
+    <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">dualnumlst2</span><span class="keyword">,</span> xs_dot<span class="keyword">:</span> <span class="staexp">dualnumlst2</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp">dualnum</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> xs_ddot <span class="keyword">=</span> vscale <span class="keyword">(</span>negone_dualnum<span class="keyword">,</span> gradient <span class="keyword">(</span>p<span class="keyword">,</span> xs<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">val</span> xs_new <span class="keyword">=</span> vplus <span class="keyword">(</span>xs<span class="keyword">,</span> vscale <span class="keyword">(</span>delta_t<span class="keyword">,</span> xs_dot<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="keyword">if</span> zero_dualnum <span class="keyword">&lt;</span> list_nth_get <span class="keyword">(</span>xs_new<span class="keyword">,</span> 1<span class="keyword">)</span> <span class="keyword">then</span>
+      loop <span class="keyword">(</span>xs_new<span class="keyword">,</span> vplus <span class="keyword">(</span>xs_dot<span class="keyword">,</span> vscale <span class="keyword">(</span>delta_t<span class="keyword">,</span> xs_ddot<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">else</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> delta_t_f <span class="keyword">=</span> <span class="keyword">~</span><span class="keyword">(</span>list_nth_get <span class="keyword">(</span>xs<span class="keyword">,</span> 1<span class="keyword">)</span> / list_nth_get <span class="keyword">(</span>xs_dot<span class="keyword">,</span> 1<span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">val</span> xs_t_f <span class="keyword">=</span> vplus <span class="keyword">(</span>xs<span class="keyword">,</span> vscale <span class="keyword">(</span>delta_t_f<span class="keyword">,</span> xs_dot<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      square <span class="keyword">(</span>list_nth_get <span class="keyword">(</span>xs_t_f<span class="keyword">,</span> 0<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">val</span> xs_initial<span class="keyword">:</span> <span class="staexp">dualnumlst2</span> <span class="keyword">=</span> <span class="keyword">'[</span>zero_dualnum<span class="keyword">,</span> Base 8.0<span class="keyword">]</span>
+  <span class="keyword">val</span> xs_dot_initial<span class="keyword">:</span> <span class="staexp">dualnumlst2</span> <span class="keyword">=</span> <span class="keyword">'[</span>Base 0.75<span class="keyword">,</span> zero_dualnum<span class="keyword">]</span>
+<span class="keyword">in</span>
+  loop <span class="keyword">(</span>xs_initial<span class="keyword">,</span> xs_dot_initial<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end [naive_euler]
+</span>
+<span class="keyword">val</span> w0 <span class="keyword">=</span> zero_dualnum
+<span class="keyword">val</span> ws_star<span class="keyword">:</span> <span class="staexp">dualnumlst1</span> <span class="keyword">=</span>
+  multivariate_argmin <span class="keyword">(</span>f<span class="keyword">,</span> <span class="keyword">'[</span>w0<span class="keyword">]</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fn</span> f <span class="keyword">(</span>ws<span class="keyword">:</span> <span class="staexp">dualnumlst1</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">dualnum</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val+</span> list_cons <span class="keyword">(</span>w<span class="keyword">,</span> list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> ws
+  <span class="keyword">in</span>
+    naive_euler w
+  <span class="keyword">end</span> <span class="comment">// end of [f]
+</span><span class="keyword">}</span> <span class="comment">// end of [where]
+</span>
+<span class="keyword">val</span> list_cons <span class="keyword">(</span>w_star<span class="keyword">,</span> list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> ws_star
+
+<span class="keyword">in</span> <span class="comment">// in of [let]
+</span>
+print_dualnum w_star<span class="keyword">;</span> print_newline <span class="keyword">(</span><span class="keyword">)</span>
+
+<span class="keyword">end</span> <span class="comment">// end of [particle]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+
+// saddle: 
+
+8.2463248261403561e-06
+8.2463248261403561e-06
+8.2463248261403561e-06
+8.2463248261403561e-06
+
+// particle:
+
+0.20719187464861194
+
+*)</span>
+
+<span class="keyword">implement</span> main <span class="keyword">(</span>argc<span class="keyword">,</span> argv<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  saddle <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span> <span class="comment">// test
+</span>  particle <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span> <span class="comment">// test
+</span><span class="keyword">end</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [AutoDiff.dats] *)</span>
+</pre>
+</body>
+</html>

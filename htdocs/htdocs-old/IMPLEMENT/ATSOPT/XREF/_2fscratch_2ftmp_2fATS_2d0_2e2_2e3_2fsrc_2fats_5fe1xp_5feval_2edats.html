@@ -1,0 +1,652 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: October 2007
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Deb <span class="keyword">=</span> "ats_debug.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Err <span class="keyword">=</span> "ats_error.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Loc <span class="keyword">=</span> "ats_location.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Sym <span class="keyword">=</span> "ats_symbol.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Syn <span class="keyword">=</span> "ats_syntax.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp1.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_trans1_env.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_e1xp_eval.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="1819"><span class="stacstdec">loc_t <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_t</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1851"><span class="stacstdec">sym_t <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_t</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">nil list_nil</span>
+<span class="keyword">#define</span> <span class="neuexp">cons list_cons</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">=</span> <span class="keyword">with</span> $Sym<span class="keyword">.</span>eq_symbol_symbol</span>
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> $Loc<span class="keyword">.</span>prerr_location</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> is_debug <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> $Deb<span class="keyword">.</span>debug_flag_get <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">&gt;</span> 0
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+v1al_is_true <span class="keyword">(</span>v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> v <span class="keyword">of</span>
+  <span class="keyword">|</span> V1ALint i <span class="keyword">=&gt;</span> i &lt;&gt; 0 <span class="comment">// most common
+</span>  <span class="keyword">|</span> V1ALstring s <span class="keyword">=&gt;</span> string_isnot_empty s <span class="comment">// 2nd most common
+</span>  <span class="keyword">|</span> V1ALfloat f <span class="keyword">=&gt;</span> f &lt;&gt; 0.0
+  <span class="keyword">|</span> V1ALchar c <span class="keyword">=&gt;</span> c &lt;&gt; '\000'
+<span class="keyword">end</span> <span class="comment">// end of [v1al_is_true]
+</span>
+<span class="keyword">implement</span> v1al_is_false <span class="keyword">(</span>v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">~</span>v1al_is_true<span class="keyword">(</span>v<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> e1xp_eval_errmsg_app
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  prerr loc<span class="keyword">;</span>
+  <span class="keyword">if</span> is_debug <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">then</span> prerr ": e1xp_eval"<span class="keyword">;</span>
+  prerr ": an identifier is expected here."<span class="keyword">;</span>
+  prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+  $Err<span class="keyword">.</span>abort <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_errmsg_app]
+</span>
+<span class="keyword">fn</span> e1xp_eval_errmsg_id
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> id<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  prerr loc<span class="keyword">;</span>
+  <span class="keyword">if</span> is_debug <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">then</span> prerr ": e1xp_eval"<span class="keyword">;</span>
+  prerr ": unrecognized identifier: "<span class="keyword">;</span>
+  $Sym<span class="keyword">.</span>prerr_symbol id<span class="keyword">;</span>
+  prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+  $Err<span class="keyword">.</span>abort <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_errmsg_id]
+</span>
+<span class="keyword">fn</span> e1xp_eval_errmsg_list
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  prerr loc<span class="keyword">;</span>
+  <span class="keyword">if</span> is_debug <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">then</span> prerr ": e1xp_eval"<span class="keyword">;</span>
+  prerr ": illegal list expression is used here."<span class="keyword">;</span>
+  prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+  $Err<span class="keyword">.</span>abort <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_errmsg_list]
+</span>
+<span class="keyword">fn</span> e1xp_eval_appid_errmsg_arity
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> opr<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  prerr loc<span class="keyword">;</span>
+  <span class="keyword">if</span> is_debug <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">then</span> prerr ": e1xp_eval_appid"<span class="keyword">;</span>
+  prerr ": the arity of ["<span class="keyword">;</span>
+  $Sym<span class="keyword">.</span>prerr_symbol opr<span class="keyword">;</span>
+  prerr "] is mismatched."<span class="keyword">;</span>
+  prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+  $Err<span class="keyword">.</span>abort <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_appid_errmsg_arity]
+</span>
+<span class="keyword">fn</span> e1xp_eval_appid_errmsg_opr
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> opr<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  prerr loc<span class="keyword">;</span>
+  <span class="keyword">if</span> is_debug <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">then</span> prerr ": e1xp_eval_appid"<span class="keyword">;</span>
+  prerr ": unrecognized operation: ["<span class="keyword">;</span>
+  $Sym<span class="keyword">.</span>prerr_symbol opr<span class="keyword">;</span> prerr "]"<span class="keyword">;</span>
+  prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+  $Err<span class="keyword">.</span>abort <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_appid_errmsg_opr]
+</span>
+<span class="keyword">fn</span> e1xp_eval_opr_errmsg
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> opr<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  prerr loc<span class="keyword">;</span>
+  <span class="keyword">if</span> is_debug <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">then</span> prerr ": e1xp_eval"<span class="keyword">;</span>
+  prerr ": illegal argument(s) for ["<span class="keyword">;</span>
+  $Sym<span class="keyword">.</span>prerr_symbol opr<span class="keyword">;</span> prerr "]"<span class="keyword">;</span>
+  prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+  $Err<span class="keyword">.</span>abort <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_opr_errmsg]
+</span>
+<span class="keyword">fn</span> e1xp_eval_errmsg_undef
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  prerr loc<span class="keyword">;</span>
+  <span class="keyword">if</span> is_debug <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">then</span> prerr ": e1xp_eval"<span class="keyword">;</span>
+  prerr ": undefined expression is used here."<span class="keyword">;</span>
+  prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+  $Err<span class="keyword">.</span>abort <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_errmsg_undef]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: it is assumed that [s] represents a valid integer
+</span><span class="comment">//
+</span><span class="keyword">fun</span> e1xp_eval_int <span class="keyword">(</span>s<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "e1xp_eval_int s = "; print s; print_newline ()
+  end // end of [val]
+*)</span>
+  <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">n<span class="keyword">:</span>int</span><span class="keyword">]</span> s <span class="keyword">=</span> string1_of_string <span class="keyword">(</span>s<span class="keyword">)</span> <span class="comment">// no-op casting
+</span><span class="comment">//
+</span>  <span class="keyword">fun</span> loop1 <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i &lt;= n<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n-i<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span>sgn<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> s<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span>
+    <span class="keyword">if</span> string_isnot_at_end <span class="keyword">(</span>s<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> c0 <span class="keyword">=</span> s[<span class="prfexp">i</span><span class="keyword">]</span>
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> c0 &lt;&gt; '0' <span class="keyword">then</span> <span class="keyword">begin</span>
+        sgn * loop2 <span class="keyword">(</span>10<span class="comment">(*base*)</span><span class="keyword">,</span> s<span class="keyword">,</span> i+1<span class="keyword">,</span> c0 - '0'<span class="keyword">)</span> <span class="comment">// s = [1-9]...
+</span>      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> string_isnot_at_end <span class="keyword">(</span>s<span class="keyword">,</span> i+1<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> c1 <span class="keyword">=</span> s[<span class="prfexp">i+1</span><span class="keyword">]</span>
+        <span class="keyword">in</span>
+          <span class="keyword">if</span> char_isdigit <span class="keyword">(</span>c1<span class="keyword">)</span> <span class="keyword">then</span>
+            sgn * loop2 <span class="keyword">(</span>8<span class="comment">(*base*)</span><span class="keyword">,</span> s<span class="keyword">,</span> i+2<span class="keyword">,</span> c1 - '0'<span class="keyword">)</span> <span class="comment">// s = 0...
+</span>          <span class="keyword">else</span>
+            sgn * loop2 <span class="keyword">(</span>16<span class="comment">(*base*)</span><span class="keyword">,</span> s<span class="keyword">,</span> i+2<span class="keyword">,</span> 0<span class="keyword">)</span> <span class="comment">// s = 0x... or s = 0X...
+</span>          <span class="comment">// end of [if]
+</span>        <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+          0 <span class="comment">// s = 0
+</span>        <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      0 <span class="comment">// empty string
+</span>    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="comment">// end of [loop1]
+</span><span class="comment">//
+</span>  <span class="keyword">and</span> loop2 <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i &lt;= n<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n-i<span class="keyword">&gt;.</span></span> <span class="keyword">(</span>
+      base<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> s<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp">int</span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span>
+    <span class="keyword">if</span> string_isnot_at_end <span class="keyword">(</span>s<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> c <span class="keyword">=</span> s[<span class="prfexp">i</span><span class="keyword">]</span><span class="keyword">;</span> <span class="keyword">val</span> d <span class="keyword">=</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> char_isdigit c <span class="keyword">then</span> c - '0' <span class="keyword">else</span>
+          10 + <span class="keyword">(</span><span class="keyword">if</span> char_isupper c <span class="keyword">then</span> c - 'A' <span class="keyword">else</span> c - 'a' <span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span>
+        <span class="comment">// end of [if]
+</span>      <span class="keyword">end</span> <span class="keyword">:</span> <span class="staexp">int</span>
+    <span class="keyword">in</span>
+      loop2 <span class="keyword">(</span>base<span class="keyword">,</span> s<span class="keyword">,</span> i+1<span class="keyword">,</span> res * base + d<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      res <span class="comment">(* loop2 returns *)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="comment">// end of [loop2]
+</span><span class="comment">//
+</span><span class="keyword">in</span>
+<span class="comment">//
+</span>  <span class="keyword">if</span> string_isnot_at_end <span class="keyword">(</span>s<span class="keyword">,</span> 0<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> c0 <span class="keyword">=</span> s[<span class="prfexp">0</span><span class="keyword">]</span>
+  <span class="keyword">in</span>
+    <span class="keyword">if</span> c0 &lt;&gt; '~' <span class="keyword">then</span> loop1 <span class="keyword">(</span>1<span class="comment">(*sgn*)</span><span class="keyword">,</span> s<span class="keyword">,</span> 0<span class="keyword">)</span> <span class="keyword">else</span> loop1 <span class="keyword">(</span>~1<span class="comment">(*sgn*)</span><span class="keyword">,</span> s<span class="keyword">,</span> 1<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+    0 <span class="comment">// empty string represents 0
+</span>  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="comment">//
+</span><span class="keyword">end</span> <span class="comment">(* end of [e1xp_eval_int] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> e1xp_eval_appid
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> id<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">,</span> es<span class="keyword">:</span> <span class="staexp">e1xplst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "e1xp_eval_appid: id = "; $Sym.print_symbol id; print_newline ()
+  end // end of [val]
+*)</span>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_DEFINED <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>e<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval_defined <span class="keyword">(</span>loc<span class="keyword">,</span> e<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> e1xp_eval_appid_errmsg_arity <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_UNDEFINED <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>e<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval_undefined <span class="keyword">(</span>loc<span class="keyword">,</span> e<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> e1xp_eval_appid_errmsg_arity <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_ADD <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>e1<span class="keyword">,</span> cons <span class="keyword">(</span>e2<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval_add <span class="keyword">(</span>loc<span class="keyword">,</span> e1<span class="keyword">,</span> e2<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> e1xp_eval_appid_errmsg_arity <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_SUB <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>e1<span class="keyword">,</span> cons <span class="keyword">(</span>e2<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval_sub <span class="keyword">(</span>loc<span class="keyword">,</span> e1<span class="keyword">,</span> e2<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> e1xp_eval_appid_errmsg_arity <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_MUL <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>e1<span class="keyword">,</span> cons <span class="keyword">(</span>e2<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval_mul <span class="keyword">(</span>loc<span class="keyword">,</span> e1<span class="keyword">,</span> e2<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> e1xp_eval_appid_errmsg_arity <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_DIV <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>e1<span class="keyword">,</span> cons <span class="keyword">(</span>e2<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval_div <span class="keyword">(</span>loc<span class="keyword">,</span> e1<span class="keyword">,</span> e2<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> e1xp_eval_appid_errmsg_arity <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_LT <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>e1<span class="keyword">,</span> cons <span class="keyword">(</span>e2<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval_lt <span class="keyword">(</span>loc<span class="keyword">,</span> e1<span class="keyword">,</span> e2<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> e1xp_eval_appid_errmsg_arity <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_LTEQ <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>e1<span class="keyword">,</span> cons <span class="keyword">(</span>e2<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval_lte <span class="keyword">(</span>loc<span class="keyword">,</span> e1<span class="keyword">,</span> e2<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> e1xp_eval_appid_errmsg_arity <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_GT <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>e1<span class="keyword">,</span> cons <span class="keyword">(</span>e2<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval_gt <span class="keyword">(</span>loc<span class="keyword">,</span> e1<span class="keyword">,</span> e2<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> e1xp_eval_appid_errmsg_arity <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_GTEQ <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>e1<span class="keyword">,</span> cons <span class="keyword">(</span>e2<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval_gte <span class="keyword">(</span>loc<span class="keyword">,</span> e1<span class="keyword">,</span> e2<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> e1xp_eval_appid_errmsg_arity <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_EQ <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>e1<span class="keyword">,</span> cons <span class="keyword">(</span>e2<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval_eq <span class="keyword">(</span>loc<span class="keyword">,</span> e1<span class="keyword">,</span> e2<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> e1xp_eval_appid_errmsg_arity <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_EQEQ <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>e1<span class="keyword">,</span> cons <span class="keyword">(</span>e2<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval_eq <span class="keyword">(</span>loc<span class="keyword">,</span> e1<span class="keyword">,</span> e2<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> e1xp_eval_appid_errmsg_arity <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_NEQ <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>e1<span class="keyword">,</span> cons <span class="keyword">(</span>e2<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval_neq <span class="keyword">(</span>loc<span class="keyword">,</span> e1<span class="keyword">,</span> e2<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> e1xp_eval_appid_errmsg_arity <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_NEQEQ <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>e1<span class="keyword">,</span> cons <span class="keyword">(</span>e2<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval_neq <span class="keyword">(</span>loc<span class="keyword">,</span> e1<span class="keyword">,</span> e2<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> e1xp_eval_appid_errmsg_arity <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_AND <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>e1<span class="keyword">,</span> cons <span class="keyword">(</span>e2<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval_and <span class="keyword">(</span>loc<span class="keyword">,</span> e1<span class="keyword">,</span> e2<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> e1xp_eval_appid_errmsg_arity <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_OR <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>e1<span class="keyword">,</span> cons <span class="keyword">(</span>e2<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval_or <span class="keyword">(</span>loc<span class="keyword">,</span> e1<span class="keyword">,</span> e2<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> e1xp_eval_appid_errmsg_arity <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_LTLT <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>e1<span class="keyword">,</span> cons <span class="keyword">(</span>e2<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval_asl <span class="keyword">(</span>loc<span class="keyword">,</span> e1<span class="keyword">,</span> e2<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> e1xp_eval_appid_errmsg_arity <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_GTGT <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>e1<span class="keyword">,</span> cons <span class="keyword">(</span>e2<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval_asr <span class="keyword">(</span>loc<span class="keyword">,</span> e1<span class="keyword">,</span> e2<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> e1xp_eval_appid_errmsg_arity <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+    e1xp_eval_appid_errmsg_opr <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_appid]
+</span>
+<span class="keyword">and</span> e1xp_eval_defined
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> e<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> e<span class="keyword">.</span>e1xp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> E1XPide id <span class="keyword">=&gt;</span> V1ALint <span class="keyword">(</span>i<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+      <span class="keyword">val</span> i <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> the_e1xpenv_find id <span class="keyword">of</span>
+        <span class="keyword">|</span> <span class="keyword">~</span>Some_vt e <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">case+</span> e<span class="keyword">.</span>e1xp_node <span class="keyword">of</span> E1XPundef <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> 0 <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> 1<span class="keyword">)</span>
+        <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> 0
+      <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">int</span> <span class="comment">// end of [val]
+</span>    <span class="keyword">}</span> <span class="comment">// end of [E1XPide]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      e1xp_eval_opr_errmsg <span class="keyword">(</span>loc<span class="keyword">,</span> $Sym<span class="keyword">.</span>symbol_DEFINED<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_]
+</span><span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_defined]
+</span>
+<span class="keyword">and</span> e1xp_eval_undefined
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> e<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> e<span class="keyword">.</span>e1xp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> E1XPide id <span class="keyword">=&gt;</span> V1ALint <span class="keyword">(</span>i<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+      <span class="keyword">val</span> i <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> the_e1xpenv_find id <span class="keyword">of</span>
+        <span class="keyword">|</span> <span class="keyword">~</span>Some_vt e <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">case+</span> e<span class="keyword">.</span>e1xp_node <span class="keyword">of</span> E1XPundef <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> 1 <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> 0<span class="keyword">)</span>
+        <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> 1
+      <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">int</span> <span class="comment">// end of [val]
+</span>    <span class="keyword">}</span> <span class="comment">// end of [E1XPide]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      e1xp_eval_opr_errmsg <span class="keyword">(</span>loc<span class="keyword">,</span> $Sym<span class="keyword">.</span>symbol_UNDEFINED<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_]
+</span><span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_undefined]
+</span>  
+<span class="keyword">and</span> e1xp_eval_add <span class="keyword">(</span>
+  loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> e1<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">,</span> e2<span class="keyword">:</span> <span class="staexp">e1xp</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> v1 <span class="keyword">=</span> e1xp_eval e1<span class="keyword">;</span> <span class="keyword">val</span> v2 <span class="keyword">=</span> e1xp_eval e2
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>v1<span class="keyword">,</span> v2<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALfloat f1<span class="keyword">,</span> V1ALfloat f2<span class="keyword">)</span> <span class="keyword">=&gt;</span> V1ALfloat <span class="keyword">(</span>f1 + f2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALint i1<span class="keyword">,</span> V1ALint i2<span class="keyword">)</span> <span class="keyword">=&gt;</span> V1ALint <span class="keyword">(</span>i1 + i2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALstring s1<span class="keyword">,</span> V1ALstring s2<span class="keyword">)</span> <span class="keyword">=&gt;</span> V1ALstring <span class="keyword">(</span>s1 + s2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      e1xp_eval_opr_errmsg <span class="keyword">(</span>loc<span class="keyword">,</span> $Sym<span class="keyword">.</span>symbol_ADD<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [(_, _)]
+</span><span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_add]
+</span>
+<span class="keyword">and</span> e1xp_eval_sub <span class="keyword">(</span>
+  loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> e1<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">,</span> e2<span class="keyword">:</span> <span class="staexp">e1xp</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> v1 <span class="keyword">=</span> e1xp_eval e1<span class="keyword">;</span> <span class="keyword">val</span> v2 <span class="keyword">=</span> e1xp_eval e2
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>v1<span class="keyword">,</span> v2<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALfloat f1<span class="keyword">,</span> V1ALfloat f2<span class="keyword">)</span> <span class="keyword">=&gt;</span> V1ALfloat <span class="keyword">(</span>f1 - f2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALint i1<span class="keyword">,</span> V1ALint i2<span class="keyword">)</span> <span class="keyword">=&gt;</span> V1ALint <span class="keyword">(</span>i1 - i2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      e1xp_eval_opr_errmsg <span class="keyword">(</span>loc<span class="keyword">,</span> $Sym<span class="keyword">.</span>symbol_SUB<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [(_, _)]
+</span><span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_sub]
+</span>
+<span class="keyword">and</span> e1xp_eval_mul <span class="keyword">(</span>
+  loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> e1<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">,</span> e2<span class="keyword">:</span> <span class="staexp">e1xp</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> v1 <span class="keyword">=</span> e1xp_eval e1<span class="keyword">;</span> <span class="keyword">val</span> v2 <span class="keyword">=</span> e1xp_eval e2
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>v1<span class="keyword">,</span> v2<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALfloat f1<span class="keyword">,</span> V1ALfloat f2<span class="keyword">)</span> <span class="keyword">=&gt;</span> V1ALfloat <span class="keyword">(</span>f1 * f2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALint i1<span class="keyword">,</span> V1ALint i2<span class="keyword">)</span> <span class="keyword">=&gt;</span> V1ALint <span class="keyword">(</span>i1 * i2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      e1xp_eval_opr_errmsg <span class="keyword">(</span>loc<span class="keyword">,</span> $Sym<span class="keyword">.</span>symbol_MUL<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [(_, _)]
+</span><span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_mul]
+</span>
+<span class="keyword">and</span> e1xp_eval_div <span class="keyword">(</span>
+  loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> e1<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">,</span> e2<span class="keyword">:</span> <span class="staexp">e1xp</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> v1 <span class="keyword">=</span> e1xp_eval e1<span class="keyword">;</span> <span class="keyword">val</span> v2 <span class="keyword">=</span> e1xp_eval e2
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>v1<span class="keyword">,</span> v2<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALfloat f1<span class="keyword">,</span> V1ALfloat f2<span class="keyword">)</span> <span class="keyword">=&gt;</span> V1ALfloat <span class="keyword">(</span>f1 / f2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALint i1<span class="keyword">,</span> V1ALint i2<span class="keyword">)</span> <span class="keyword">=&gt;</span> V1ALint <span class="keyword">(</span>i1 / i2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      e1xp_eval_opr_errmsg <span class="keyword">(</span>loc<span class="keyword">,</span> $Sym<span class="keyword">.</span>symbol_DIV<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [(_, _)]
+</span><span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_div]
+</span>
+<span class="keyword">and</span> e1xp_eval_lt <span class="keyword">(</span>
+  loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> e1<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">,</span> e2<span class="keyword">:</span> <span class="staexp">e1xp</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> v1 <span class="keyword">=</span> e1xp_eval e1<span class="keyword">;</span> <span class="keyword">val</span> v2 <span class="keyword">=</span> e1xp_eval e2
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>v1<span class="keyword">,</span> v2<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALfloat f1<span class="keyword">,</span> V1ALfloat f2<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">if</span> f1 <span class="keyword">&lt;</span> f2 <span class="keyword">then</span> V1ALint 1 <span class="keyword">else</span> V1ALint 0
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALint i1<span class="keyword">,</span> V1ALint i2<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">if</span> i1 <span class="keyword">&lt;</span> i2 <span class="keyword">then</span> V1ALint 1 <span class="keyword">else</span> V1ALint 0
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALstring s1<span class="keyword">,</span> V1ALstring s2<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">if</span> s1 <span class="keyword">&lt;</span> s2 <span class="keyword">then</span> V1ALint 1 <span class="keyword">else</span> V1ALint 0
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      e1xp_eval_opr_errmsg <span class="keyword">(</span>loc<span class="keyword">,</span> $Sym<span class="keyword">.</span>symbol_LT<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [(_, _)]
+</span><span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_lt]
+</span>
+<span class="keyword">and</span> e1xp_eval_lte <span class="keyword">(</span>
+  loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> e1<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">,</span> e2<span class="keyword">:</span> <span class="staexp">e1xp</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> v1 <span class="keyword">=</span> e1xp_eval e1<span class="keyword">;</span> <span class="keyword">val</span> v2 <span class="keyword">=</span> e1xp_eval e2
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>v1<span class="keyword">,</span> v2<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALfloat f1<span class="keyword">,</span> V1ALfloat f2<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">if</span> f1 &lt;= f2 <span class="keyword">then</span> V1ALint 1 <span class="keyword">else</span> V1ALint 0
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALint i1<span class="keyword">,</span> V1ALint i2<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">if</span> i1 &lt;= i2 <span class="keyword">then</span> V1ALint 1 <span class="keyword">else</span> V1ALint 0
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALstring s1<span class="keyword">,</span> V1ALstring s2<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">if</span> s1 &lt;= s2 <span class="keyword">then</span> V1ALint 1 <span class="keyword">else</span> V1ALint 0
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      e1xp_eval_opr_errmsg <span class="keyword">(</span>loc<span class="keyword">,</span> $Sym<span class="keyword">.</span>symbol_LTEQ<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [(_, _)]
+</span><span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_lte]
+</span>
+<span class="keyword">and</span> e1xp_eval_gt <span class="keyword">(</span>
+  loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> e1<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">,</span> e2<span class="keyword">:</span> <span class="staexp">e1xp</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> v1 <span class="keyword">=</span> e1xp_eval e1<span class="keyword">;</span> <span class="keyword">val</span> v2 <span class="keyword">=</span> e1xp_eval e2
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>v1<span class="keyword">,</span> v2<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALfloat f1<span class="keyword">,</span> V1ALfloat f2<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">if</span> f1 <span class="keyword">&gt;</span> f2 <span class="keyword">then</span> V1ALint 1 <span class="keyword">else</span> V1ALint 0
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALint i1<span class="keyword">,</span> V1ALint i2<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">if</span> i1 <span class="keyword">&gt;</span> i2 <span class="keyword">then</span> V1ALint 1 <span class="keyword">else</span> V1ALint 0
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALstring s1<span class="keyword">,</span> V1ALstring s2<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">if</span> s1 <span class="keyword">&gt;</span> s2 <span class="keyword">then</span> V1ALint 1 <span class="keyword">else</span> V1ALint 0
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      e1xp_eval_opr_errmsg <span class="keyword">(</span>loc<span class="keyword">,</span> $Sym<span class="keyword">.</span>symbol_GT<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [(_, _)]
+</span><span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_get]
+</span>
+<span class="keyword">and</span> e1xp_eval_gte <span class="keyword">(</span>
+  loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> e1<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">,</span> e2<span class="keyword">:</span> <span class="staexp">e1xp</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> v1 <span class="keyword">=</span> e1xp_eval e1<span class="keyword">;</span> <span class="keyword">val</span> v2 <span class="keyword">=</span> e1xp_eval e2
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>v1<span class="keyword">,</span> v2<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALfloat f1<span class="keyword">,</span> V1ALfloat f2<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">if</span> f1 &gt;= f2 <span class="keyword">then</span> V1ALint 1 <span class="keyword">else</span> V1ALint 0
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALint i1<span class="keyword">,</span> V1ALint i2<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">if</span> i1 &gt;= i2 <span class="keyword">then</span> V1ALint 1 <span class="keyword">else</span> V1ALint 0
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALstring s1<span class="keyword">,</span> V1ALstring s2<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">if</span> s1 &gt;= s2 <span class="keyword">then</span> V1ALint 1 <span class="keyword">else</span> V1ALint 0
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      e1xp_eval_opr_errmsg <span class="keyword">(</span>loc<span class="keyword">,</span> $Sym<span class="keyword">.</span>symbol_GTEQ<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [(_, _)]
+</span><span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_gte]
+</span>
+<span class="keyword">and</span> e1xp_eval_eq <span class="keyword">(</span>
+  loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> e1<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">,</span> e2<span class="keyword">:</span> <span class="staexp">e1xp</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> v1 <span class="keyword">=</span> e1xp_eval e1<span class="keyword">;</span> <span class="keyword">val</span> v2 <span class="keyword">=</span> e1xp_eval e2
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>v1<span class="keyword">,</span> v2<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALint i1<span class="keyword">,</span> V1ALint i2<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">if</span> i1 <span class="keyword">=</span> i2 <span class="keyword">then</span> V1ALint 1 <span class="keyword">else</span> V1ALint 0
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALstring s1<span class="keyword">,</span> V1ALstring s2<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">if</span> s1 <span class="keyword">=</span> s2 <span class="keyword">then</span> V1ALint 1 <span class="keyword">else</span> V1ALint 0
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      e1xp_eval_opr_errmsg <span class="keyword">(</span>loc<span class="keyword">,</span> $Sym<span class="keyword">.</span>symbol_EQ<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [(_, _)]
+</span><span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_eq]
+</span>
+<span class="keyword">and</span> e1xp_eval_neq <span class="keyword">(</span>
+  loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> e1<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">,</span> e2<span class="keyword">:</span> <span class="staexp">e1xp</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> v1 <span class="keyword">=</span> e1xp_eval e1<span class="keyword">;</span> <span class="keyword">val</span> v2 <span class="keyword">=</span> e1xp_eval e2
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>v1<span class="keyword">,</span> v2<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALint i1<span class="keyword">,</span> V1ALint i2<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">if</span> i1 &lt;&gt; i2 <span class="keyword">then</span> V1ALint 1 <span class="keyword">else</span> V1ALint 0
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALstring s1<span class="keyword">,</span> V1ALstring s2<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">if</span> s1 &lt;&gt; s2 <span class="keyword">then</span> V1ALint 1 <span class="keyword">else</span> V1ALint 0
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      e1xp_eval_opr_errmsg <span class="keyword">(</span>loc<span class="keyword">,</span> $Sym<span class="keyword">.</span>symbol_NEQ<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [(_, _)]
+</span><span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_neq]
+</span>
+<span class="keyword">and</span> e1xp_eval_and <span class="keyword">(</span>
+  loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> e1<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">,</span> e2<span class="keyword">:</span> <span class="staexp">e1xp</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> v1 <span class="keyword">=</span> e1xp_eval e1<span class="keyword">;</span> <span class="keyword">val</span> v2 <span class="keyword">=</span> e1xp_eval e2
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>v1<span class="keyword">,</span> v2<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALint i1<span class="keyword">,</span> V1ALint i2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">if</span> i1 <span class="keyword">=</span> 0 <span class="keyword">then</span> V1ALint 0
+      <span class="keyword">else</span> <span class="keyword">if</span> i2 <span class="keyword">=</span> 0 <span class="keyword">then</span> V1ALint 0
+      <span class="keyword">else</span> V1ALint 1
+    <span class="keyword">end</span> <span class="comment">// end of [V1ALint, V1ALint]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>V1ALstring s1<span class="keyword">,</span> V1ALstring s2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> s1 <span class="keyword">=</span> string1_of_string s1 <span class="keyword">and</span> s2 <span class="keyword">=</span> string1_of_string s2
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> string_is_empty s1 <span class="keyword">then</span> V1ALint 0
+      <span class="keyword">else</span> <span class="keyword">if</span> string_is_empty s1 <span class="keyword">then</span> V1ALint 0
+      <span class="keyword">else</span> V1ALint 1
+    <span class="keyword">end</span> <span class="comment">// end of [V1ALstring, V1ALstring]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      e1xp_eval_opr_errmsg <span class="keyword">(</span>loc<span class="keyword">,</span> $Sym<span class="keyword">.</span>symbol_AND<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [(_, _)]
+</span><span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_and]
+</span>
+<span class="keyword">and</span> e1xp_eval_or <span class="keyword">(</span>
+  loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> e1<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">,</span> e2<span class="keyword">:</span> <span class="staexp">e1xp</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> v1 <span class="keyword">=</span> e1xp_eval e1<span class="keyword">;</span> <span class="keyword">val</span> v2 <span class="keyword">=</span> e1xp_eval e2
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>v1<span class="keyword">,</span> v2<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALint i1<span class="keyword">,</span> V1ALint i2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">if</span> i1 &lt;&gt; 0 <span class="keyword">then</span> V1ALint 1
+      <span class="keyword">else</span> <span class="keyword">if</span> i2 &lt;&gt; 0 <span class="keyword">then</span> V1ALint 1
+      <span class="keyword">else</span> V1ALint 0
+    <span class="keyword">end</span> <span class="comment">// end of [V1ALint, V1ALint]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>V1ALstring s1<span class="keyword">,</span> V1ALstring s2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> s1 <span class="keyword">=</span> string1_of_string s1 <span class="keyword">and</span> s2 <span class="keyword">=</span> string1_of_string s2
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> string_isnot_empty s1 <span class="keyword">then</span> V1ALint 1
+      <span class="keyword">else</span> <span class="keyword">if</span> string_isnot_empty s2 <span class="keyword">then</span> V1ALint 1
+      <span class="keyword">else</span> V1ALint 0
+    <span class="keyword">end</span> <span class="comment">// end of [V1ALstring, V1ALstring]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      e1xp_eval_opr_errmsg <span class="keyword">(</span>loc<span class="keyword">,</span> $Sym<span class="keyword">.</span>symbol_OR<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_, _]
+</span><span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_or]
+</span>
+<span class="comment">(* arithmetic shift to the left *)</span>
+<span class="keyword">and</span> e1xp_eval_asl <span class="keyword">(</span>
+  loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> e1<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">,</span> e2<span class="keyword">:</span> <span class="staexp">e1xp</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> v1 <span class="keyword">=</span> e1xp_eval e1<span class="keyword">;</span> <span class="keyword">val</span> v2 <span class="keyword">=</span> e1xp_eval e2
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>v1<span class="keyword">,</span> v2<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALint i1<span class="keyword">,</span> V1ALint i2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> i2 <span class="keyword">=</span> int1_of_int i2
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="comment">// checking for nonnegativeness
+</span>        <span class="keyword">if</span> <span class="keyword">(</span>i2 <span class="keyword">&lt;</span> 0<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">begin</span>
+          $Loc<span class="keyword">.</span>prerr_location <span class="keyword">(</span>loc<span class="keyword">)</span><span class="keyword">;</span>
+          <span class="keyword">if</span> is_debug <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">then</span> prerr ": e1xp_eval"<span class="keyword">;</span>
+          prerr ": the second argument of [&lt;&lt;] must be a natural number."<span class="keyword">;</span>
+          prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>      <span class="comment">// end of [val]
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert <span class="keyword">(</span>i2 &gt;= 0<span class="keyword">)</span> <span class="comment">// redundant at run-time
+</span>    <span class="keyword">in</span>
+       V1ALint <span class="keyword">(</span>i1 &lt;&lt; i2<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [(V1ALint _, V1ALint _)]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      e1xp_eval_opr_errmsg <span class="keyword">(</span>loc<span class="keyword">,</span> $Sym<span class="keyword">.</span>symbol_LTLT<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [(_, _)]
+</span><span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_asl]
+</span>
+<span class="comment">(* arithmetic shift to the right *)</span>
+<span class="keyword">and</span> e1xp_eval_asr <span class="keyword">(</span>
+  loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> e1<span class="keyword">:</span> <span class="staexp">e1xp</span><span class="keyword">,</span> e2<span class="keyword">:</span> <span class="staexp">e1xp</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">v1al</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> v1 <span class="keyword">=</span> e1xp_eval e1<span class="keyword">;</span> <span class="keyword">val</span> v2 <span class="keyword">=</span> e1xp_eval e2
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>v1<span class="keyword">,</span> v2<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>V1ALint i1<span class="keyword">,</span> V1ALint i2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> i2 <span class="keyword">=</span> int1_of_int i2
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="comment">// checking for nonnegativeness
+</span>        <span class="keyword">if</span> <span class="keyword">(</span>i2 <span class="keyword">&lt;</span> 0<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">begin</span>
+          $Loc<span class="keyword">.</span>prerr_location <span class="keyword">(</span>loc<span class="keyword">)</span><span class="keyword">;</span>
+          <span class="keyword">if</span> is_debug <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">then</span> prerr ": e1xp_eval"<span class="keyword">;</span>
+          prerr ": the second argument of [&lt;&lt;] must be a natural number."<span class="keyword">;</span>
+          prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>      <span class="comment">// end of [val]
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert <span class="keyword">(</span>i2 &gt;= 0<span class="keyword">)</span> <span class="comment">// redundant at run-time
+</span>    <span class="keyword">in</span>
+      V1ALint <span class="keyword">(</span>i1 &gt;&gt; i2<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [(V1ALint _, V1ALint _)]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      e1xp_eval_opr_errmsg <span class="keyword">(</span>loc<span class="keyword">,</span> $Sym<span class="keyword">.</span>symbol_GTGT<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [(_, _)]
+</span><span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_asr]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+e1xp_eval <span class="keyword">(</span>e0<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "e1xp_eval: e0 = "; print e0; print_newline ()
+  end // end of [val]
+*)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> e0<span class="keyword">.</span>e1xp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> E1XPapp <span class="keyword">(</span>e<span class="keyword">,</span> _<span class="comment">(*loc_arg*)</span><span class="keyword">,</span> es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>
+      <span class="keyword">case+</span> e<span class="keyword">.</span>e1xp_node <span class="keyword">of</span>
+      <span class="keyword">|</span> E1XPide id <span class="keyword">=&gt;</span>
+          e1xp_eval_appid <span class="keyword">(</span>e<span class="keyword">.</span>e1xp_loc<span class="keyword">,</span> id<span class="keyword">,</span> es<span class="keyword">)</span>
+      <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> e1xp_eval_errmsg_app e<span class="keyword">.</span>e1xp_loc
+    <span class="keyword">)</span> <span class="comment">// end of [E1XPapp]
+</span>  <span class="keyword">|</span> E1XPchar c <span class="keyword">=&gt;</span> V1ALchar c
+  <span class="keyword">|</span> E1XPfloat f<span class="comment">(*string*)</span> <span class="keyword">=&gt;</span> V1ALfloat <span class="keyword">(</span>double_of f<span class="keyword">)</span>
+  <span class="keyword">|</span> E1XPint <span class="keyword">(</span>int<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> V1ALint <span class="keyword">(</span>e1xp_eval_int int<span class="keyword">)</span>
+  <span class="keyword">|</span> E1XPide id <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> the_e1xpenv_find id <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">~</span>Some_vt e <span class="keyword">=&gt;</span> e1xp_eval e
+    <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval_errmsg_id <span class="keyword">(</span>e0<span class="keyword">.</span>e1xp_loc<span class="keyword">,</span> id<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [E1XPide]
+</span>  <span class="keyword">|</span> E1XPlist es <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>e<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval e
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> e1xp_eval_errmsg_list <span class="keyword">(</span>e0<span class="keyword">.</span>e1xp_loc<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [E1XPlist]
+</span>  <span class="keyword">|</span> E1XPnone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> V1ALint 0
+  <span class="keyword">|</span> E1XPstring <span class="keyword">(</span>s<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> V1ALstring s
+  <span class="keyword">|</span> E1XPundef <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e1xp_eval_errmsg_undef <span class="keyword">(</span>e0<span class="keyword">.</span>e1xp_loc<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [e1xp_eval]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+e1xp_eval_if <span class="keyword">(</span>knd<span class="keyword">,</span> e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> knd <span class="keyword">of</span> $Syn<span class="keyword">.</span>SRPIFKINDif _ <span class="keyword">=&gt;</span> e1xp_eval <span class="keyword">(</span>e<span class="keyword">)</span>
+  <span class="keyword">|</span> $Syn<span class="keyword">.</span>SRPIFKINDifdef _ <span class="keyword">=&gt;</span> e1xp_eval_defined <span class="keyword">(</span>e<span class="keyword">.</span>e1xp_loc<span class="keyword">,</span> e<span class="keyword">)</span>
+  <span class="keyword">|</span> $Syn<span class="keyword">.</span>SRPIFKINDifndef _ <span class="keyword">=&gt;</span> e1xp_eval_undefined <span class="keyword">(</span>e<span class="keyword">.</span>e1xp_loc<span class="keyword">,</span> e<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [e1xp_eval_if]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+e1xp_make_v1al <span class="keyword">(</span>loc<span class="keyword">,</span> v<span class="keyword">)</span> <span class="keyword">=</span> <span class="comment">// turning a value into an expr
+</span>  <span class="keyword">case+</span> v <span class="keyword">of</span>
+  <span class="keyword">|</span> V1ALchar c <span class="keyword">=&gt;</span> e1xp_char <span class="keyword">(</span>loc<span class="keyword">,</span> c<span class="keyword">)</span>
+  <span class="keyword">|</span> V1ALfloat f <span class="keyword">=&gt;</span>
+      <span class="keyword">let</span> <span class="keyword">val</span> s <span class="keyword">=</span> tostring_double f <span class="keyword">in</span> e1xp_float <span class="keyword">(</span>loc<span class="keyword">,</span> s<span class="keyword">)</span> <span class="keyword">end</span>
+    <span class="comment">// end of [V1ALfloat]
+</span>  <span class="keyword">|</span> V1ALint i <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="keyword">val</span> s <span class="keyword">=</span> tostring_int i <span class="keyword">in</span> e1xp_int <span class="keyword">(</span>loc<span class="keyword">,</span> s<span class="keyword">)</span> <span class="keyword">end</span>
+  <span class="keyword">|</span> V1ALstring s <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> n <span class="keyword">=</span> int_of_size <span class="keyword">(</span>string_length s<span class="keyword">)</span> <span class="keyword">in</span> e1xp_string <span class="keyword">(</span>loc<span class="keyword">,</span> s<span class="keyword">,</span> n<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [V1ALstring]
+</span><span class="comment">// end of [e1xp_make_v1al]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_e1xp_eval.dats] *)</span>
+</pre>
+</body>
+</html>

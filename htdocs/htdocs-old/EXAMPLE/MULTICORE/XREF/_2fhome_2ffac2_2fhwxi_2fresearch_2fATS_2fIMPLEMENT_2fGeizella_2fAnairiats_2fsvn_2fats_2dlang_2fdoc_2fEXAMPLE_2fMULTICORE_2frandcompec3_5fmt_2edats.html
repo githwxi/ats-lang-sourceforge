@@ -1,0 +1,210 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">//
+</span><span class="comment">// randcompec_mt.dats: computing the Euler's constant via randomization
+</span><span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">//   modifying code by Chris Double (chris DOT double AT double DOT co DOT nz)
+</span><span class="comment">// Time: Thursday, the 7th of October, 2010
+</span><span class="comment">//
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX-2010-10-07:
+</span><span class="comment">// I modified Chris Double's code to present
+</span><span class="comment">// a typical method (barrier) for passing proofs of views between
+</span><span class="comment">// a parent thread and its (multiple) children.
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anon*)</span> <span class="keyword">=</span> "prelude/DATS/array.dats"</span>
+
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/pthread.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/pthread_upbarr.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/random.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/unistd.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libats/SATS/parworkshop.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anon*)</span> <span class="keyword">=</span> "libats/DATS/parworkshop.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> random_double
+  <span class="keyword">(</span>buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>drand48_data</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">double</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> r<span class="keyword">:</span> <span class="staexp">double</span><span class="keyword">;</span> <span class="keyword">val</span> _ <span class="keyword">=</span> drand48_r<span class="keyword">(</span>buf<span class="keyword">,</span> r<span class="keyword">)</span>
+<span class="keyword">in</span>
+  r
+<span class="keyword">end</span> <span class="comment">// end of [random_double]
+</span>
+<span class="keyword">fn</span> attempts <span class="keyword">(</span>buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>drand48_data</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">uint</span> <span class="keyword">=</span> <span class="keyword">let</span> 
+  <span class="keyword">fun</span> loop <span class="keyword">(</span>buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>drand48_data</span><span class="keyword">,</span> sum<span class="keyword">:</span> <span class="staexp">double</span><span class="keyword">,</span> count<span class="keyword">:</span> <span class="staexp">uint</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">uint</span> <span class="keyword">=</span> 
+    <span class="keyword">if</span> sum &lt;= 1.0 <span class="keyword">then</span> loop<span class="keyword">(</span>buf<span class="keyword">,</span> sum + random_double<span class="keyword">(</span>buf<span class="keyword">)</span><span class="keyword">,</span> count + 1U<span class="keyword">)</span> <span class="keyword">else</span> count
+<span class="keyword">in</span>
+  loop<span class="keyword">(</span>buf<span class="keyword">,</span> 0.0<span class="keyword">,</span> 0U<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [attempts]
+</span>
+<span class="keyword">fn</span> n_attempts <span class="keyword">(</span>n<span class="keyword">:</span><span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">ulint</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> buf<span class="keyword">:</span> <span class="staexp">drand48_data</span>
+  <span class="keyword">val</span> _ <span class="keyword">=</span> srand48_r<span class="keyword">(</span>0L<span class="keyword">,</span> buf<span class="keyword">)</span>
+  <span class="keyword">fun</span> loop <span class="keyword">(</span>n<span class="keyword">:</span><span class="staexp">int</span><span class="keyword">,</span> count<span class="keyword">:</span> <span class="staexp">ulint</span><span class="keyword">,</span> buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>drand48_data</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">ulint</span> <span class="keyword">=</span>
+    <span class="keyword">if</span> n <span class="keyword">=</span> 0 <span class="keyword">then</span> count <span class="keyword">else</span> loop<span class="keyword">(</span>n-1<span class="keyword">,</span> count + ulint_of<span class="keyword">(</span>attempts<span class="keyword">(</span>buf<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">,</span> buf<span class="keyword">)</span>
+<span class="keyword">in</span>
+  loop<span class="keyword">(</span>n<span class="keyword">,</span> 0UL<span class="keyword">,</span> buf<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [n_attempts]
+</span>
+<span class="keyword">dataviewtype</span> <span class="staexp"><a name="1446"><span class="stacstdec">command</span></a></span> <span class="keyword">=</span> 
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">l<span class="keyword">:</span>addr</span><span class="keyword">}</span> Compute <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>ulint @ l <span class="keyword">|</span> ptr l<span class="keyword">,</span> int<span class="keyword">,</span> upticket <span class="keyword">(</span>ulint @ l<span class="keyword">)</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> Quit <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">)</span></span>
+<span class="comment">// end of [command]
+</span>
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="1576"><span class="stacstdec">work <span class="keyword">=</span> command</span></a></span>
+
+<span class="keyword">fun</span> fwork <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span>ws<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>WORKSHOPptr<span class="keyword">(</span>work<span class="keyword">,</span>l<span class="keyword">)</span></span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>work &gt;&gt; work?</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> 
+  <span class="keyword">case+</span> x <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>Compute <span class="keyword">(</span>
+       <span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">,</span> iterations<span class="keyword">,</span> ticket
+    <span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span> 
+       <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>p := n_attempts <span class="keyword">(</span>iterations<span class="keyword">)</span>
+       <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pthread_upticket_upload_and_destroy <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> ticket<span class="keyword">)</span>
+     <span class="keyword">in</span> 1 <span class="keyword">end</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>Quit <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> 0
+<span class="comment">// end of [fwork]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> insert_all
+  <span class="staexp"><span class="keyword">{</span>l<span class="keyword">,</span>l2<span class="keyword">:</span>agz<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n0<span class="keyword">:</span>pos<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf_arr<span class="keyword">:</span> <span class="staexp">array_v<span class="keyword">(</span>ulint<span class="keyword">,</span> n0<span class="keyword">,</span> l2<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> ws<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>WORKSHOPptr<span class="keyword">(</span>work<span class="keyword">,</span> l<span class="keyword">)</span></span>
+  <span class="keyword">,</span> p_arr<span class="keyword">:</span> <span class="staexp">ptr l2</span><span class="keyword">,</span> n0<span class="keyword">:</span> <span class="staexp">int n0</span><span class="keyword">,</span> iterations0<span class="keyword">:</span> <span class="staexp">int</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">upbarr <span class="keyword">(</span>array_v<span class="keyword">(</span>ulint<span class="keyword">,</span> n0<span class="keyword">,</span> l2<span class="keyword">)</span><span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">typedef</span> <span class="staexp"><a name="2133"><span class="stacstdec">T <span class="keyword">=</span> ulint</span></a></span>
+  <span class="keyword">fun</span> loop <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">,</span>l2<span class="keyword">:</span>agz<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n<span class="keyword">&gt;.</span></span> <span class="keyword">(</span>
+      <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">array_v<span class="keyword">(</span>ulint<span class="keyword">,</span> n<span class="keyword">,</span> l2<span class="keyword">)</span></span></span>
+    <span class="keyword">|</span> ws<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>WORKSHOPptr<span class="keyword">(</span>work<span class="keyword">,</span> l<span class="keyword">)</span></span>
+    <span class="keyword">,</span> barr<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>upbarr <span class="keyword">(</span>v<span class="keyword">)</span> &gt;&gt; upbarr <span class="keyword">@(</span>v<span class="keyword">,</span> array_v<span class="keyword">(</span>ulint<span class="keyword">,</span> n<span class="keyword">,</span> l2<span class="keyword">)</span><span class="keyword">)</span></span>
+    <span class="keyword">,</span> p<span class="keyword">:</span> <span class="staexp">ptr l2</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">,</span> iterations<span class="keyword">:</span> <span class="staexp">int</span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+     <span class="keyword">viewdef</span> <span class="staexp"><a name="2391"><span class="stacstdec">V <span class="keyword">=</span> array_v <span class="keyword">(</span>ulint<span class="keyword">,</span> n<span class="keyword">,</span> l2<span class="keyword">)</span></span></a></span>
+  <span class="keyword">in</span>
+    <span class="keyword">if</span> n <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">viewdef</span> <span class="staexp"><a name="2459"><span class="stacstdec">V1 <span class="keyword">=</span> ulint @ l2</span></a></span>
+      <span class="keyword">viewdef</span> <span class="staexp"><a name="2489"><span class="stacstdec">V2 <span class="keyword">=</span> array_v <span class="keyword">(</span>ulint<span class="keyword">,</span> n-1<span class="keyword">,</span> l2+sizeof<span class="keyword">(</span>T<span class="keyword">)</span><span class="keyword">)</span></span></a></span>
+      <span class="keyword">viewdef</span> <span class="staexp"><a name="2543"><span class="stacstdec">v1 <span class="keyword">=</span> <span class="keyword">@(</span>v<span class="keyword">,</span> V1<span class="keyword">)</span></span></a></span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span>pf1<span class="keyword">,</span> pf2<span class="keyword">)</span> <span class="keyword">=</span> array_v_uncons<span class="staexp"><span class="keyword">{</span>T<span class="keyword">}</span></span><span class="keyword">(</span>pf<span class="keyword">)</span></span>
+      <span class="keyword">val</span> ticket <span class="keyword">=</span> pthread_upticket_create <span class="staexp"><span class="keyword">{</span>v<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>V1<span class="keyword">}</span></span> <span class="keyword">(</span>barr<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_insert_work<span class="keyword">(</span>ws<span class="keyword">,</span> Compute <span class="keyword">(</span><span class="prfexp">pf1</span> <span class="keyword">|</span> p<span class="keyword">,</span> iterations<span class="keyword">,</span> ticket<span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> loop <span class="staexp"><span class="keyword">{</span>v1<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf2</span> <span class="keyword">|</span> ws<span class="keyword">,</span> barr<span class="keyword">,</span> p + sizeof&lt;<span class="staexp">T</span><span class="keyword">&gt;</span><span class="keyword">,</span> n - 1<span class="keyword">,</span> iterations<span class="keyword">)</span>
+      <span class="keyword">prval</span> <span class="prfexp">fpf <span class="keyword">=</span> <span class="keyword">lam</span>
+        <span class="keyword">(</span>pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">@(</span>v1<span class="keyword">,</span>V2<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>v<span class="keyword">,</span>V<span class="keyword">)</span></span> <span class="keyword">=&lt;</span><span class="staexp">prf</span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="keyword">(</span>pf<span class="keyword">.</span>0<span class="keyword">)</span><span class="keyword">.</span>0<span class="keyword">,</span> array_v_cons<span class="staexp"><span class="keyword">{</span>T<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">(</span>pf<span class="keyword">.</span>0<span class="keyword">)</span><span class="keyword">.</span>1<span class="keyword">,</span> pf<span class="keyword">.</span>1<span class="keyword">)</span><span class="keyword">)</span></span>
+      <span class="comment">// end of [prval]
+</span>      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pthread_upbarr_trans <span class="keyword">(</span><span class="prfexp">fpf</span> <span class="keyword">|</span> barr<span class="keyword">)</span></span>
+    <span class="keyword">in</span>
+      <span class="comment">// nothing
+</span>    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> array_v_unnil <span class="keyword">(</span>pf<span class="keyword">)</span></span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pthread_upbarr_trans <span class="staexp"><span class="keyword">{</span>v<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span><span class="keyword">(</span>v<span class="keyword">,</span>V<span class="keyword">)</span><span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp"><span class="keyword">lam</span> <span class="keyword">(</span>pf<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>pf<span class="keyword">,</span> array_v_nil <span class="staexp"><span class="keyword">{</span>T<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span></span> <span class="keyword">|</span> barr<span class="keyword">)</span></span>
+    <span class="keyword">in</span>
+      <span class="comment">// nothing
+</span>    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">end</span> <span class="comment">// end of [loop]
+</span>  <span class="keyword">val</span> barr <span class="keyword">=</span> pthread_upbarr_create <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> loop <span class="keyword">(</span><span class="prfexp">pf_arr</span> <span class="keyword">|</span> ws<span class="keyword">,</span> barr<span class="keyword">,</span> p_arr<span class="keyword">,</span> n0<span class="keyword">,</span> iterations0 / n0<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pthread_upbarr_unitelim <span class="keyword">(</span>barr<span class="keyword">)</span></span> <span class="comment">// HX: a convenience proof function
+</span><span class="keyword">in</span>
+  barr
+<span class="keyword">end</span> <span class="comment">// end of [insert_all]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">NCPU0 1</span>
+<span class="keyword">#define</span> <span class="neuexp">ITER0 1000000</span>
+
+<span class="keyword">implement</span>
+main <span class="keyword">(</span>argc<span class="keyword">,</span> argv<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span> 
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">(</span>argc <span class="keyword">=</span> 1<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">(</span>
+    prerr <span class="keyword">(</span>"The command format: randcompec_mt &lt;integer&gt; &lt;ncore&gt;\n"<span class="keyword">)</span><span class="keyword">;</span> exit<span class="keyword">(</span>1<span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="comment">// end of [val]
+</span><span class="comment">//
+</span>  <span class="keyword">var</span> ITER<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> ITER0 <span class="comment">// default
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">(</span>argc &gt;= 2<span class="keyword">)</span> <span class="keyword">then</span> ITER := int_of <span class="keyword">(</span>argv<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">1</span><span class="keyword">]</span><span class="keyword">)</span>
+  <span class="keyword">val</span> ITER <span class="keyword">=</span> int1_of_int <span class="keyword">(</span>ITER<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">var</span> NCPU<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> NCPU0 <span class="comment">// default
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">(</span>argc &gt;= 3<span class="keyword">)</span> <span class="keyword">then</span> NCPU := int_of <span class="keyword">(</span>argv<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">2</span><span class="keyword">]</span><span class="keyword">)</span>
+  <span class="keyword">val</span> NCPU <span class="keyword">=</span> int1_of_int <span class="keyword">(</span>NCPU<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert_prerrf_bool1 <span class="keyword">(</span>NCPU &gt;= 1<span class="keyword">,</span> "%s: NCPU = %i\n"<span class="keyword">,</span> <span class="keyword">@(</span><span class="keyword">#LOCATION</span><span class="keyword">,</span> NCPU<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert_prerrf_bool1 <span class="keyword">(</span>ITER &gt;= NCPU<span class="keyword">,</span> "%s: NCPU = %i\n"<span class="keyword">,</span> <span class="keyword">@(</span><span class="keyword">#LOCATION</span><span class="keyword">,</span> ITER<span class="keyword">)</span><span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> NCPUsz <span class="keyword">=</span> size1_of_int1 <span class="keyword">(</span>NCPU<span class="keyword">)</span>
+  <span class="keyword">val</span> ws <span class="keyword">=</span> workshop_make&lt;<span class="staexp">work</span><span class="keyword">&gt;</span><span class="keyword">(</span>NCPUsz<span class="keyword">,</span> fwork<span class="keyword">)</span>
+  <span class="keyword">var</span> ncpu<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> 0
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">while</span> <span class="keyword">(</span>ncpu <span class="keyword">&lt;</span> NCPU<span class="keyword">)</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> _err <span class="keyword">=</span> workshop_add_worker<span class="keyword">(</span>ws<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert_prerrf_bool
+      <span class="keyword">(</span>_err <span class="keyword">=</span> 0<span class="keyword">,</span> "%s: [workshop_add_worker] failed\n"<span class="keyword">,</span> <span class="keyword">@(</span><span class="keyword">#LOCATION</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="comment">// end of [val]
+</span>  <span class="keyword">in</span>
+    ncpu := ncpu + 1
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="comment">// 
+</span>  <span class="keyword">var</span> <span class="keyword">!</span>p_arr <span class="keyword">with</span> <span class="prfexp">pf_arr</span> <span class="keyword">=</span> <span class="keyword">@[</span><span class="staexp">ulint</span><span class="keyword">]</span><span class="keyword">[</span>NCPU<span class="keyword">]</span><span class="keyword">(</span>0UL<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> barr <span class="keyword">=</span> insert_all <span class="keyword">(</span><span class="prfexp">pf_arr</span> <span class="keyword">|</span> ws<span class="keyword">,</span> p_arr<span class="keyword">,</span> NCPU<span class="keyword">,</span> ITER<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> pthread_upbarr_download_and_destroy <span class="keyword">(</span>barr<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_arr := pf</span>
+<span class="comment">//
+</span>  <span class="keyword">var</span> k<span class="keyword">:</span> <span class="staexp">Nat</span> <span class="keyword">=</span> 0
+  <span class="keyword">var</span> total<span class="keyword">:</span> <span class="staexp">ulint</span> <span class="keyword">=</span> 0UL
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">for</span> <span class="keyword">(</span>k := 0<span class="keyword">;</span> k <span class="keyword">&lt;</span> NCPU<span class="keyword">;</span> k := k + 1<span class="keyword">)</span> total := total + p_arr<span class="keyword">-&gt;</span><span class="keyword">[</span><span class="prfexp">k</span><span class="keyword">]</span>
+  <span class="keyword">val</span> avg <span class="keyword">=</span> double_of <span class="keyword">(</span>total<span class="keyword">)</span> / double_of <span class="keyword">(</span>NCPU * <span class="keyword">(</span>ITER / NCPU<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>print "total = "<span class="keyword">;</span> print total<span class="keyword">;</span> print_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> print<span class="keyword">(</span>avg<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> print_newline <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">//
+</span><span class="comment">// HX-2010-10-07: the following code is just for cleanup
+</span><span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_wait_blocked_all<span class="keyword">(</span>ws<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">var</span> j<span class="keyword">:</span> <span class="staexp">Nat</span> <span class="keyword">=</span> 0
+  <span class="keyword">val</span> nworker <span class="keyword">=</span> workshop_get_nworker<span class="keyword">(</span>ws<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">while</span> <span class="keyword">(</span>j <span class="keyword">&lt;</span> nworker<span class="keyword">)</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_insert_work<span class="keyword">(</span>ws<span class="keyword">,</span> Quit <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">in</span> j := j + 1
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_wait_quit_all<span class="keyword">(</span>ws<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> workshop_free_vt_exn<span class="keyword">(</span>ws<span class="keyword">)</span>
+<span class="comment">//
+</span><span class="keyword">in</span>
+  <span class="comment">// nothing
+</span><span class="keyword">end</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [randomcompec3_mt.dats] *)</span>
+</pre>
+</body>
+</html>

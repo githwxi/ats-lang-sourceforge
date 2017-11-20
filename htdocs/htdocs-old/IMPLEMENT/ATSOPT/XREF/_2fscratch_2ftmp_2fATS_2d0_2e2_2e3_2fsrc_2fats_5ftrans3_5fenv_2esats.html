@@ -1,0 +1,535 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: December 2007
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* Mainly for handling environments during the third translation *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Syn <span class="keyword">=</span> "ats_syntax.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_patcst2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp3.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="1801"><span class="stacstdec">c3strkind</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> C3STRKINDnone
+  <span class="keyword">|</span> C3STRKINDmetric_nat <span class="comment">(* checking for metric being welfounded *)</span>
+  <span class="keyword">|</span> C3STRKINDmetric_dec <span class="comment">(* checking for metric being decreasing *)</span>
+  <span class="keyword">|</span> C3STRKINDpattern_match_exhaustiveness <span class="keyword">of</span>
+      <span class="staexp"><span class="keyword">(</span>int <span class="comment">(* kind: warning, error, etc. *)</span><span class="keyword">,</span> p2atcstlst<span class="keyword">)</span></span>
+  <span class="keyword">|</span> C3STRKINDvarfin <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>d2var_t<span class="keyword">,</span> s2exp<span class="keyword">,</span> s2exp<span class="keyword">)</span></span>
+  <span class="keyword">|</span> C3STRKINDloop <span class="keyword">of</span> <span class="staexp">int</span> <span class="comment">(* 0/1/2: enter/break/continue *)</span>
+<span class="comment">// end of [c3strkind]
+</span>
+<span class="keyword">datatype</span> <span class="staexp"><a name="2205"><span class="stacstdec">s3item</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> S3ITEMcstr <span class="keyword">of</span> <span class="staexp">c3str</span>
+  <span class="keyword">|</span> S3ITEMcstr_ref <span class="keyword">of</span> <span class="staexp">ref <span class="keyword">(</span>c3stropt<span class="keyword">)</span></span>
+  <span class="keyword">|</span> S3ITEMdisj <span class="keyword">of</span> <span class="staexp">s3itemlstlst</span>
+  <span class="keyword">|</span> S3ITEMhypo <span class="keyword">of</span> <span class="staexp">h3ypo</span>
+  <span class="keyword">|</span> S3ITEMsvar <span class="keyword">of</span> <span class="staexp">s2var_t</span>
+  <span class="keyword">|</span> S3ITEMsVar <span class="keyword">of</span> <span class="staexp">s2Var_t</span>
+<span class="comment">// end of [s3item]
+</span>
+<span class="keyword">and</span> <span class="staexp"><a name="2406"><span class="stacstdec">c3str_node</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> C3STRprop <span class="keyword">of</span> <span class="staexp">s2exp</span>
+  <span class="keyword">|</span> C3STRitmlst <span class="keyword">of</span> <span class="staexp">s3itemlst</span>
+<span class="comment">// end of [c3str_node]
+</span>
+<span class="keyword">and</span> <span class="staexp"><a name="2499"><span class="stacstdec">h3ypo_node</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> H3YPOprop <span class="keyword">of</span> <span class="staexp">s2exp</span>
+  <span class="keyword">|</span> H3YPObind <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>s2var_t<span class="keyword">,</span> s2exp<span class="keyword">)</span></span>
+  <span class="keyword">|</span> H3YPOeqeq <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>s2exp<span class="keyword">,</span> s2exp<span class="keyword">)</span></span>
+<span class="comment">// end of [h3ypo_node]
+</span>
+<span class="keyword">where</span> <span class="staexp"><a name="2631"><span class="stacstdec">s3itemlst <span class="keyword">=</span> List s3item</span></a></span>
+<span class="keyword">and</span> <span class="staexp"><a name="2659"><span class="stacstdec">s3itemlstlst <span class="keyword">=</span> List s3itemlst</span></a></span>
+
+<span class="keyword">and</span> <span class="staexp"><a name="2694"><span class="stacstdec">c3str <span class="keyword">=</span> <span class="keyword">'{</span>
+  c3str_loc<span class="keyword">=</span> loc_t<span class="keyword">,</span> c3str_kind<span class="keyword">=</span> c3strkind<span class="keyword">,</span> c3str_node<span class="keyword">=</span> c3str_node
+<span class="keyword">}</span></span></a></span>
+
+<span class="keyword">and</span> <span class="staexp"><a name="2778"><span class="stacstdec">c3stropt <span class="keyword">=</span> Option c3str</span></a></span>
+
+<span class="keyword">and</span> <span class="staexp"><a name="2807"><span class="stacstdec">h3ypo <span class="keyword">=</span> <span class="keyword">'{</span>
+  h3ypo_loc<span class="keyword">=</span> loc_t<span class="keyword">,</span> h3ypo_node<span class="keyword">=</span> h3ypo_node
+<span class="keyword">}</span></span></a></span>
+
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="2876"><span class="stacstdec">s3itemlst_vt <span class="keyword">=</span> List_vt s3item</span></a></span>
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="2918"><span class="stacstdec">s3itemlstlst_vt <span class="keyword">=</span> List_vt s3itemlst_vt</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="2983"><span class="dyncstdec">fprint_s3item <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> s3i<span class="keyword">:</span> <span class="staexp">s3item</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_s3item</span>
+
+<span class="keyword">fun</span> <a name="3114"><span class="dyncstdec">fprint_s3itemlst <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> s3is<span class="keyword">:</span> <span class="staexp">s3itemlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_s3itemlst</span>
+
+<span class="keyword">fun</span> <a name="3255"><span class="dyncstdec">fprint_s3itemlstlst <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> s3iss<span class="keyword">:</span> <span class="staexp">s3itemlstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_s3itemlstlst</span>
+
+<span class="keyword">fun</span> <a name="3406"><span class="dyncstdec">fprint_c3strkind <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> knd<span class="keyword">:</span> <span class="staexp">c3strkind</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_c3strkind</span>
+
+<span class="keyword">fun</span> <a name="3546"><span class="dyncstdec">fprint_c3str <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> c3t<span class="keyword">:</span> <span class="staexp">c3str</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_c3str</span>
+
+<span class="keyword">fun</span> <a name="3674"><span class="dyncstdec">fprint_h3ypo <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> h3p<span class="keyword">:</span> <span class="staexp">h3ypo</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_h3ypo</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="3823"><span class="dyncstdec">print_s3itemlst <span class="keyword">(</span>s3is<span class="keyword">:</span> <span class="staexp">s3itemlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "ats_trans3_env_print_s3itemlst"
+<span class="neuexp"><span class="keyword">overload</span> print <span class="keyword">with</span> print_s3itemlst</span>
+<span class="keyword">fun</span> <a name="3940"><span class="dyncstdec">prerr_s3itemlst <span class="keyword">(</span>s3is<span class="keyword">:</span> <span class="staexp">s3itemlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "ats_trans3_env_prerr_s3itemlst"
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> prerr_s3itemlst</span>
+
+<span class="keyword">fun</span> <a name="4058"><span class="dyncstdec">print_s3itemlstlst <span class="keyword">(</span>s3iss<span class="keyword">:</span> <span class="staexp">s3itemlstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "ats_trans3_env_print_s3itemlstlst"
+<span class="neuexp"><span class="keyword">overload</span> print <span class="keyword">with</span> print_s3itemlstlst</span>
+<span class="keyword">fun</span> <a name="4188"><span class="dyncstdec">prerr_s3itemlstlst <span class="keyword">(</span>s3iss<span class="keyword">:</span> <span class="staexp">s3itemlstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "ats_trans3_env_prerr_s3itemlstlst"
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> prerr_s3itemlstlst</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">fun</span> <a name="4323"><span class="dyncstdec">print_s3itemlst_vt <span class="keyword">(</span>s3is<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>s3itemlst_vt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "ats_trans3_env_print_s3itemlst"
+<span class="neuexp"><span class="keyword">overload</span> print <span class="keyword">with</span> print_s3itemlst_vt</span>
+<span class="keyword">fun</span> <a name="4450"><span class="dyncstdec">prerr_s3itemlst_vt <span class="keyword">(</span>s3is<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>s3itemlst_vt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "ats_trans3_env_prerr_s3itemlst"
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> prerr_s3itemlst_vt</span>
+
+<span class="keyword">fun</span> <a name="4578"><span class="dyncstdec">print_s3itemlstlst_vt <span class="keyword">(</span>s3iss<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>s3itemlstlst_vt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "ats_trans3_env_print_s3itemlstlst"
+<span class="neuexp"><span class="keyword">overload</span> print <span class="keyword">with</span> print_s3itemlstlst_vt</span>
+<span class="keyword">fun</span> <a name="4718"><span class="dyncstdec">prerr_s3itemlstlst_vt <span class="keyword">(</span>s3iss<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>s3itemlstlst_vt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "ats_trans3_env_prerr_s3itemlstlst"
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> prerr_s3itemlstlst_vt</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">fun</span> <a name="4863"><span class="dyncstdec">print_c3str <span class="keyword">(</span>c3t<span class="keyword">:</span> <span class="staexp">c3str</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> print <span class="keyword">with</span> print_c3str</span>
+
+<span class="keyword">fun</span> <a name="4931"><span class="dyncstdec">prerr_c3str <span class="keyword">(</span>c3t<span class="keyword">:</span> <span class="staexp">c3str</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> prerr_c3str</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">fun</span> <a name="5003"><span class="dyncstdec">print_h3ypo <span class="keyword">(</span>h3p<span class="keyword">:</span> <span class="staexp">h3ypo</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> print <span class="keyword">with</span> print_h3ypo</span>
+
+<span class="keyword">fun</span> <a name="5071"><span class="dyncstdec">prerr_h3ypo <span class="keyword">(</span>h3y<span class="keyword">:</span> <span class="staexp">h3ypo</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> prerr_h3ypo</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="5160"><span class="dyncstdec">c3str_prop <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">c3str</span></span></a>
+<span class="keyword">fun</span> <a name="5203"><span class="dyncstdec">c3str_itmlst <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> knd<span class="keyword">:</span> <span class="staexp">c3strkind</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s3itemlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">c3str</span></span></a>
+<span class="keyword">fun</span> <a name="5268"><span class="dyncstdec">c3str_metric_nat <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">c3str</span></span></a>
+<span class="keyword">fun</span> <a name="5317"><span class="dyncstdec">c3str_metric_dec <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> met<span class="keyword">:</span> <span class="staexp">s2explst n</span><span class="keyword">,</span> met_bound<span class="keyword">:</span> <span class="staexp">s2explst n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">c3str</span></span></a>
+<span class="keyword">fun</span> <a name="5406"><span class="dyncstdec">c3str_pattern_match_exhaustiveness
+  <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> knd<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> p2tcs<span class="keyword">:</span> <span class="staexp">p2atcstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">c3str</span></span></a>
+
+<span class="keyword">fun</span> <a name="5495"><span class="dyncstdec">h3ypo_prop <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">h3ypo</span></span></a>
+<span class="keyword">fun</span> <a name="5538"><span class="dyncstdec">h3ypo_bind <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2var_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">h3ypo</span></span></a>
+<span class="keyword">fun</span> <a name="5593"><span class="dyncstdec">h3ypo_eqeq <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">h3ypo</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// for binding and unbinding static constants
+</span><span class="keyword">absview</span> <span class="staexp"><a name="5718"><span class="stacstdec">s2cstlst_env_token</span></a></span>
+<span class="keyword">fun</span> <a name="5741"><span class="dyncstdec">the_s2cstlst_env_pop <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">s2cstlst_env_token</span></span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2cstlst</span></span></a>
+<span class="keyword">fun</span> <a name="5812"><span class="dyncstdec">the_s2cstlst_env_pop_and_unbind <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">s2cstlst_env_token</span></span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="5890"><span class="dyncstdec">the_s2cstlst_env_push <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>s2cstlst_env_token <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a>
+<span class="keyword">fun</span> <a name="5948"><span class="dyncstdec">the_s2cstlst_env_add <span class="keyword">(</span>s2c<span class="keyword">:</span> <span class="staexp">s2cst_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="5994"><span class="dyncstdec">the_s2cstlst_env_adds <span class="keyword">(</span>s2cs<span class="keyword">:</span> <span class="staexp">s2cstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="6043"><span class="dyncstdec">the_s2cstlst_env_bind_and_add <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2c<span class="keyword">:</span> <span class="staexp">s2cst_t</span><span class="keyword">,</span> s2e<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="6144"><span class="dyncstdec">the_s2Varset_env_add <span class="keyword">(</span>s2V<span class="keyword">:</span> <span class="staexp">s2Var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="6190"><span class="dyncstdec">the_s2Varset_env_get <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2Varset_t</span></span></a>
+<span class="keyword">fun</span> <a name="6230"><span class="dyncstdec">the_s2Varset_env_get_prev <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2Varset_t</span></span></a>
+<span class="keyword">fun</span> <a name="6275"><span class="dyncstdec">the_s2Varset_env_pop <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">and</span> <a name="6309"><span class="dyncstdec">the_s2Varset_env_push <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="6366"><span class="dyncstdec">the_s2varbindmap_initialize <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="comment">//
+</span><span class="keyword">fun</span> <a name="6410"><span class="dyncstdec">fprint_the_s2varbindmap <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="6502"><span class="dyncstdec">print_the_s2varbindmap <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">and</span> <a name="6538"><span class="dyncstdec">prerr_the_s2varbindmap <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="comment">//
+</span><span class="keyword">fun</span> <a name="6577"><span class="dyncstdec">the_s2varbindmap_add <span class="keyword">(</span>s2v<span class="keyword">:</span> <span class="staexp">s2var_t</span><span class="keyword">,</span> s2e<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="6635"><span class="dyncstdec">the_s2varbindmap_find <span class="keyword">(</span>s2v<span class="keyword">:</span> <span class="staexp">s2var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2expopt_vt</span></span></a>
+<span class="comment">//
+</span><span class="comment">// absview s2varbindmap_token_v
+</span><span class="comment">// fun the_s2varbindmap_pop (): (s2varbindmap_token_v | void)
+</span><span class="comment">// fun the_s2varbindmap_push (pf: s2varbindmap_token_v | (*none*)): void
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="6862"><span class="dyncstdec">the_s2varbindmap_pop <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="6896"><span class="dyncstdec">the_s2varbindmap_push <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">absview</span> <span class="staexp"><a name="6957"><span class="stacstdec">metric_env_token</span></a></span>
+
+<span class="keyword">fun</span> <a name="6979"><span class="dyncstdec">metric_nat_check <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> met<span class="keyword">:</span> <span class="staexp">s2explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="7035"><span class="dyncstdec">metric_env_get <span class="keyword">(</span>d2v<span class="keyword">:</span> <span class="staexp">stamp_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2explstopt</span></span></a>
+<span class="keyword">fun</span> <a name="7082"><span class="dyncstdec">metric_env_pop <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">metric_env_token</span></span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="7141"><span class="dyncstdec">metric_env_push
+  <span class="keyword">(</span>d2vs<span class="keyword">:</span> <span class="staexp">d2varlst</span><span class="keyword">,</span> met<span class="keyword">:</span> <span class="staexp">s2explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>metric_env_token <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a>
+
+<span class="keyword">fun</span> <a name="7223"><span class="dyncstdec">s2exp_metfn_load
+  <span class="keyword">(</span>s2e0<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> d2v0<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">Option_vt <span class="keyword">@(</span>s2exp<span class="keyword">,</span> s2rtlst<span class="keyword">)</span></span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">absview</span> <span class="staexp"><a name="7330"><span class="stacstdec">effect_env_token</span></a></span>
+
+<span class="keyword">fun</span> <a name="7352"><span class="dyncstdec">the_effect_env_add_lam <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">s2eff</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="7396"><span class="dyncstdec">the_effect_env_add_eff <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">$Syn<span class="keyword">.</span>effect_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="keyword">fun</span> <a name="7449"><span class="dyncstdec">the_effect_env_pop <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">effect_env_token</span></span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="keyword">fun</span> <a name="7513"><span class="dyncstdec">the_effect_env_push <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>effect_env_token <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a>
+<span class="keyword">fun</span> <a name="7567"><span class="dyncstdec">the_effect_env_push_lam <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">s2eff</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>effect_env_token <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a>
+
+<span class="keyword">fun</span> <a name="7634"><span class="dyncstdec">the_effect_env_push_delay <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>effect_env_token <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a>
+
+<span class="keyword">fun</span> <a name="7695"><span class="dyncstdec">the_effect_env_push_eff
+  <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">$Syn<span class="keyword">.</span>effectlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>effect_env_token <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a>
+<span class="keyword">fun</span> <a name="7772"><span class="dyncstdec">the_effect_env_push_effmask
+  <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">$Syn<span class="keyword">.</span>effectlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>effect_env_token <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a>
+
+<span class="comment">//
+</span>
+<span class="keyword">fun</span> <a name="7858"><span class="dyncstdec">the_effect_env_check_exn <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="7907"><span class="dyncstdec">the_effect_env_check_ntm <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="7956"><span class="dyncstdec">the_effect_env_check_ref <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="8005"><span class="dyncstdec">the_effect_env_check_all <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="8054"><span class="dyncstdec">the_effect_env_check_effvar <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2v0<span class="keyword">:</span> <span class="staexp">s2var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="8121"><span class="dyncstdec">the_effect_env_check_seff <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2fe0<span class="keyword">:</span> <span class="staexp">s2eff</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="8207"><span class="dyncstdec">trans3_env_s3itemlst_copy <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3itemlst_vt</span></span></a>
+<span class="keyword">fun</span> <a name="8254"><span class="dyncstdec">trans3_env_s3itemlst_get <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3itemlst_vt</span></span></a>
+<span class="keyword">fun</span> <a name="8300"><span class="dyncstdec">trans3_env_s3itemlst_set <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">s3itemlst_vt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">Option_vt <span class="keyword">(</span>s3itemlst_vt<span class="keyword">)</span></span></span></a>
+
+<span class="keyword">fun</span> <a name="8374"><span class="dyncstdec">trans3_env_add_svar <span class="keyword">(</span>s2v<span class="keyword">:</span> <span class="staexp">s2var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="8419"><span class="dyncstdec">trans3_env_add_svarlst <span class="keyword">(</span>s2vs<span class="keyword">:</span> <span class="staexp">s2varlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="keyword">fun</span> <a name="8470"><span class="dyncstdec">trans3_env_add_sVar <span class="keyword">(</span>s2V<span class="keyword">:</span> <span class="staexp">s2Var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="8515"><span class="dyncstdec">trans3_env_add_sVarlst <span class="keyword">(</span>s2Vs<span class="keyword">:</span> <span class="staexp">s2Varlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="keyword">fun</span> <a name="8566"><span class="dyncstdec">trans3_env_add_cstr <span class="keyword">(</span>c3t<span class="keyword">:</span> <span class="staexp">c3str</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="8609"><span class="dyncstdec">trans3_env_add_cstr_ref <span class="keyword">(</span>r<span class="keyword">:</span> <span class="staexp">ref c3stropt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="8661"><span class="dyncstdec">trans3_env_add_prop <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2p<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="8716"><span class="dyncstdec">trans3_env_add_proplst <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2ps<span class="keyword">:</span> <span class="staexp">s2explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="8778"><span class="dyncstdec">trans3_env_add_proplstlst <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2pss<span class="keyword">:</span> <span class="staexp">s2explstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="8847"><span class="dyncstdec">trans3_env_add_eqeq
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2e1<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2e2<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="8918"><span class="dyncstdec">trans3_env_add_tyleq
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2e1<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2e2<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="9012"><span class="dyncstdec">trans3_env_hypo_add_prop <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2p<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="9072"><span class="dyncstdec">trans3_env_hypo_add_proplst <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2ps<span class="keyword">:</span> <span class="staexp">s2explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="keyword">fun</span> <a name="9140"><span class="dyncstdec">trans3_env_hypo_add_bind
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2v1<span class="keyword">:</span> <span class="staexp">s2var_t</span><span class="keyword">,</span> s2e2<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="9218"><span class="dyncstdec">trans3_env_hypo_add_eqeq
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2e1<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2e2<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="keyword">fun</span> <a name="9295"><span class="dyncstdec">trans3_env_hypo_add_s2qualst <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2qs<span class="keyword">:</span> <span class="staexp">s2qualst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="keyword">fun</span> <a name="9364"><span class="dyncstdec">trans3_env_hypo_add_p2atcst
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> p2tc<span class="keyword">:</span> <span class="staexp">p2atcst</span><span class="keyword">,</span> s2e<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="9444"><span class="dyncstdec">trans3_env_hypo_add_p2atcstlst
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> p2tcs<span class="keyword">:</span> <span class="staexp">p2atcstlst</span><span class="keyword">,</span> s2es<span class="keyword">:</span> <span class="staexp">s2explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="9535"><span class="dyncstdec">trans3_env_hypo_add_labp2atcstlst
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> lp2tcs<span class="keyword">:</span> <span class="staexp">labp2atcstlst</span><span class="keyword">,</span> ls2es<span class="keyword">:</span> <span class="staexp">labs2explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="keyword">fun</span> <a name="9638"><span class="dyncstdec">trans3_env_hypo_add_p2atcstlstlst
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> p2tcss<span class="keyword">:</span> <span class="staexp">p2atcstlstlst</span><span class="keyword">,</span> s2es<span class="keyword">:</span> <span class="staexp">s2explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="9758"><span class="dyncstdec">trans3_env_add_metric_dec <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> metric<span class="keyword">:</span> <span class="staexp">s2explst n</span><span class="keyword">,</span> metric_bound<span class="keyword">:</span> <span class="staexp">s2explst n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="keyword">fun</span> <a name="9864"><span class="dyncstdec">trans3_env_add_p2atcstlstlst_false
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> casknd<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> p2tcss<span class="keyword">:</span> <span class="staexp">p2atcstlstlst</span><span class="keyword">,</span> s2es<span class="keyword">:</span> <span class="staexp">s2explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="9998"><span class="dyncstdec">s2exp_Var_make_srt <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2rt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2exp</span></span></a>
+<span class="keyword">fun</span> <a name="10048"><span class="dyncstdec">s2exp_Var_make_var <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2exp</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="10123"><span class="dyncstdec">s2qua_instantiate_and_add
+  <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2vs<span class="keyword">:</span> <span class="staexp">s2varlst</span><span class="keyword">,</span> s2ps<span class="keyword">:</span> <span class="staexp">s2explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">stasub_t</span></span></a>
+
+<span class="keyword">fun</span> <a name="10209"><span class="dyncstdec">s2qua_instantiate_with_and_add
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2vs<span class="keyword">:</span> <span class="staexp">s2varlst</span><span class="keyword">,</span> s2ps<span class="keyword">:</span> <span class="staexp">s2explst</span><span class="keyword">,</span> loc_arg<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2es<span class="keyword">:</span> <span class="staexp">s2explst</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">stasub_t</span></span></a>
+
+<span class="keyword">fun</span> <a name="10337"><span class="dyncstdec">s2qua_hypo_instantiate_and_add
+  <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2vs<span class="keyword">:</span> <span class="staexp">s2varlst</span><span class="keyword">,</span> s2ps<span class="keyword">:</span> <span class="staexp">s2explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">stasub_t</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="10449"><span class="dyncstdec">s2exp_metric_instantiate
+  <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> d2vopt<span class="keyword">:</span> <span class="staexp">Option stamp_t</span><span class="keyword">,</span> met<span class="keyword">:</span> <span class="staexp">s2explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="comment">//
+</span>
+<span class="keyword">fun</span> <a name="10541"><span class="dyncstdec">s2exp_exi_instantiate_all <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2exp</span></span></a>
+<span class="keyword">fun</span> <a name="10599"><span class="dyncstdec">s2exp_exi_instantiate_one <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2exp</span></span></a>
+<span class="keyword">fun</span> <a name="10657"><span class="dyncstdec">s2exp_exi_instantiate_seq
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> loc_arg<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2exp</span></span></a>
+
+<span class="keyword">fun</span> <a name="10749"><span class="dyncstdec">s2exp_exi_instantiate_sexparg <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exparg</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2exp</span></span></a>
+
+<span class="comment">//
+</span>
+<span class="keyword">fun</span> <a name="10829"><span class="dyncstdec">funarg_varfin_check <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="10873"><span class="dyncstdec">s2exp_wth_instantiate <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2exp</span></span></a>
+
+<span class="comment">//
+</span>
+<span class="keyword">fun</span> <a name="10934"><span class="dyncstdec">s2exp_uni_instantiate_all <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2exp</span></span></a>
+<span class="keyword">fun</span> <a name="10992"><span class="dyncstdec">s2exp_uni_instantiate_one <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2exp</span></span></a>
+<span class="keyword">fun</span> <a name="11050"><span class="dyncstdec">s2exp_uni_instantiate_seq
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> loc_arg<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2exp</span></span></a>
+
+<span class="keyword">fun</span> <a name="11142"><span class="dyncstdec">s2exp_uni_instantiate_sexparg <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exparg</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2exp</span></span></a>
+<span class="keyword">fun</span> <a name="11217"><span class="dyncstdec">s2exp_uni_instantiate_sexparglst <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exparglst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2exp</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="11320"><span class="dyncstdec">s2exp_template_instantiate
+  <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2qualst</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">tmps2explstlst</span><span class="keyword">,</span> s2e<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">@(</span>List stasub_t<span class="keyword">,</span> s2exp<span class="keyword">)</span></span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="11455"><span class="dyncstdec">s2exp_absuni_and_add <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2exp</span></span></a>
+
+<span class="keyword">fun</span> <a name="11511"><span class="dyncstdec">s2exp_opnexi_and_add <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2exp</span></span></a>
+<span class="keyword">fun</span> <a name="11566"><span class="dyncstdec">s2explst_opnexi_and_add <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2explst</span></span></a>
+<span class="keyword">fun</span> <a name="11630"><span class="dyncstdec">s2expopt_opnexi_and_add <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">s2expopt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2expopt</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// for tracking linear dynamic variables
+</span><span class="keyword">absview</span> <span class="staexp"><a name="11761"><span class="stacstdec">d2varset_env_token</span></a></span>
+
+<span class="keyword">fun</span> <a name="11785"><span class="dyncstdec">the_d2varset_env_add <span class="keyword">(</span>d2v<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="11831"><span class="dyncstdec">the_d2varset_env_adds <span class="keyword">(</span>d2vs<span class="keyword">:</span> <span class="staexp">d2varlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="11880"><span class="dyncstdec">the_d2varset_env_add_p2at <span class="keyword">(</span>p2t<span class="keyword">:</span> <span class="staexp">p2at</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="11928"><span class="dyncstdec">the_d2varset_env_add_p2atlst <span class="keyword">(</span>p2ts<span class="keyword">:</span> <span class="staexp">p2atlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="keyword">fun</span> <a name="11984"><span class="dyncstdec">the_d2varset_env_prerr_ld2vs <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="comment">// print local d2varset on stderr
+</span><span class="keyword">fun</span> <a name="12060"><span class="dyncstdec">the_d2varset_env_print_ld2vs <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="comment">// print local d2varset on stdout
+</span>
+<span class="keyword">fun</span> <a name="12137"><span class="dyncstdec">the_d2varset_env_pop_lam <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">d2varset_env_token</span></span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="12208"><span class="dyncstdec">the_d2varset_env_push_lam <span class="keyword">(</span>lin<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>d2varset_env_token <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a>
+
+<span class="keyword">fun</span> <a name="12279"><span class="dyncstdec">the_d2varset_env_pop_let <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">d2varset_env_token</span></span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="12350"><span class="dyncstdec">the_d2varset_env_push_let <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>d2varset_env_token <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a>
+
+<span class="keyword">fun</span> <a name="12413"><span class="dyncstdec">the_d2varset_env_pop_try <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">d2varset_env_token</span></span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="12484"><span class="dyncstdec">the_d2varset_env_push_try <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>d2varset_env_token <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a>
+
+<span class="keyword">fun</span> <a name="12547"><span class="dyncstdec">the_d2varset_env_d2var_is_lam_local <span class="keyword">(</span>d2v<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span></span></a>
+<span class="keyword">fun</span> <a name="12608"><span class="dyncstdec">the_d2varset_env_d2var_is_llam_local <span class="keyword">(</span>d2v<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span></span></a>
+
+<span class="keyword">fun</span> <a name="12671"><span class="dyncstdec">the_d2varset_env_check <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="12718"><span class="dyncstdec">the_d2varset_env_check_llam <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="12792"><span class="dyncstdec">the_d2varset_env_find_view <span class="keyword">(</span>_v<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">Option_vt d2var_t</span></span></a>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="12859"><span class="stacstdec">d2varset_env_find_viewat_t <span class="keyword">=</span>
+  <span class="keyword">@(</span>d2var_t<span class="keyword">,</span> s2exp<span class="comment">(*elt*)</span><span class="keyword">,</span> s2exp<span class="comment">(*addr*)</span><span class="keyword">,</span> s2lablst<span class="comment">(*front*)</span><span class="keyword">,</span> s2lablst<span class="comment">(*back*)</span><span class="keyword">)</span></span></a></span>
+
+<span class="keyword">fun</span> <a name="12972"><span class="dyncstdec">the_d2varset_env_find_viewat
+  <span class="keyword">(</span>root<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> path<span class="keyword">:</span> <span class="staexp">s2lablst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">Option_vt d2varset_env_find_viewat_t</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// record linear dynamic variables before branching
+</span><span class="keyword">abstype</span> <span class="staexp"><a name="13153"><span class="stacstdec">stbefitem_t</span></a></span> <span class="comment">// assumed in [ats_trans3_env_state.dats]
+</span><span class="keyword">typedef</span> <span class="staexp"><a name="13215"><span class="stacstdec">stbefitemlst <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> list <span class="keyword">(</span>stbefitem_t<span class="keyword">,</span> n<span class="keyword">)</span></span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="13268"><span class="stacstdec">stbefitemlst <span class="keyword">=</span> <span class="keyword">[</span>n<span class="keyword">:</span>nat<span class="keyword">]</span> stbefitemlst <span class="keyword">(</span>n<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">fun</span> <a name="13313"><span class="dyncstdec">the_d2varset_env_stbefitemlst_save <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">stbefitemlst</span></span></a>
+
+<span class="keyword">fun</span> <a name="13370"><span class="dyncstdec">stbefitem_make <span class="keyword">(</span>d2v<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">,</span> lin<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">stbefitem_t</span></span></a>
+
+<span class="keyword">fun</span> <a name="13428"><span class="dyncstdec">stbefitemlst_restore_typ <span class="keyword">(</span>sbis<span class="keyword">:</span> <span class="staexp">stbefitemlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="13484"><span class="dyncstdec">stbefitemlst_restore_lin_typ <span class="keyword">(</span>sbis<span class="keyword">:</span> <span class="staexp">stbefitemlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="keyword">abstype</span> <span class="staexp"><a name="13549"><span class="stacstdec">staftitem_t</span></a></span> <span class="comment">// assumed in [ats_trans3_env_state.dats]
+</span><span class="keyword">typedef</span> <span class="staexp"><a name="13611"><span class="stacstdec">staftitemlst <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> list <span class="keyword">(</span>staftitem_t<span class="keyword">,</span> n<span class="keyword">)</span></span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abstype</span> <span class="staexp"><a name="13686"><span class="stacstdec">staftscstr_t</span></a></span> <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="comment">// assumed in [ats_trans3_env_state.dats]
+</span>
+<span class="keyword">fun</span> <a name="13754"><span class="dyncstdec">staftscstr_met_set <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>
+    sac<span class="keyword">:</span> <span class="staexp">staftscstr_t n</span><span class="keyword">,</span> met<span class="keyword">:</span> <span class="staexp">s2explstopt</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "ats_trans3_env_state_staftscstr_met_set"
+<span class="comment">// end of [staftscstr_met_set]
+</span>
+<span class="keyword">fun</span> <a name="13916"><span class="dyncstdec">staftscstr_initialize <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>res<span class="keyword">:</span> <span class="staexp">i2nvresstate</span><span class="keyword">,</span> sbis<span class="keyword">:</span> <span class="staexp">stbefitemlst n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">staftscstr_t n</span></span></a>
+
+<span class="keyword">fun</span> <a name="14011"><span class="dyncstdec">staftscstr_stbefitemlst_merge <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> sac<span class="keyword">:</span> <span class="staexp">staftscstr_t n</span><span class="keyword">,</span> sbis<span class="keyword">:</span> <span class="staexp">stbefitemlst n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="comment">// end of [staftscstr_stbefitemlst_merge]
+</span><span class="comment">//
+</span><span class="comment">// HX-2010-05-27:
+</span><span class="comment">// This version of [staftscstr_stbefitemlst_merge] skips termination
+</span><span class="comment">// metric checking even if termination metric is provided.
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="14311"><span class="dyncstdec">staftscstr_stbefitemlst_merge_skipmetck <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> sac<span class="keyword">:</span> <span class="staexp">staftscstr_t n</span><span class="keyword">,</span> sbis<span class="keyword">:</span> <span class="staexp">stbefitemlst n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="comment">// end of [staftscstr_stbefitemlst_merge]
+</span>
+<span class="keyword">fun</span> <a name="14470"><span class="dyncstdec">staftscstr_stbefitemlst_check <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> sac<span class="keyword">:</span> <span class="staexp">staftscstr_t n</span><span class="keyword">,</span> sbis<span class="keyword">:</span> <span class="staexp">stbefitemlst n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="keyword">fun</span> <a name="14578"><span class="dyncstdec">staftscstr_stbefitemlst_update <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> sac<span class="keyword">:</span> <span class="staexp">staftscstr_t n</span><span class="keyword">,</span> sbis<span class="keyword">:</span> <span class="staexp">stbefitemlst n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">absview</span> <span class="staexp"><a name="14712"><span class="stacstdec">lamloop_env_token</span></a></span>
+
+<span class="comment">//
+</span><span class="comment">// [LMLPloop0]: for the first round typechecking
+</span><span class="comment">// [LMLPloop1]: for the second round typechekcing
+</span><span class="comment">//
+</span><span class="comment">// The break/continue statements are skipped during the first round.
+</span><span class="comment">//
+</span><span class="keyword">datatype</span> <span class="staexp"><a name="14917"><span class="stacstdec">lamloop</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> LMLPlam <span class="keyword">of</span> <span class="staexp">p3atlst</span> <span class="comment">(* function arguments *)</span>
+  <span class="keyword">|</span> LMLPloop0 
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">n<span class="keyword">:</span>nat</span><span class="keyword">}</span> LMLPloop1 <span class="keyword">of</span> <span class="comment">(* sbis, sac_init, sac_exit *)</span>
+      <span class="staexp"><span class="keyword">(</span>stbefitemlst n<span class="keyword">,</span> staftscstr_t n<span class="keyword">,</span> staftscstr_t n<span class="keyword">,</span> d2expopt<span class="keyword">)</span></span>
+  <span class="keyword">|</span> LMLPnone
+
+<span class="keyword">fun</span> <a name="15129"><span class="dyncstdec">the_lamloop_env_top <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">lamloop</span></span></a>
+
+<span class="keyword">fun</span> <a name="15166"><span class="dyncstdec">the_lamloop_env_pop <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">lamloop_env_token</span></span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="keyword">fun</span> <a name="15232"><span class="dyncstdec">the_lamloop_env_push_lam <span class="keyword">(</span>arg<span class="keyword">:</span> <span class="staexp">p3atlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>lamloop_env_token <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a>
+
+<span class="keyword">fun</span> <a name="15305"><span class="dyncstdec">the_lamloop_env_push_loop0 <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>lamloop_env_token <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a>
+<span class="keyword">fun</span> <a name="15368"><span class="dyncstdec">the_lamloop_env_push_loop1 <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>
+    sbis<span class="keyword">:</span> <span class="staexp">stbefitemlst n</span>
+  <span class="keyword">,</span> sac_init<span class="keyword">:</span> <span class="staexp">staftscstr_t n</span>
+  <span class="keyword">,</span> sac_exit<span class="keyword">:</span> <span class="staexp">staftscstr_t n</span>
+  <span class="keyword">,</span> post<span class="keyword">:</span> <span class="staexp">d2expopt</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>lamloop_env_token <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a>
+
+<span class="keyword">fun</span> <a name="15545"><span class="dyncstdec">the_lamloop_env_arg_get <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">Option_vt <span class="keyword">(</span>p3atlst<span class="keyword">)</span></span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="15630"><span class="dyncstdec">trans3_env_pop_sta <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3itemlst_vt</span></span></a>
+<span class="keyword">fun</span> <a name="15670"><span class="dyncstdec">trans3_env_pop_sta_and_add <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> _<span class="keyword">:</span> <span class="staexp">c3strkind</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="15732"><span class="dyncstdec">trans3_env_pop_sta_and_add_none <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="15785"><span class="dyncstdec">trans3_env_pop_sta_and_free <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="15826"><span class="dyncstdec">trans3_env_push_sta <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="15881"><span class="dyncstdec">trans3_env_initialize <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_trans3_env.sats] *)</span>
+</pre>
+</body>
+</html>

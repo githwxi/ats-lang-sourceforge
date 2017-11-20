@@ -1,0 +1,1089 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: November 2007
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Err <span class="keyword">=</span> "ats_error.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">TransEnv2 <span class="keyword">=</span> "ats_trans2_env.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Sym <span class="keyword">=</span> "ats_symbol.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp2.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_stadyncst2.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">=</span> <span class="keyword">with</span> $Sym<span class="keyword">.</span>eq_symbol_symbol</span>
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> $Sym<span class="keyword">.</span>prerr_symbol</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> prerr_interror <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> prerr "INTERNAL ERROR (ats_stadyncst2)"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="1964"><span class="stacstdec">s2cstref_struct <span class="keyword">=</span> <span class="keyword">@{</span>
+  sym<span class="keyword">=</span> sym_t<span class="keyword">,</span> cst<span class="keyword">=</span> Option s2cst_t
+<span class="keyword">}</span></span></a></span> <span class="comment">// end of [s2cstref_struct]
+</span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="2058"><span class="stacstdec">s2cstref <span class="keyword">=</span>
+  <span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>vbox <span class="keyword">(</span>s2cstref_struct @ l<span class="keyword">)</span> <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></a></span>
+<span class="keyword">assume</span> <span class="staexp">s2cstref_t <span class="keyword">=</span> s2cstref</span>
+
+<span class="keyword">implement</span> s2cstref_make <span class="keyword">(</span>name<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_make_string name
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_gc</span><span class="keyword">,</span> <span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    ptr_alloc_tsz <span class="staexp"><span class="keyword">{</span>s2cstref_struct<span class="keyword">}</span></span> <span class="keyword">(</span>sizeof&lt;<span class="staexp">s2cstref_struct</span><span class="keyword">&gt;</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> free_gc_elim <span class="staexp"><span class="keyword">{</span>s2cstref_struct<span class="keyword">}</span></span> <span class="keyword">(</span>pf_gc<span class="keyword">)</span></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>p<span class="keyword">-&gt;</span>sym := id<span class="keyword">;</span> p<span class="keyword">-&gt;</span>cst := None <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pfbox</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> vbox_make_view_ptr <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">(</span><span class="prfexp">pfbox</span> <span class="keyword">|</span> p<span class="keyword">)</span>
+<span class="keyword">end</span>  <span class="comment">// end of [s2cstref_make]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2cstref_cst_get <span class="keyword">(</span>r<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> os2c <span class="keyword">=</span> <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> r <span class="keyword">in</span> p<span class="keyword">-&gt;</span>cst <span class="keyword">end</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> os2c <span class="keyword">of</span>
+  <span class="keyword">|</span> Some s2c <span class="keyword">=&gt;</span> s2c
+  <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> id <span class="keyword">=</span> <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> r <span class="keyword">in</span> p<span class="keyword">-&gt;</span>sym <span class="keyword">end</span>
+      <span class="keyword">val</span> os2c <span class="keyword">=</span> <span class="keyword">(</span>
+        <span class="keyword">case+</span> $TransEnv2<span class="keyword">.</span>the_s2expenv_pervasive_find <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">of</span>
+        <span class="keyword">|</span> <span class="keyword">~</span>Some_vt s2i <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2i <span class="keyword">of</span>
+          <span class="keyword">|</span> S2ITEMcst <span class="keyword">(</span>S2CSTLSTcons <span class="keyword">(</span>s2c<span class="keyword">,</span> _<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+              <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> r<span class="keyword">;</span> <span class="keyword">val</span> os2c <span class="keyword">=</span> Some s2c
+            <span class="keyword">in</span>
+              p<span class="keyword">-&gt;</span>cst := os2c<span class="keyword">;</span> os2c
+            <span class="keyword">end</span>
+          <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> None <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>        <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> None <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">Option s2cst_t</span>
+    <span class="keyword">in</span>
+      <span class="keyword">case+</span> os2c <span class="keyword">of</span>
+      <span class="keyword">|</span> Some s2c <span class="keyword">=&gt;</span> s2c <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          prerr ": s2cstref_cst_get: "<span class="keyword">;</span>
+          prerr "the pervasive static constant ["<span class="keyword">;</span>
+          prerr id<span class="keyword">;</span> prerr "] is not available."<span class="keyword">;</span>
+          prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>s2cst_t<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [None]
+</span>    <span class="keyword">end</span> <span class="comment">(* end of [None] *)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2cstref_cst_get]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2cstref_exp_get <span class="keyword">(</span>s2cref<span class="keyword">,</span> os2es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get s2cref<span class="keyword">;</span> <span class="keyword">val</span> s2e <span class="keyword">=</span> s2exp_cst s2c
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> os2es <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>Some_vt s2es <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> s2t_res <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> s2cst_srt_get s2c <span class="keyword">of</span>
+      <span class="keyword">|</span> S2RTfun <span class="keyword">(</span>_<span class="keyword">,</span> s2t_res<span class="keyword">)</span> <span class="keyword">=&gt;</span> s2t_res
+      <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          prerr ": s2cstref_exp_get: s2c = "<span class="keyword">;</span> prerr s2c<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>s2rt<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [_]
+</span>      <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">s2rt</span> <span class="comment">// end of [val]
+</span>    <span class="keyword">in</span>
+      s2exp_app_srt <span class="keyword">(</span>s2t_res<span class="keyword">,</span> s2e<span class="keyword">,</span> s2es<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>  <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2e
+<span class="keyword">end</span> <span class="comment">(* end of [s2cstref_exp_get] *)</span>
+
+<span class="keyword">implement</span> s2cstref_exp_unget <span class="keyword">(</span>s2cref<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> s2e<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> S2Eapp <span class="keyword">(</span>s2e_fun<span class="keyword">,</span> s2es_arg<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2e_fun<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Ecst <span class="keyword">(</span>s2c<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> s2cstref_cst_get <span class="keyword">(</span>s2cref<span class="keyword">)</span> <span class="keyword">=</span> s2c <span class="keyword">then</span> Some_vt <span class="keyword">(</span>s2es_arg<span class="keyword">)</span> <span class="keyword">else</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> S2Ecst <span class="keyword">(</span>s2c<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">if</span> s2cstref_cst_get <span class="keyword">(</span>s2cref<span class="keyword">)</span> <span class="keyword">=</span> s2c <span class="keyword">then</span> Some_vt <span class="keyword">(</span>list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">else</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2cstref_exp_unget]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2cstref_cst_equ <span class="keyword">(</span>s2cref<span class="keyword">,</span> s2c<span class="keyword">)</span> <span class="keyword">=</span>
+  eq_s2cst_s2cst <span class="keyword">(</span>s2cstref_cst_get s2cref<span class="keyword">,</span> s2c<span class="keyword">)</span>
+
+<span class="keyword">implement</span> s2cstref_exp_equ <span class="keyword">(</span>s2cref<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> s2e<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> S2Eapp <span class="keyword">(</span>s2e<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> s2cstref_exp_equ <span class="keyword">(</span>s2cref<span class="keyword">,</span> s2e<span class="keyword">)</span>
+  <span class="keyword">|</span> S2Ecst s2c <span class="keyword">=&gt;</span> s2cstref_cst_equ <span class="keyword">(</span>s2cref<span class="keyword">,</span> s2c<span class="keyword">)</span>
+  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> false
+<span class="keyword">end</span> <span class="comment">// end of [s2cstref_exp_equ]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> True_bool <span class="keyword">=</span> s2cstref_make "true_bool"
+<span class="keyword">implement</span> False_bool <span class="keyword">=</span> s2cstref_make "false_bool"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> Bool_t0ype <span class="keyword">=</span> s2cstref_make "bool_t0ype"
+<span class="keyword">implement</span> Bool_bool_t0ype <span class="keyword">=</span> s2cstref_make "bool_bool_t0ype"
+<span class="keyword">implement</span> Byte_t0ype <span class="keyword">=</span> s2cstref_make "byte_t0ype"
+<span class="keyword">implement</span> Char_t0ype <span class="keyword">=</span> s2cstref_make "char_t0ype"
+<span class="keyword">implement</span> Char_char_t0ype <span class="keyword">=</span> s2cstref_make "char_char_t0ype"
+<span class="keyword">implement</span> Double_t0ype <span class="keyword">=</span> s2cstref_make "double_t0ype"
+<span class="keyword">implement</span> Double_long_t0ype <span class="keyword">=</span> s2cstref_make "double_long_t0ype"
+<span class="keyword">implement</span> Float_t0ype <span class="keyword">=</span> s2cstref_make "float_t0ype"
+<span class="keyword">implement</span> Int_t0ype <span class="keyword">=</span> s2cstref_make "int_t0ype"
+<span class="keyword">implement</span> Int_int_t0ype <span class="keyword">=</span> s2cstref_make "int_int_t0ype"
+<span class="keyword">implement</span> Lint_t0ype <span class="keyword">=</span> s2cstref_make "int_long_t0ype"
+<span class="keyword">implement</span> Lint_int_t0ype <span class="keyword">=</span> s2cstref_make "lint_int_t0ype"
+<span class="keyword">implement</span> Opt_viewt0ype_bool_viewt0ype <span class="keyword">=</span> s2cstref_make "opt_viewt0ype_bool_viewt0ype"
+<span class="keyword">implement</span> Ptr_type <span class="keyword">=</span> s2cstref_make "ptr_type"
+<span class="keyword">implement</span> Ptr_addr_type <span class="keyword">=</span> s2cstref_make "ptr_addr_type"
+<span class="keyword">implement</span> Ref_viewt0ype_type <span class="keyword">=</span> s2cstref_make "ref_viewt0ype_type"
+<span class="keyword">implement</span> Size_t0ype <span class="keyword">=</span> s2cstref_make "size_t0ype"
+<span class="keyword">implement</span> Size_int_t0ype <span class="keyword">=</span> s2cstref_make "size_int_t0ype"
+<span class="keyword">implement</span> Ssize_t0ype <span class="keyword">=</span> s2cstref_make "ssize_t0ype"
+<span class="keyword">implement</span> Ssize_int_t0ype <span class="keyword">=</span> s2cstref_make "ssize_int_t0ype"
+<span class="keyword">implement</span> Strbuf_t0ype <span class="keyword">=</span> s2cstref_make "strbuf_t0ype"
+<span class="keyword">implement</span> Strbuf_int_int_t0ype <span class="keyword">=</span> s2cstref_make "strbuf_int_int_t0ype"
+<span class="keyword">implement</span> String_type <span class="keyword">=</span> s2cstref_make "string_type"
+<span class="keyword">implement</span> String_int_type <span class="keyword">=</span> s2cstref_make "string_int_type"
+<span class="keyword">implement</span> Uint_t0ype <span class="keyword">=</span> s2cstref_make "uint_t0ype"
+<span class="keyword">implement</span> Uint_int_t0ype <span class="keyword">=</span> s2cstref_make "uint_int_t0ype"
+<span class="keyword">implement</span> Ulint_t0ype <span class="keyword">=</span> s2cstref_make "uint_long_t0ype"
+<span class="keyword">implement</span> Ulint_int_t0ype <span class="keyword">=</span> s2cstref_make "ulint_int_t0ype"
+<span class="keyword">implement</span> Void_t0ype <span class="keyword">=</span> s2cstref_make "void_t0ype"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> Int_long_t0ype <span class="keyword">=</span>
+  s2cstref_make "int_long_t0ype"
+
+<span class="keyword">implement</span> Int_long_long_t0ype <span class="keyword">=</span>
+  s2cstref_make "int_long_long_t0ype"
+
+<span class="keyword">implement</span> Uint_long_t0ype <span class="keyword">=</span>
+  s2cstref_make "uint_long_t0ype"
+
+<span class="keyword">implement</span> Uint_long_long_t0ype <span class="keyword">=</span>
+  s2cstref_make "uint_long_long_t0ype"
+
+<span class="keyword">implement</span> Int_short_t0ype <span class="keyword">=</span>
+  s2cstref_make "int_short_t0ype"
+
+<span class="keyword">implement</span> Int_short_short_t0ype <span class="keyword">=</span>
+  s2cstref_make "int_short_short_t0ype"
+
+<span class="keyword">implement</span> Uint_short_t0ype <span class="keyword">=</span>
+  s2cstref_make "uint_short_t0ype"
+
+<span class="keyword">implement</span> Uint_short_short_t0ype <span class="keyword">=</span>
+  s2cstref_make "uint_short_short_t0ype"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> Bottom_t0ype_exi <span class="keyword">=</span>
+  s2cstref_make "bottom_t0ype_exi"
+
+<span class="keyword">implement</span> Bottom_t0ype_uni <span class="keyword">=</span>
+  s2cstref_make "bottom_t0ype_uni"
+
+<span class="keyword">implement</span> Bottom_viewt0ype_exi <span class="keyword">=</span>
+  s2cstref_make "bottom_viewt0ype_exi"
+
+<span class="keyword">implement</span> Bottom_viewt0ype_uni <span class="keyword">=</span>
+  s2cstref_make "bottom_viewt0ype_uni"
+
+<span class="keyword">implement</span> Exception_viewtype <span class="keyword">=</span>
+  s2cstref_make "exception_viewtype"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> Array_viewt0ype_int_type <span class="keyword">=</span>
+  s2cstref_make "array_viewt0ype_int_type"
+
+<span class="keyword">implement</span> Array_viewt0ype_int_viewtype <span class="keyword">=</span> 
+  s2cstref_make "array_viewt0ype_int_viewtype"
+
+<span class="keyword">implement</span> Arraysize_viewt0ype_int_viewt0ype <span class="keyword">=</span> 
+  s2cstref_make "arraysize_viewt0ype_int_viewt0ype"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> List_t0ype_int_type <span class="keyword">=</span>
+  s2cstref_make "list_t0ype_int_type"
+
+<span class="keyword">implement</span> List_viewt0ype_int_viewtype <span class="keyword">=</span> 
+  s2cstref_make "list_viewt0ype_int_viewtype"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> At_viewt0ype_addr_view <span class="keyword">=</span>
+  s2cstref_make "at_viewt0ype_addr_view"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> Crypt_viewt0ype_viewt0ype <span class="keyword">=</span>
+  s2cstref_make "crypt_viewt0ype_viewt0ype"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> Clo_viewt0ype_viewt0ype <span class="keyword">=</span>
+  s2cstref_make "clo_viewt0ype_viewt0ype"
+
+<span class="keyword">implement</span> Cloptr_viewt0ype_viewtype <span class="keyword">=</span>
+  s2cstref_make "cloptr_viewt0ype_viewtype"
+
+<span class="keyword">implement</span> Cloref_t0ype_type <span class="keyword">=</span>
+  s2cstref_make "cloref_t0ype_type"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> Lazy_t0ype_type <span class="keyword">=</span>
+  s2cstref_make "lazy_t0ype_type"
+
+<span class="keyword">implement</span> Lazy_viewt0ype_viewtype <span class="keyword">=</span>
+  s2cstref_make "lazy_viewt0ype_viewtype"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> Printf_c_types_type <span class="keyword">=</span>
+  s2cstref_make "printf_c_types_type"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> Va_list_viewt0ype <span class="keyword">=</span>
+  s2cstref_make "va_list_viewt0ype"
+
+<span class="keyword">implement</span> Va_list_types_viewt0ype <span class="keyword">=</span>
+  s2cstref_make "va_list_types_viewt0ype"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> Vbox_view_prop <span class="keyword">=</span>
+  s2cstref_make "vbox_view_prop"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> Neg_bool_bool <span class="keyword">=</span> s2cstref_make "neg_bool_bool"
+<span class="keyword">implement</span> Add_bool_bool_bool <span class="keyword">=</span> s2cstref_make "add_bool_bool_bool"
+<span class="keyword">implement</span> Mul_bool_bool_bool <span class="keyword">=</span> s2cstref_make "mul_bool_bool_bool"
+
+<span class="keyword">implement</span> Eq_bool_bool_bool <span class="keyword">=</span> s2cstref_make "eq_bool_bool_bool"
+<span class="keyword">implement</span> Neq_bool_bool_bool <span class="keyword">=</span> s2cstref_make "neq_bool_bool_bool"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> Sub_char_char_int <span class="keyword">=</span> s2cstref_make "sub_char_char_int"
+
+<span class="keyword">implement</span> Gt_char_char_bool <span class="keyword">=</span> s2cstref_make "gt_char_char_bool"
+<span class="keyword">implement</span> Gte_char_char_bool <span class="keyword">=</span> s2cstref_make "gte_char_char_bool"
+<span class="keyword">implement</span> Lt_char_char_bool <span class="keyword">=</span> s2cstref_make "lt_char_char_bool"
+<span class="keyword">implement</span> Lte_char_char_bool <span class="keyword">=</span> s2cstref_make "lte_char_char_bool"
+
+<span class="keyword">implement</span> Eq_char_char_bool <span class="keyword">=</span> s2cstref_make "eq_char_char_bool"
+<span class="keyword">implement</span> Neq_char_char_bool <span class="keyword">=</span> s2cstref_make "neq_char_char_bool"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> Neg_int_int <span class="keyword">=</span> s2cstref_make "neg_int_int"
+<span class="keyword">implement</span> Add_int_int_int <span class="keyword">=</span> s2cstref_make "add_int_int_int"
+<span class="keyword">implement</span> Sub_int_int_int <span class="keyword">=</span> s2cstref_make "sub_int_int_int"
+<span class="keyword">implement</span> Mul_int_int_int <span class="keyword">=</span> s2cstref_make "mul_int_int_int"
+
+<span class="keyword">implement</span> Gt_int_int_bool <span class="keyword">=</span> s2cstref_make "gt_int_int_bool"
+<span class="keyword">implement</span> Gte_int_int_bool <span class="keyword">=</span> s2cstref_make "gte_int_int_bool"
+<span class="keyword">implement</span> Lt_int_int_bool <span class="keyword">=</span> s2cstref_make "lt_int_int_bool"
+<span class="keyword">implement</span> Lte_int_int_bool <span class="keyword">=</span> s2cstref_make "lte_int_int_bool"
+
+<span class="keyword">implement</span> Eq_int_int_bool <span class="keyword">=</span> s2cstref_make "eq_int_int_bool"
+<span class="keyword">implement</span> Neq_int_int_bool <span class="keyword">=</span> s2cstref_make "neq_int_int_bool"
+
+<span class="keyword">implement</span> Div_int_int_int <span class="keyword">=</span> s2cstref_make "div_int_int_int"
+<span class="keyword">implement</span> Div_int_int_int_bool <span class="keyword">=</span> s2cstref_make "div_int_int_int_bool"
+
+<span class="keyword">implement</span> Max_int_int_int <span class="keyword">=</span> s2cstref_make "max_int_int_int"
+<span class="keyword">implement</span> Max_int_int_int_bool <span class="keyword">=</span> s2cstref_make "max_int_int_int_bool"
+
+<span class="keyword">implement</span> Min_int_int_int <span class="keyword">=</span> s2cstref_make "min_int_int_int"
+<span class="keyword">implement</span> Min_int_int_int_bool <span class="keyword">=</span> s2cstref_make "min_int_int_int_bool"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> Abs_int_int <span class="keyword">=</span> s2cstref_make "abs_int_int"
+<span class="keyword">implement</span> Abs_int_int_bool <span class="keyword">=</span> s2cstref_make "abs_int_int_bool"
+
+<span class="keyword">implement</span> Btw_int_int_int_bool <span class="keyword">=</span> s2cstref_make "btw_int_int_int_bool"
+
+<span class="keyword">implement</span> IntOfBool_bool_int <span class="keyword">=</span> s2cstref_make "int_of_bool"
+<span class="keyword">implement</span> IntOfBool_bool_int_bool <span class="keyword">=</span> s2cstref_make "int_of_bool_bool"
+
+<span class="keyword">implement</span> Nsub_int_int_int <span class="keyword">=</span> s2cstref_make "nsub_int_int_int"
+<span class="keyword">implement</span> Nsub_int_int_int_bool <span class="keyword">=</span> s2cstref_make "nsub_int_int_int_bool"
+
+<span class="keyword">implement</span> Size_int_int_bool <span class="keyword">=</span> s2cstref_make "size_int_int_bool"
+<span class="keyword">implement</span> Sizeof_viewt0ype_int <span class="keyword">=</span> s2cstref_make "sizeof_viewt0ype_int"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> Null_addr <span class="keyword">=</span> s2cstref_make "null_addr"
+
+<span class="keyword">implement</span> Add_addr_int_addr <span class="keyword">=</span> s2cstref_make "add_addr_int_addr"
+<span class="keyword">implement</span> Sub_addr_int_addr <span class="keyword">=</span> s2cstref_make "sub_addr_int_addr"
+<span class="keyword">implement</span> Sub_addr_addr_int <span class="keyword">=</span> s2cstref_make "sub_addr_addr_int"
+
+<span class="keyword">implement</span> Gt_addr_addr_bool <span class="keyword">=</span> s2cstref_make "gt_addr_addr_bool"
+<span class="keyword">implement</span> Gte_addr_addr_bool <span class="keyword">=</span> s2cstref_make "gte_addr_addr_bool"
+<span class="keyword">implement</span> Lt_addr_addr_bool <span class="keyword">=</span> s2cstref_make "lt_addr_addr_bool"
+<span class="keyword">implement</span> Lte_addr_addr_bool <span class="keyword">=</span> s2cstref_make "lte_addr_addr_bool"
+
+<span class="keyword">implement</span> Eq_addr_addr_bool <span class="keyword">=</span> s2cstref_make "eq_addr_addr_bool"
+<span class="keyword">implement</span> Neq_addr_addr_bool <span class="keyword">=</span> s2cstref_make "neq_addr_addr_bool"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> Lte_cls_cls_bool <span class="keyword">=</span> s2cstref_make "lte_cls_cls_bool"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="12348"><span class="stacstdec">d2conref_struct <span class="keyword">=</span> <span class="keyword">@{</span>
+  sym<span class="keyword">=</span> sym_t<span class="keyword">,</span> con<span class="keyword">=</span> Option d2con_t
+<span class="keyword">}</span></span></a></span> <span class="comment">// end of [d2conref_struct]
+</span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="12442"><span class="stacstdec">d2conref <span class="keyword">=</span>
+  <span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>vbox <span class="keyword">(</span>d2conref_struct @ l<span class="keyword">)</span> <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></a></span>
+<span class="keyword">assume</span> <span class="staexp">d2conref_t <span class="keyword">=</span> d2conref</span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> d2conref_make <span class="keyword">(</span>name<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_make_string name
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_gc</span><span class="keyword">,</span> <span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    ptr_alloc_tsz <span class="staexp"><span class="keyword">{</span>d2conref_struct<span class="keyword">}</span></span> <span class="keyword">(</span>sizeof&lt;<span class="staexp">d2conref_struct</span><span class="keyword">&gt;</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> free_gc_elim <span class="staexp"><span class="keyword">{</span>d2conref_struct<span class="keyword">}</span></span> <span class="keyword">(</span>pf_gc<span class="keyword">)</span></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>p<span class="keyword">-&gt;</span>sym := id<span class="keyword">;</span> p<span class="keyword">-&gt;</span>con := None <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pfbox</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> vbox_make_view_ptr <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">(</span><span class="prfexp">pfbox</span> <span class="keyword">|</span> p<span class="keyword">)</span>
+<span class="keyword">end</span>  <span class="comment">// end of [d2conref_make]
+</span>
+<span class="keyword">implement</span> d2conref_con_get <span class="keyword">(</span>r<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> od2c <span class="keyword">=</span> <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> r <span class="keyword">in</span> p<span class="keyword">-&gt;</span>con <span class="keyword">end</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> od2c <span class="keyword">of</span>
+  <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> id <span class="keyword">=</span> <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> r <span class="keyword">in</span> p<span class="keyword">-&gt;</span>sym <span class="keyword">end</span>
+      <span class="keyword">val</span> od2c <span class="keyword">=</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> od2i <span class="keyword">=</span> $TransEnv2<span class="keyword">.</span>the_d2expenv_pervasive_find <span class="keyword">(</span>id<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        <span class="keyword">begin</span> <span class="keyword">case+</span> od2i <span class="keyword">of</span>
+        <span class="keyword">|</span> <span class="keyword">~</span>Some_vt d2i <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> d2i <span class="keyword">of</span>
+          <span class="keyword">|</span> D2ITEMcon d2cs <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> d2cs <span class="keyword">of</span>
+            <span class="keyword">|</span> D2CONLSTcons <span class="keyword">(</span>d2c<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+                <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> r<span class="keyword">;</span> <span class="keyword">val</span> od2c <span class="keyword">=</span> Some d2c
+              <span class="keyword">in</span>
+                p<span class="keyword">-&gt;</span>con := od2c<span class="keyword">;</span> od2c
+              <span class="keyword">end</span>
+            <span class="keyword">|</span> D2CONLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> None <span class="keyword">(</span><span class="keyword">)</span>
+            <span class="keyword">end</span>
+          <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> None <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>        <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> None <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="keyword">:</span> <span class="staexp">Option d2con_t</span>
+      <span class="keyword">end</span>
+    <span class="keyword">in</span>
+      <span class="keyword">case+</span> od2c <span class="keyword">of</span>
+      <span class="keyword">|</span> Some d2c <span class="keyword">=&gt;</span> d2c <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          prerr ": d2conref_con_get: "<span class="keyword">;</span>
+          prerr "the pervasive dynamic constructor ["<span class="keyword">;</span>
+          prerr id<span class="keyword">;</span> prerr "] is not available."<span class="keyword">;</span>
+          prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>d2con_t<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [None]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [None]
+</span>  <span class="keyword">|</span> Some d2c <span class="keyword">=&gt;</span> d2c
+<span class="keyword">end</span> <span class="comment">// end of [d2conref_con_get]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="keyword">implement</span> List_nil <span class="keyword">=</span> d2conref_make "list_nil"
+<span class="keyword">implement</span> List_cons <span class="keyword">=</span> d2conref_make "list_cons"
+
+<span class="keyword">implement</span> List_vt_nil <span class="keyword">=</span> d2conref_make "list_vt_nil"
+<span class="keyword">implement</span> List_vt_cons <span class="keyword">=</span> d2conref_make "list_vt_cons"
+
+<span class="comment">(*
+
+// it is now supported internally; see [prelude/CATS/lazy.cats]
+
+implement ThunkValue_thunk = d2conref_make "thunkvalue_thunk"
+implement ThunkValue_value = d2conref_make "thunkvalue_value"
+
+implement ThunkValue_vt_thunk = d2conref_make "thunkvalue_vt_thunk"
+implement ThunkValue_vt_value = d2conref_make "thunkvalue_vt_value"
+
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="14707"><span class="stacstdec">d2cstref_struct <span class="keyword">=</span> <span class="keyword">@{</span>
+  sym<span class="keyword">=</span> sym_t<span class="keyword">,</span> cst<span class="keyword">=</span> Option d2cst_t
+<span class="keyword">}</span></span></a></span> <span class="comment">// end of [d2cstref_struct]
+</span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="14801"><span class="stacstdec">d2cstref <span class="keyword">=</span>
+  <span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>vbox <span class="keyword">(</span>d2cstref_struct @ l<span class="keyword">)</span> <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></a></span>
+<span class="keyword">assume</span> <span class="staexp">d2cstref_t <span class="keyword">=</span> d2cstref</span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> d2cstref_make <span class="keyword">(</span>name<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_make_string name
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_gc</span><span class="keyword">,</span> <span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    ptr_alloc_tsz <span class="staexp"><span class="keyword">{</span>d2cstref_struct<span class="keyword">}</span></span> <span class="keyword">(</span>sizeof&lt;<span class="staexp">d2cstref_struct</span><span class="keyword">&gt;</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> free_gc_elim <span class="staexp"><span class="keyword">{</span>d2cstref_struct<span class="keyword">}</span></span> <span class="keyword">(</span>pf_gc<span class="keyword">)</span></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>p<span class="keyword">-&gt;</span>sym := id<span class="keyword">;</span> p<span class="keyword">-&gt;</span>cst := None <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pfbox</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> vbox_make_view_ptr <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">(</span><span class="prfexp">pfbox</span> <span class="keyword">|</span> p<span class="keyword">)</span>
+<span class="keyword">end</span>  <span class="comment">// end of [d2cstref_make]
+</span>
+<span class="keyword">implement</span> d2cstref_cst_get <span class="keyword">(</span>r<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> od2c <span class="keyword">=</span> p<span class="keyword">-&gt;</span>cst <span class="keyword">where</span> <span class="keyword">{</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> r <span class="keyword">}</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> od2c <span class="keyword">of</span>
+  <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> id <span class="keyword">=</span> <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> r <span class="keyword">in</span> p<span class="keyword">-&gt;</span>sym <span class="keyword">end</span>
+      <span class="keyword">val</span> od2c <span class="keyword">=</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> od2i <span class="keyword">=</span> $TransEnv2<span class="keyword">.</span>the_d2expenv_pervasive_find <span class="keyword">(</span>id<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        <span class="keyword">case+</span> od2i <span class="keyword">of</span>
+        <span class="keyword">|</span> <span class="keyword">~</span>Some_vt d2i <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> d2i <span class="keyword">of</span>
+          <span class="keyword">|</span> D2ITEMcst d2c <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+              <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> r
+              <span class="keyword">val</span> od2c <span class="keyword">=</span> Some d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>cst := od2c<span class="keyword">;</span> od2c
+            <span class="keyword">end</span> <span class="comment">(* end of [D2ITEMcst] *)</span>
+          <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> None <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>        <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> None <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="keyword">:</span> <span class="staexp">Option d2cst_t</span> <span class="comment">// end of [val]
+</span>    <span class="keyword">in</span>
+      <span class="keyword">case+</span> od2c <span class="keyword">of</span>
+      <span class="keyword">|</span> Some d2c <span class="keyword">=&gt;</span> d2c <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          prerr ": d2cstref_cst_get: "<span class="keyword">;</span>
+          prerr "the pervasive dynamic constant ["<span class="keyword">;</span>
+          prerr id<span class="keyword">;</span> prerr "] is not available."<span class="keyword">;</span>
+          prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>d2cst_t<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [None]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [None]
+</span>  <span class="keyword">|</span> Some d2c <span class="keyword">=&gt;</span> d2c
+<span class="keyword">end</span> <span class="comment">(* end of [d2cstref_cst_get] *)</span>
+
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="keyword">implement</span> Ats_main_void <span class="keyword">=</span> d2cstref_make "main_void"
+<span class="keyword">implement</span> Ats_main_argc_argv <span class="keyword">=</span> d2cstref_make "main_argc_argv"
+<span class="keyword">implement</span> Ats_main_dummy <span class="keyword">=</span> d2cstref_make "main_dummy"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2exp_bool <span class="keyword">(</span>b<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">if</span> b
+    <span class="keyword">then</span> s2cstref_cst_get <span class="keyword">(</span>True_bool<span class="keyword">)</span>
+    <span class="keyword">else</span> s2cstref_cst_get <span class="keyword">(</span>False_bool<span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">s2cst_t</span>
+<span class="keyword">in</span>
+  s2exp_cst <span class="keyword">(</span>s2c<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_bool]
+</span>
+<span class="keyword">implement</span> s2exp_bool_t0ype <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Bool_t0ype<span class="keyword">)</span> <span class="keyword">in</span> s2exp_cst <span class="keyword">(</span>s2c<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_bool_t0ype]
+</span>
+<span class="keyword">implement</span> s2exp_bool_bool_t0ype <span class="keyword">(</span>b<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Bool_bool_t0ype<span class="keyword">)</span> <span class="keyword">in</span>
+  s2exp_cstapp <span class="keyword">(</span>s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2exp_bool b<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_bool_bool_t0ype]
+</span>
+<span class="keyword">implement</span> s2exp_char_t0ype <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Char_t0ype<span class="keyword">)</span> <span class="keyword">in</span> s2exp_cst <span class="keyword">(</span>s2c<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_char_t0ype]
+</span>
+<span class="keyword">implement</span> s2exp_char_char_t0ype <span class="keyword">(</span>c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Char_char_t0ype<span class="keyword">)</span> <span class="keyword">in</span>
+  s2exp_cstapp <span class="keyword">(</span>s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2exp_char c<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_char_char_t0ype]
+</span>
+<span class="keyword">implement</span> s2exp_double_t0ype <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Double_t0ype<span class="keyword">)</span> <span class="keyword">in</span> s2exp_cst <span class="keyword">(</span>s2c<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_double_t0ype]
+</span>
+<span class="keyword">implement</span> s2exp_double_long_t0ype <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Double_long_t0ype<span class="keyword">)</span> <span class="keyword">in</span>
+  s2exp_cst <span class="keyword">(</span>s2c<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_double_long_t0ype]
+</span>
+<span class="keyword">implement</span> s2exp_float_t0ype <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Float_t0ype<span class="keyword">)</span> <span class="keyword">in</span> s2exp_cst <span class="keyword">(</span>s2c<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_float_t0ype]
+</span>
+<span class="keyword">implement</span> s2exp_int_t0ype <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Int_t0ype<span class="keyword">)</span> <span class="keyword">in</span> s2exp_cst <span class="keyword">(</span>s2c<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_int_t0ype]
+</span>
+<span class="keyword">implement</span> s2exp_int_int_t0ype <span class="keyword">(</span>i<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Int_int_t0ype<span class="keyword">)</span> <span class="keyword">in</span>
+  s2exp_cstapp <span class="keyword">(</span>s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2exp_int i<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_int_int_t0ype]
+</span>
+<span class="keyword">implement</span> s2exp_int_intinf_t0ype <span class="keyword">(</span>i<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Int_int_t0ype<span class="keyword">)</span> <span class="keyword">in</span>
+  s2exp_cstapp <span class="keyword">(</span>s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2exp_intinf i<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_int_intinf_t0ype]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> s2exp_ptr_type <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Ptr_type<span class="keyword">)</span> <span class="keyword">in</span> s2exp_cst <span class="keyword">(</span>s2c<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_ptr_type]
+</span>
+<span class="keyword">implement</span> s2exp_ptr_addr_type <span class="keyword">(</span>s2e_addr<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Ptr_addr_type<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_type<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e_addr<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_ptr_addr_type]
+</span>
+<span class="keyword">implement</span> s2exp_string_type <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>String_type<span class="keyword">)</span> <span class="keyword">in</span> s2exp_cst <span class="keyword">(</span>s2c<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_string_type]
+</span>
+<span class="keyword">implement</span> s2exp_string_int_type <span class="keyword">(</span>n<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>String_int_type<span class="keyword">)</span> <span class="keyword">in</span>
+  s2exp_cstapp <span class="keyword">(</span>s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2exp_int n<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_string_int_type]
+</span>
+<span class="keyword">implement</span> s2exp_void_t0ype <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+  s2exp_cst <span class="keyword">(</span>s2cstref_cst_get <span class="keyword">(</span>Void_t0ype<span class="keyword">)</span><span class="keyword">)</span>
+<span class="comment">// end of [s2exp_void_t0ype]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> s2exp_is_app_s2cstref
+  <span class="keyword">(</span>s2e<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2cref<span class="keyword">:</span> <span class="staexp">s2cstref</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> s2e<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> S2Eapp <span class="keyword">(</span>s2e_fun<span class="keyword">,</span> s2es_arg<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> s2e_fun<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Ecst <span class="keyword">(</span>s2c<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> s2cstref_cst_get <span class="keyword">(</span>s2cref<span class="keyword">)</span> <span class="keyword">=</span> s2c <span class="keyword">then</span> true <span class="keyword">else</span> false
+      <span class="keyword">end</span> <span class="comment">// end of [S2Ecst]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> false
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eapp]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> false
+<span class="comment">// end of [s2exp_is_app_s2cstref]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> un_s2exp_s2cstref_1
+  <span class="keyword">(</span>s2e<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2cref<span class="keyword">:</span> <span class="staexp">s2cstref</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">Option_vt <span class="keyword">(</span>s2exp<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> s2e<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> S2Eapp <span class="keyword">(</span>s2e_fun<span class="keyword">,</span> s2es_arg<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2e_fun<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Ecst <span class="keyword">(</span>s2c<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> s2cstref_cst_get <span class="keyword">(</span>s2cref<span class="keyword">)</span> <span class="keyword">=</span> s2c <span class="keyword">then</span> <span class="keyword">(</span>
+          <span class="keyword">case+</span> s2es_arg <span class="keyword">of</span>
+          <span class="keyword">|</span> list_cons <span class="keyword">(</span>s2e<span class="keyword">,</span> list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> Some_vt <span class="keyword">(</span>s2e<span class="keyword">)</span>
+          <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+              prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+              prerr ": un_s2exp_s2cref: s2c = "<span class="keyword">;</span> prerr s2c<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+              $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>Option_vt s2exp<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+            <span class="keyword">end</span> <span class="comment">// end of [_]
+</span>        <span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">(</span>
+          None_vt <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">)</span> <span class="comment">// end of [if]
+</span>      <span class="keyword">end</span> <span class="comment">// end of [S2Ecst]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eapp]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [un_s2exp_s2cstref_1]
+</span>
+<span class="keyword">fn</span> un_s2exp_s2cstref_2
+  <span class="keyword">(</span>s2e<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2cref<span class="keyword">:</span> <span class="staexp">s2cstref</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">Option_vt <span class="keyword">@(</span>s2exp<span class="keyword">,</span> s2exp<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> s2e<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> S2Eapp <span class="keyword">(</span>s2e_fun<span class="keyword">,</span> s2es_arg<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2e_fun<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Ecst <span class="keyword">(</span>s2c<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> s2cstref_cst_get <span class="keyword">(</span>s2cref<span class="keyword">)</span> <span class="keyword">=</span> s2c <span class="keyword">then</span>
+          <span class="keyword">case+</span> s2es_arg <span class="keyword">of</span>
+          <span class="keyword">|</span> list_cons <span class="keyword">(</span>s2e1<span class="keyword">,</span> list_cons <span class="keyword">(</span>s2e2<span class="keyword">,</span> list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span>
+              Some_vt <span class="keyword">@(</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span>
+            <span class="comment">// end of [list_cons (list_cons (list_nil))]
+</span>          <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+              prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+              prerr ": un_s2exp_s2cref: s2c = "<span class="keyword">;</span> prerr s2c<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+              $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>Option_vt <span class="keyword">@(</span>s2exp<span class="keyword">,</span> s2exp<span class="keyword">)</span><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+            <span class="keyword">end</span> <span class="comment">// end of [_]
+</span>        <span class="keyword">else</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [S2Ecst]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eapp]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [un_s2exp_s2cstref_2]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> un_s2exp_bool_bool_t0ype <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span>
+  un_s2exp_s2cstref_1 <span class="keyword">(</span>s2e<span class="keyword">,</span> Bool_bool_t0ype<span class="keyword">)</span>
+
+<span class="keyword">implement</span> un_s2exp_char_char_t0ype <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span>
+  un_s2exp_s2cstref_1 <span class="keyword">(</span>s2e<span class="keyword">,</span> Char_char_t0ype<span class="keyword">)</span>
+
+<span class="keyword">implement</span> un_s2exp_int_int_t0ype <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span>
+  un_s2exp_s2cstref_1 <span class="keyword">(</span>s2e<span class="keyword">,</span> Int_int_t0ype<span class="keyword">)</span>
+
+<span class="keyword">implement</span> un_s2exp_ref_viewt0ype_type <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span>
+  un_s2exp_s2cstref_1 <span class="keyword">(</span>s2e<span class="keyword">,</span> Ref_viewt0ype_type<span class="keyword">)</span>
+
+<span class="keyword">implement</span> un_s2exp_size_int_t0ype <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span>
+  un_s2exp_s2cstref_1 <span class="keyword">(</span>s2e<span class="keyword">,</span> Size_int_t0ype<span class="keyword">)</span>
+
+<span class="keyword">implement</span> un_s2exp_string_int_type <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span>
+  un_s2exp_s2cstref_1 <span class="keyword">(</span>s2e<span class="keyword">,</span> String_int_type<span class="keyword">)</span>
+  
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2exp_uint_t0ype <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Uint_t0ype<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_cst <span class="keyword">(</span>s2c<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_uint_t0ype]
+</span>
+<span class="keyword">implement</span> s2exp_uint_int_t0ype <span class="keyword">(</span>i<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Uint_int_t0ype<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_cstapp <span class="keyword">(</span>s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2exp_int i<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_uint_int_t0ype]
+</span>
+<span class="keyword">implement</span> s2exp_uint_intinf_t0ype <span class="keyword">(</span>i<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Uint_int_t0ype<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_cstapp <span class="keyword">(</span>s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2exp_intinf i<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_uint_intinf_t0ype]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2exp_lint_t0ype <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Int_long_t0ype<span class="keyword">)</span> <span class="keyword">in</span> s2exp_cst <span class="keyword">(</span>s2c<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_lint_t0ype]
+</span>
+<span class="keyword">implement</span> s2exp_lint_intinf_t0ype <span class="keyword">(</span>i<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Lint_int_t0ype<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_cstapp <span class="keyword">(</span>s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2exp_intinf i<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_lint_intinf_t0ype]
+</span>
+<span class="keyword">implement</span> s2exp_ulint_t0ype <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Uint_long_t0ype<span class="keyword">)</span> <span class="keyword">in</span> s2exp_cst <span class="keyword">(</span>s2c<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_ulint_t0ype]
+</span>
+<span class="keyword">implement</span> s2exp_ulint_intinf_t0ype <span class="keyword">(</span>i<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Ulint_int_t0ype<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_cstapp <span class="keyword">(</span>s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2exp_intinf i<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_ulint_intinf_t0ype]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2exp_llint_t0ype <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Int_long_long_t0ype<span class="keyword">)</span> <span class="keyword">in</span> s2exp_cst <span class="keyword">(</span>s2c<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_llint_t0ype]
+</span>
+<span class="keyword">implement</span> s2exp_ullint_t0ype <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Uint_long_long_t0ype<span class="keyword">)</span> <span class="keyword">in</span> s2exp_cst <span class="keyword">(</span>s2c<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_ullint_t0ype]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2exp_sint_t0ype <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Int_short_t0ype<span class="keyword">)</span> <span class="keyword">in</span> s2exp_cst <span class="keyword">(</span>s2c<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_sint_t0ype]
+</span>
+<span class="keyword">implement</span> s2exp_ussint_t0ype <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Uint_short_short_t0ype<span class="keyword">)</span> <span class="keyword">in</span> s2exp_cst <span class="keyword">(</span>s2c<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_ussint_t0ype]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2exp_ssint_t0ype <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Int_short_short_t0ype<span class="keyword">)</span> <span class="keyword">in</span> s2exp_cst <span class="keyword">(</span>s2c<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_ssint_t0ype]
+</span>
+<span class="keyword">implement</span> s2exp_usint_t0ype <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Uint_short_t0ype<span class="keyword">)</span> <span class="keyword">in</span> s2exp_cst <span class="keyword">(</span>s2c<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_usint_t0ype]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> un_s2exp_ptr_addr_type <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span>
+  un_s2exp_s2cstref_1 <span class="keyword">(</span>s2e<span class="keyword">,</span> Ptr_addr_type<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2exp_bottom_t0ype_exi <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+  s2exp_cst <span class="keyword">(</span>s2cstref_cst_get <span class="keyword">(</span>Bottom_t0ype_exi<span class="keyword">)</span><span class="keyword">)</span>
+
+<span class="keyword">implement</span> s2exp_bottom_t0ype_uni <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+  s2exp_cst <span class="keyword">(</span>s2cstref_cst_get <span class="keyword">(</span>Bottom_t0ype_uni<span class="keyword">)</span><span class="keyword">)</span>
+
+<span class="keyword">implement</span> s2exp_bottom_viewt0ype_exi <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+  s2exp_cst <span class="keyword">(</span>s2cstref_cst_get <span class="keyword">(</span>Bottom_viewt0ype_exi<span class="keyword">)</span><span class="keyword">)</span>
+
+<span class="keyword">implement</span> s2exp_bottom_viewt0ype_uni <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+  s2exp_cst <span class="keyword">(</span>s2cstref_cst_get <span class="keyword">(</span>Bottom_viewt0ype_uni<span class="keyword">)</span><span class="keyword">)</span>
+
+<span class="keyword">implement</span> s2exp_exception_viewtype <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+  s2exp_cst <span class="keyword">(</span>s2cstref_cst_get <span class="keyword">(</span>Exception_viewtype<span class="keyword">)</span><span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2exp_at_viewt0ype_addr_view <span class="keyword">(</span>s2e_elt<span class="keyword">,</span> s2e_addr<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>At_viewt0ype_addr_view<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_view<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e_elt<span class="keyword">,</span> s2e_addr<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_at_viewt0ype_addr_view]
+</span>
+<span class="keyword">implement</span> un_s2exp_at_viewt0ype_addr_view <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span>
+  un_s2exp_s2cstref_2 <span class="keyword">(</span>s2e<span class="keyword">,</span> At_viewt0ype_addr_view<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// the length of an array is assumed to be less than [INTMAX]
+</span><span class="keyword">implement</span> s2exp_array_viewt0ype_int_type <span class="keyword">(</span>s2e_elt<span class="keyword">,</span> sz<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Array_viewt0ype_int_type<span class="keyword">)</span>
+  <span class="keyword">val</span> s2e_sz <span class="keyword">=</span> s2exp_int sz
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_type<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e_elt<span class="keyword">,</span> s2e_sz<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_array_viewt0ype_int_type]
+</span>
+<span class="comment">// the length of an array is assumed to be less than [INTMAX]
+</span><span class="keyword">implement</span> s2exp_array_viewt0ype_int_viewtype <span class="keyword">(</span>s2e_elt<span class="keyword">,</span> sz<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Array_viewt0ype_int_viewtype<span class="keyword">)</span>
+  <span class="keyword">val</span> s2e_sz <span class="keyword">=</span> s2exp_int sz
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_viewtype<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e_elt<span class="keyword">,</span> s2e_sz<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_array_viewt0ype_int_viewtype]
+</span>
+<span class="comment">// the length of an array is assumed to be less than [INTMAX]
+</span><span class="keyword">implement</span> s2exp_arraysize_viewt0ype_int_viewt0ype <span class="keyword">(</span>s2e_elt<span class="keyword">,</span> sz<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Arraysize_viewt0ype_int_viewt0ype<span class="keyword">)</span>
+  <span class="keyword">val</span> s2e_sz <span class="keyword">=</span> s2exp_int sz
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_viewt0ype<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e_elt<span class="keyword">,</span> s2e_sz<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_arraysize_viewt0ype_int_viewt0ype]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// the length of a list is assumed to be less than [INTMAX]
+</span><span class="keyword">implement</span> s2exp_list_t0ype_int_type <span class="keyword">(</span>s2e_elt<span class="keyword">,</span> ln<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>List_t0ype_int_type<span class="keyword">)</span>
+  <span class="keyword">val</span> s2e_ln <span class="keyword">=</span> s2exp_int ln
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_type<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e_elt<span class="keyword">,</span> s2e_ln<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_list_t0ype_int_type]
+</span>
+<span class="keyword">implement</span> un_s2exp_list_t0ype_int_type <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span>
+  un_s2exp_s2cstref_2 <span class="keyword">(</span>s2e<span class="keyword">,</span> List_t0ype_int_type<span class="keyword">)</span>
+
+<span class="comment">// the length of a list is assumed to be less than [INTMAX]
+</span><span class="keyword">implement</span> s2exp_list_viewt0ype_int_viewtype <span class="keyword">(</span>s2e_elt<span class="keyword">,</span> ln<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>List_viewt0ype_int_viewtype<span class="keyword">)</span>
+  <span class="keyword">val</span> s2e_ln <span class="keyword">=</span> s2exp_int ln
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_viewtype<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e_elt<span class="keyword">,</span> s2e_ln<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_list_viewt0ype_int_viewtype]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2exp_lazy_t0ype_type <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Lazy_t0ype_type<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_type<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_lazy_t0ype_type]
+</span>
+<span class="keyword">implement</span> s2exp_lazy_viewt0ype_viewtype <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Lazy_viewt0ype_viewtype<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_viewtype<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_lazy_viewt0ype_viewtype]
+</span>
+<span class="keyword">implement</span> un_s2exp_lazy_t0ype_type <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span>
+  un_s2exp_s2cstref_1 <span class="keyword">(</span>s2e<span class="keyword">,</span> Lazy_t0ype_type<span class="keyword">)</span>
+
+<span class="keyword">implement</span> un_s2exp_lazy_viewt0ype_viewtype <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span>
+  un_s2exp_s2cstref_1 <span class="keyword">(</span>s2e<span class="keyword">,</span> Lazy_viewt0ype_viewtype<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2exp_printf_c_types_type <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Printf_c_types_type<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_type<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_printf_c_types_type]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2exp_va_list_viewt0ype <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Va_list_viewt0ype<span class="keyword">)</span> <span class="keyword">in</span> s2exp_cst s2c
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_va_list_viewt0ype]
+</span>
+<span class="keyword">implement</span> s2exp_va_list_types_viewt0ype <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Va_list_types_viewt0ype<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_viewt0ype<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_va_list_types_viewt0ype]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2exp_vbox_view_prop <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Vbox_view_prop<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_prop<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_vbox_view_prop]
+</span>
+<span class="keyword">implement</span> un_s2exp_vbox_view_prop <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span>
+  un_s2exp_s2cstref_1 <span class="keyword">(</span>s2e<span class="keyword">,</span> Vbox_view_prop<span class="keyword">)</span>
+<span class="comment">// end of ...
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2exp_neg_bool_bool <span class="keyword">(</span>s2p<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Neg_bool_bool<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_bool<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2p<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_neg_bool_bool]
+</span>
+<span class="keyword">implement</span> s2exp_add_bool_bool_bool <span class="keyword">(</span>s2p1<span class="keyword">,</span> s2p2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Add_bool_bool_bool<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_bool<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2p1<span class="keyword">,</span> s2p2<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_add_bool_bool_bool]
+</span>
+<span class="keyword">implement</span> s2exp_mul_bool_bool_bool <span class="keyword">(</span>s2p1<span class="keyword">,</span> s2p2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Mul_bool_bool_bool<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_bool<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2p1<span class="keyword">,</span> s2p2<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_mul_bool_bool_bool]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2exp_gt_int_int_bool <span class="keyword">(</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Gt_int_int_bool<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_bool<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_gt_int_int_bool]
+</span>
+<span class="keyword">implement</span> s2exp_gte_int_int_bool <span class="keyword">(</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Gte_int_int_bool<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_bool<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_gte_int_int_bool]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> s2exp_lt_int_int_bool <span class="keyword">(</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Lt_int_int_bool<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_bool<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_lt_int_int_bool]
+</span>
+<span class="keyword">implement</span> s2exp_lte_int_int_bool <span class="keyword">(</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Lte_int_int_bool<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_bool<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_lte_int_int_bool]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> s2exp_neq_int_int_bool <span class="keyword">(</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Neq_int_int_bool<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_bool<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_neq_int_int_bool]
+</span>
+<span class="keyword">implement</span> s2exp_btw_int_int_int_bool <span class="keyword">(</span>s2e_l<span class="keyword">,</span> s2e_m<span class="keyword">,</span> s2e_r<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Btw_int_int_int_bool<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_bool<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e_l<span class="keyword">,</span> s2e_m<span class="keyword">,</span> s2e_r<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_btw_int_int_int_bool]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2exp_null_addr <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+  s2exp_cst <span class="keyword">(</span>s2cstref_cst_get <span class="keyword">(</span>Null_addr<span class="keyword">)</span><span class="keyword">)</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> s2exp_gt_addr_addr_bool <span class="keyword">(</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Gt_addr_addr_bool<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_bool<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_gt_addr_addr_bool]
+</span>
+<span class="keyword">implement</span> s2exp_gte_addr_addr_bool <span class="keyword">(</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Gte_addr_addr_bool<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_bool<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_gte_addr_addr_bool]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> s2exp_lt_addr_addr_bool <span class="keyword">(</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Lt_addr_addr_bool<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_bool<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_lt_addr_addr_bool]
+</span>
+<span class="keyword">implement</span> s2exp_lte_addr_addr_bool <span class="keyword">(</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Lte_addr_addr_bool<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2exp_app_srt <span class="keyword">(</span>s2rt_bool<span class="keyword">,</span> s2exp_cst s2c<span class="keyword">,</span> <span class="keyword">'[</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_lte_addr_addr_bool]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> clo_viewt0ype_viewt0ype_assume <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Clo_viewt0ype_viewt0ype<span class="keyword">)</span>
+  <span class="keyword">val</span> s2t_def <span class="keyword">=</span> s2cst_srt_get s2c
+  <span class="keyword">val</span> s2v_arg <span class="keyword">=</span> s2var_make_srt s2rt_viewt0ype
+  <span class="keyword">val</span> knd <span class="keyword">=</span> 0<span class="comment">(*clo*)</span>
+  <span class="keyword">val</span> s2e_body <span class="keyword">=</span> s2exp_clo_srt <span class="keyword">(</span>s2rt_viewt0ype<span class="keyword">,</span> knd<span class="keyword">,</span> s2exp_var s2v_arg<span class="keyword">)</span>
+  <span class="keyword">val</span> s2e_def <span class="keyword">=</span> s2exp_lam_srt <span class="keyword">(</span>s2t_def<span class="keyword">,</span> <span class="keyword">'[</span>s2v_arg<span class="keyword">]</span><span class="keyword">,</span> s2e_body<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2cst_def_set <span class="keyword">(</span>s2c<span class="keyword">,</span> Some s2e_def<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [clo_viewt0ype_viewt0ype_assume]
+</span>
+<span class="keyword">implement</span> cloptr_viewt0ype_viewtype_assume <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Cloptr_viewt0ype_viewtype<span class="keyword">)</span>
+  <span class="keyword">val</span> s2t_def <span class="keyword">=</span> s2cst_srt_get s2c
+  <span class="keyword">val</span> s2v_arg <span class="keyword">=</span> s2var_make_srt s2rt_viewt0ype
+  <span class="keyword">val</span> knd <span class="keyword">=</span> 1<span class="comment">(*cloptr*)</span>
+  <span class="keyword">val</span> s2e_body <span class="keyword">=</span> s2exp_clo_srt <span class="keyword">(</span>s2rt_viewtype<span class="keyword">,</span> knd<span class="keyword">,</span> s2exp_var s2v_arg<span class="keyword">)</span>
+  <span class="keyword">val</span> s2e_def <span class="keyword">=</span> s2exp_lam_srt <span class="keyword">(</span>s2t_def<span class="keyword">,</span> <span class="keyword">'[</span>s2v_arg<span class="keyword">]</span><span class="keyword">,</span> s2e_body<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2cst_def_set <span class="keyword">(</span>s2c<span class="keyword">,</span> Some s2e_def<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [cloptr_viewt0ype_viewtype_assume]
+</span>
+<span class="keyword">implement</span> cloref_t0ype_type_assume <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Cloref_t0ype_type<span class="keyword">)</span>
+  <span class="keyword">val</span> s2t_def <span class="keyword">=</span> s2cst_srt_get s2c
+  <span class="keyword">val</span> s2v_arg <span class="keyword">=</span> s2var_make_srt s2rt_t0ype
+  <span class="keyword">val</span> knd <span class="keyword">=</span> ~1<span class="comment">(*cloref*)</span>
+  <span class="keyword">val</span> s2e_body <span class="keyword">=</span> s2exp_clo_srt <span class="keyword">(</span>s2rt_type<span class="keyword">,</span> knd<span class="keyword">,</span> s2exp_var s2v_arg<span class="keyword">)</span>
+  <span class="keyword">val</span> s2e_def <span class="keyword">=</span> s2exp_lam_srt <span class="keyword">(</span>s2t_def<span class="keyword">,</span> <span class="keyword">'[</span>s2v_arg<span class="keyword">]</span><span class="keyword">,</span> s2e_body<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2cst_def_set <span class="keyword">(</span>s2c<span class="keyword">,</span> Some s2e_def<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [cloptr_viewt0ype_viewtype_assume]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> crypt_viewt0ype_viewt0ype_assume <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Crypt_viewt0ype_viewt0ype<span class="keyword">)</span>
+  <span class="keyword">val</span> s2t_def <span class="keyword">=</span> s2cst_srt_get s2c
+  <span class="keyword">val</span> s2v_arg <span class="keyword">=</span> s2var_make_srt s2rt_viewt0ype
+  <span class="keyword">val</span> s2e_body <span class="keyword">=</span> s2exp_crypt <span class="keyword">(</span>s2exp_var s2v_arg<span class="keyword">)</span>
+  <span class="keyword">val</span> s2e_def <span class="keyword">=</span> s2exp_lam_srt <span class="keyword">(</span>s2t_def<span class="keyword">,</span> <span class="keyword">'[</span>s2v_arg<span class="keyword">]</span><span class="keyword">,</span> s2e_body<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2cst_def_set <span class="keyword">(</span>s2c<span class="keyword">,</span> Some s2e_def<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [crypt_viewt0ype_viewt0ype_assume]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> sizeof_viewt0ype_int_assume <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2c <span class="keyword">=</span> s2cstref_cst_get <span class="keyword">(</span>Sizeof_viewt0ype_int<span class="keyword">)</span>
+  <span class="keyword">val</span> s2t_def <span class="keyword">=</span> s2cst_srt_get s2c
+  <span class="keyword">val</span> s2v_arg <span class="keyword">=</span> s2var_make_srt s2rt_t0ype
+  <span class="keyword">val</span> s2e_body <span class="keyword">=</span> s2exp_sizeof <span class="keyword">(</span>s2exp_var s2v_arg<span class="keyword">)</span>
+  <span class="keyword">val</span> s2e_def <span class="keyword">=</span> s2exp_lam_srt <span class="keyword">(</span>s2t_def<span class="keyword">,</span> <span class="keyword">'[</span>s2v_arg<span class="keyword">]</span><span class="keyword">,</span> s2e_body<span class="keyword">)</span>
+<span class="keyword">in</span>
+  s2cst_def_set <span class="keyword">(</span>s2c<span class="keyword">,</span> Some s2e_def<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [sizeof_viewt0ype_int_assume]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_stadyncst2.dats] *)</span>
+</pre>
+</body>
+</html>

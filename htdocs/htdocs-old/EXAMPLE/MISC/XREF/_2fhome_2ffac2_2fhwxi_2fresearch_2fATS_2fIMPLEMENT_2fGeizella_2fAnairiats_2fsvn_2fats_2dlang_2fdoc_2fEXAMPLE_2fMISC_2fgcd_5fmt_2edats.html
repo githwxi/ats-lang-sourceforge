@@ -1,0 +1,243 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">//
+</span><span class="comment">// A multithreaded implementation of GCD in coroutine-style
+</span><span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: March 10, 2008
+</span><span class="comment">//
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/pthread.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymous*)</span> <span class="keyword">=</span> "libc/DATS/pthread.dats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/pthread_uplock.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abstype</span> <span class="staexp"><a name="318"><span class="stacstdec">pthread_mutexref_viewt0ype_type</span></a></span> <span class="keyword">(</span>a<span class="keyword">:</span> viewt@ype<span class="keyword">)</span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="373"><span class="stacstdec">mutexref_t <span class="keyword">=</span> pthread_mutexref_viewt0ype_type</span></a></span>
+
+<span class="keyword">absview</span> <span class="staexp"><a name="427"><span class="stacstdec">pthread_mutexref_unlock_ticket_viewt0ype_addr_view</span></a></span>
+  <span class="keyword">(</span>viewt@ype<span class="keyword">,</span> addr<span class="keyword">)</span>
+
+<span class="keyword">stadef</span> <span class="staexp"><a name="506"><span class="stacstdec">mutexref_unlock_ticket <span class="keyword">=</span> 
+  pthread_mutexref_unlock_ticket_viewt0ype_addr_view</span></a></span>
+
+<span class="keyword">extern</span>
+<span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>viewt@ype</span><span class="keyword">}</span> <a name="610"><span class="dyncstdec">pthread_mutexref_create <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">a</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">mutexref_t a</span></span></a>
+
+<span class="keyword">extern</span>
+<span class="keyword">fun</span> <a name="667"><span class="dyncstdec">pthread_mutexref_create_tsz <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>a @ l &gt;&gt; a? @ l</span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">,</span> tsz<span class="keyword">:</span> <span class="staexp">sizeof_t a</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">mutexref_t a</span></span></a>
+  <span class="keyword">=</span> "atslib_pthread_mutexref_create_tsz"
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="838"><span class="dyncstdec">pthread_mutexref_lock
+  <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="keyword">(</span>mtxrf<span class="keyword">:</span> <span class="staexp">mutexref_t a</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>mutexref_unlock_ticket <span class="keyword">(</span>a<span class="keyword">,</span> l<span class="keyword">)</span><span class="keyword">,</span> a @ l <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atslib_pthread_mutexref_lock"
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="1005"><span class="dyncstdec">pthread_mutexref_unlock <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">_tick<span class="keyword">:</span> <span class="staexp">mutexref_unlock_ticket <span class="keyword">(</span>a<span class="keyword">,</span> l<span class="keyword">)</span></span></span><span class="keyword">,</span> <span class="prfexp">_at<span class="keyword">:</span> <span class="staexp">a @ l</span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atslib_pthread_mutexref_unlock"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span>
+pthread_mutexref_create <span class="keyword">(</span>x<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> x <span class="keyword">=</span> x
+<span class="keyword">in</span>
+  pthread_mutexref_create_tsz <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">view@ <span class="keyword">(</span>x<span class="keyword">)</span></span> <span class="keyword">|</span> <span class="keyword">&amp;</span>x<span class="keyword">,</span> sizeof&lt;<span class="staexp">a</span><span class="keyword">&gt;</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [pthread_mutexref_create]
+</span>
+<span class="extern">%{^
+
+//
+// HX-2010-03-28: this style cannot safely support GC
+//
+typedef struct {
+  pthread_mutex_t mutex ; void* value[0] ;
+} pthread_mutexref_struct ;
+
+/* ****** ****** */
+
+static inline
+ats_ptr_type
+atslib_pthread_mutexref_create_tsz
+  (ats_ptr_type p_x, ats_size_type tsz) {
+  pthread_mutexref_struct *p ;
+  p = ATS_MALLOC(sizeof (pthread_mutexref_struct) + tsz) ;
+  pthread_mutex_init (&amp;(p-&gt;mutex), NULL) ;
+  memcpy (&amp;(p-&gt;value), p_x, (size_t)tsz) ;
+  return p ;
+} // end of [atslib_pthread_mutexref_create_tsz]
+
+static inline
+ats_ptr_type
+atslib_pthread_mutexref_lock
+  (ats_ptr_type p0) {
+  pthread_mutexref_struct *p = p0 ;
+  pthread_mutex_lock (&amp;(p-&gt;mutex)) ;
+  return &amp;(p-&gt;value) ;
+} // end of [atslib_pthread_mutexref_lock]
+
+static inline
+ats_void_type
+atslib_pthread_mutexref_unlock
+  (ats_ptr_type p_value) {
+  pthread_mutex_unlock (
+    (pthread_mutex_t*)((char*)p_value - sizeof(pthread_mutexref_struct))
+  ) ;
+  return ;
+} // end of [atslib_pthread_mutexref_unlock]
+
+%}</span> <span class="comment">// end of [%{^]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">prfun</span> <a name="2383"><span class="dyncstdec"><span class="prfexp">gcd_lemma0 <span class="staexp"><span class="keyword">{</span>x<span class="keyword">,</span>y<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">prf</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">[</span>z<span class="keyword">:</span>nat<span class="keyword">]</span> GCD <span class="keyword">(</span>x<span class="keyword">,</span> y<span class="keyword">,</span> z<span class="keyword">)</span></span></span></span></a>
+<span class="keyword">extern</span> <span class="keyword">prfun</span> <a name="2448"><span class="dyncstdec"><span class="prfexp">gcd_lemma1 <span class="staexp"><span class="keyword">{</span>x<span class="keyword">,</span>y<span class="keyword">,</span>z<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>pf<span class="keyword">:</span> <span class="staexp">GCD <span class="keyword">(</span>x<span class="keyword">,</span> y<span class="keyword">,</span> z<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">prf</span><span class="keyword">&gt;</span> <span class="staexp">GCD <span class="keyword">(</span>x - y<span class="keyword">,</span> y<span class="keyword">,</span> z<span class="keyword">)</span></span></span></span></a>
+<span class="keyword">extern</span> <span class="keyword">prfun</span> <a name="2528"><span class="dyncstdec"><span class="prfexp">gcd_lemma2 <span class="staexp"><span class="keyword">{</span>x<span class="keyword">,</span>y<span class="keyword">,</span>z<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>pf<span class="keyword">:</span> <span class="staexp">GCD <span class="keyword">(</span>x<span class="keyword">,</span> y<span class="keyword">,</span> z<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">prf</span><span class="keyword">&gt;</span> <span class="staexp">GCD <span class="keyword">(</span>x<span class="keyword">,</span> y - x<span class="keyword">,</span> z<span class="keyword">)</span></span></span></span></a>
+<span class="keyword">extern</span> <span class="keyword">prfun</span> <a name="2608"><span class="dyncstdec"><span class="prfexp">gcd_lemma3 <span class="staexp"><span class="keyword">{</span>x<span class="keyword">:</span>nat<span class="keyword">;</span>z<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>pf<span class="keyword">:</span> <span class="staexp">GCD <span class="keyword">(</span>x<span class="keyword">,</span> x<span class="keyword">,</span> z<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">prf</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">[</span>x == z<span class="keyword">]</span> void</span></span></span></a>
+
+<span class="comment">//
+</span>
+<span class="keyword">viewdef</span> <span class="staexp"><a name="2686"><span class="stacstdec">gcd_v <span class="keyword">(</span>a<span class="keyword">:</span>addr<span class="keyword">,</span> b<span class="keyword">:</span>addr<span class="keyword">,</span> z<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">[</span>x<span class="keyword">,</span>y<span class="keyword">:</span>pos<span class="keyword">]</span> <span class="keyword">@(</span>int x @ a<span class="keyword">,</span> int y @ b<span class="keyword">,</span> GCD <span class="keyword">(</span>x<span class="keyword">,</span> y<span class="keyword">,</span> z<span class="keyword">)</span><span class="keyword">)</span></span></a></span>
+
+<span class="comment">//
+</span>
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="2786"><span class="stacstdec">upticket0 <span class="keyword">=</span> upticket <span class="keyword">(</span>void<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">fun</span> gcd_flag <span class="staexp"><span class="keyword">{</span>a<span class="keyword">,</span>b<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>z<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>gcd_v <span class="keyword">(</span>a<span class="keyword">,</span> b<span class="keyword">,</span> z<span class="keyword">)</span></span></span> <span class="keyword">|</span> flag<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> a<span class="keyword">:</span> <span class="staexp">ptr a</span><span class="keyword">,</span> b<span class="keyword">:</span> <span class="staexp">ptr b</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">@(</span>pfa<span class="keyword">,</span> pfb<span class="keyword">,</span> pfgcd<span class="keyword">)</span> <span class="keyword">=</span> pf</span>
+  <span class="keyword">val</span> x <span class="keyword">=</span> <span class="keyword">!</span>a <span class="keyword">and</span> y <span class="keyword">=</span> <span class="keyword">!</span>b
+<span class="keyword">in</span>
+  <span class="keyword">if</span> x <span class="keyword">&gt;</span> y <span class="keyword">then</span> <span class="keyword">begin</span>
+    <span class="keyword">if</span> flag <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">!</span>a := x - y<span class="keyword">)</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>pf := <span class="keyword">@(</span>pfa<span class="keyword">,</span> pfb<span class="keyword">,</span> gcd_lemma1 pfgcd<span class="keyword">)</span><span class="keyword">)</span></span>
+    <span class="keyword">in</span>
+      gcd_flag <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> flag<span class="keyword">,</span> a<span class="keyword">,</span> b<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      pf := <span class="keyword">@(</span>pfa<span class="keyword">,</span> pfb<span class="keyword">,</span> pfgcd<span class="keyword">)</span><span class="keyword">;</span> false <span class="comment">// not done
+</span>    <span class="keyword">end</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> x <span class="keyword">&lt;</span> y <span class="keyword">then</span> <span class="keyword">begin</span>
+    <span class="keyword">if</span> flag <span class="keyword">&lt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">!</span>b := y - x<span class="keyword">)</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>pf := <span class="keyword">@(</span>pfa<span class="keyword">,</span> pfb<span class="keyword">,</span> gcd_lemma2 pfgcd<span class="keyword">)</span><span class="keyword">)</span></span>
+    <span class="keyword">in</span>
+      gcd_flag <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> flag<span class="keyword">,</span> a<span class="keyword">,</span> b<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      pf := <span class="keyword">@(</span>pfa<span class="keyword">,</span> pfb<span class="keyword">,</span> pfgcd<span class="keyword">)</span><span class="keyword">;</span> false <span class="comment">// not done
+</span>    <span class="keyword">end</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+    pf := <span class="keyword">@(</span>pfa<span class="keyword">,</span> pfb<span class="keyword">,</span> pfgcd<span class="keyword">)</span><span class="keyword">;</span> true <span class="comment">// is done!
+</span>  <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [gcd_flag]
+</span>
+<span class="keyword">fun</span> gcd_mt <span class="staexp"><span class="keyword">{</span>x0<span class="keyword">,</span>y0<span class="keyword">:</span>pos<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>z<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pfgcd<span class="keyword">:</span> <span class="staexp">GCD <span class="keyword">(</span>x0<span class="keyword">,</span> y0<span class="keyword">,</span> z<span class="keyword">)</span></span></span> <span class="keyword">|</span> x0<span class="keyword">:</span> <span class="staexp">int x0</span><span class="keyword">,</span> y0<span class="keyword">:</span> <span class="staexp">int y0</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int z</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> x <span class="keyword">=</span> x0 <span class="keyword">and</span> y <span class="keyword">=</span> y0
+  <span class="keyword">viewtypedef</span> <span class="staexp"><a name="3710"><span class="stacstdec">VT <span class="keyword">=</span> <span class="keyword">@(</span>gcd_v <span class="keyword">(</span>x<span class="keyword">,</span> y<span class="keyword">,</span> z<span class="keyword">)</span> <span class="keyword">|</span> int<span class="keyword">)</span></span></a></span>
+  <span class="keyword">val</span> ini <span class="keyword">=</span> <span class="keyword">@(</span><span class="prfexp"><span class="keyword">(</span>view@ x<span class="keyword">,</span> view@ y<span class="keyword">,</span> pfgcd<span class="keyword">)</span></span> <span class="keyword">|</span> 0<span class="keyword">)</span>
+  <span class="keyword">val</span> mut <span class="keyword">=</span> pthread_mutexref_create&lt;<span class="staexp">VT</span><span class="keyword">&gt;</span> <span class="keyword">(</span>ini<span class="keyword">)</span>
+  <span class="keyword">fun</span> gcd_worker <span class="keyword">(</span>ticket<span class="keyword">:</span> <span class="staexp">upticket0</span><span class="keyword">,</span> flag<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_ticket</span><span class="keyword">,</span> <span class="prfexp">pf_at</span> <span class="keyword">|</span> ptr<span class="keyword">)</span> <span class="keyword">=</span> pthread_mutexref_lock <span class="keyword">(</span>mut<span class="keyword">)</span>
+    <span class="keyword">val</span> done <span class="keyword">=</span> gcd_flag <span class="keyword">(</span><span class="prfexp">ptr<span class="keyword">-&gt;</span>0</span> <span class="keyword">|</span> flag<span class="keyword">,</span> <span class="keyword">&amp;</span>x<span class="keyword">,</span> <span class="keyword">&amp;</span>y<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pthread_mutexref_unlock <span class="keyword">(</span><span class="prfexp">pf_ticket</span><span class="keyword">,</span> <span class="prfexp">pf_at</span> <span class="keyword">|</span> ptr<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="keyword">if</span> done <span class="keyword">then</span> <span class="keyword">begin</span>
+      pthread_upticket_upload_and_destroy <span class="keyword">(</span><span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span></span> <span class="keyword">|</span> ticket<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      gcd_worker <span class="keyword">(</span>ticket<span class="keyword">,</span> flag<span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">end</span> <span class="comment">// end of [gcd_worker]
+</span>  <span class="keyword">val</span> uplock1 <span class="keyword">=</span> pthread_uplock_create <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> upticket1 <span class="keyword">=</span> pthread_upticket_create <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span>uplock1<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pthread_create_detached_cloptr <span class="keyword">(</span><span class="keyword">llam</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> gcd_worker <span class="keyword">(</span>upticket1<span class="keyword">,</span>  1<span class="keyword">)</span><span class="keyword">)</span>
+
+  <span class="keyword">val</span> uplock2 <span class="keyword">=</span> pthread_uplock_create <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> upticket2 <span class="keyword">=</span> pthread_upticket_create <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span>uplock2<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pthread_create_detached_cloptr <span class="keyword">(</span><span class="keyword">llam</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> gcd_worker <span class="keyword">(</span>upticket2<span class="keyword">,</span> ~1<span class="keyword">)</span><span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">_</span><span class="comment">(*void*)</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> pthread_uplock_download <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span>uplock1<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pthread_uplock_destroy <span class="keyword">(</span>uplock1<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">_</span><span class="comment">(*void*)</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> pthread_uplock_download <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span>uplock2<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pthread_uplock_destroy <span class="keyword">(</span>uplock2<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_ticket</span><span class="keyword">,</span> <span class="prfexp">pf_at</span> <span class="keyword">|</span> ptr<span class="keyword">)</span> <span class="keyword">=</span> pthread_mutexref_lock <span class="keyword">(</span>mut<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">@(</span>pfa<span class="keyword">,</span> pfb<span class="keyword">,</span> pfgcd<span class="keyword">)</span> <span class="keyword">=</span> ptr<span class="keyword">-&gt;</span>0</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> view@ x := pfa</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> view@ y := pfb</span>
+  <span class="keyword">val</span> z1 <span class="keyword">=</span> x <span class="keyword">and</span> z2 <span class="keyword">=</span> y
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="comment">// this is a serious problem with persistent locks!
+</span>    discard <span class="keyword">(</span>pf_ticket<span class="keyword">)</span><span class="keyword">;</span> discard <span class="keyword">(</span>pf_at<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">extern</span> <span class="keyword">prval</span> <a name="5156"><span class="dyncstdec"><span class="prfexp">discard <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="keyword">(</span>pf<span class="keyword">:</span> <span class="staexp">v</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">prf</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></span></a>
+  <span class="keyword">}</span></span> <span class="comment">// end of [where]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert <span class="keyword">(</span>z1 <span class="keyword">=</span> z2<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> gcd_lemma3 <span class="keyword">(</span>pfgcd<span class="keyword">)</span></span>
+<span class="keyword">in</span>
+  z1
+<span class="keyword">end</span> <span class="comment">// end of [gcd_mt]
+</span>
+<span class="keyword">fun</span> gcd_main <span class="staexp"><span class="keyword">{</span>x<span class="keyword">,</span>y<span class="keyword">:</span> pos<span class="keyword">}</span></span>
+  <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">int x</span><span class="keyword">,</span> y<span class="keyword">:</span> <span class="staexp">int y</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>z<span class="keyword">:</span>nat<span class="keyword">]</span> <span class="keyword">@(</span>GCD <span class="keyword">(</span>x<span class="keyword">,</span> y<span class="keyword">,</span> z<span class="keyword">)</span> <span class="keyword">|</span> int z<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">pf <span class="keyword">=</span> gcd_lemma0 <span class="staexp"><span class="keyword">{</span>x<span class="keyword">,</span> y<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span></span>
+<span class="keyword">in</span>
+  <span class="keyword">@(</span><span class="prfexp">pf</span> <span class="keyword">|</span> gcd_mt <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> x<span class="keyword">,</span> y<span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [gcd_main]
+</span>
+<span class="comment">//
+</span>
+<span class="comment">// This example shows clearly the superiority of multicore over
+</span><span class="comment">// singlecore in case of busy waiting.
+</span>
+<span class="keyword">fn</span> usage <span class="keyword">(</span>cmd<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  prerrf <span class="keyword">(</span>"Usage: %s [positive integer] [positive integer]\n"<span class="keyword">,</span> <span class="keyword">@(</span>cmd<span class="keyword">)</span><span class="keyword">)</span>
+
+<span class="keyword">implement</span> main <span class="keyword">(</span>argc<span class="keyword">,</span> argv<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> argc <span class="keyword">&lt;</span> 3 <span class="keyword">then</span> <span class="keyword">(</span>usage <span class="keyword">(</span>argv<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">0</span><span class="keyword">]</span><span class="keyword">)</span><span class="keyword">;</span> exit <span class="keyword">(</span>1<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert <span class="keyword">(</span>argc &gt;= 3<span class="keyword">)</span>
+  <span class="keyword">val</span> x <span class="keyword">=</span> int1_of <span class="keyword">(</span>argv<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">1</span><span class="keyword">]</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert_errmsg_bool1 <span class="keyword">(</span>x <span class="keyword">&gt;</span> 0<span class="keyword">,</span> "The 1st integer argument is not positive.\n"<span class="keyword">)</span>
+  <span class="keyword">val</span> y <span class="keyword">=</span> int1_of <span class="keyword">(</span>argv<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">2</span><span class="keyword">]</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert_errmsg_bool1 <span class="keyword">(</span>y <span class="keyword">&gt;</span> 0<span class="keyword">,</span> "The 2nd integer argument is not positive.\n"<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">@(</span><span class="prfexp">pf</span> <span class="keyword">|</span> z<span class="keyword">)</span> <span class="keyword">=</span> gcd_main <span class="keyword">(</span>x<span class="keyword">,</span> y<span class="keyword">)</span>
+<span class="keyword">in</span>
+  printf <span class="keyword">(</span>
+    "The greatest common divisor of (%i, %i) is %i.\n"<span class="keyword">,</span> <span class="keyword">@(</span>x<span class="keyword">,</span> y<span class="keyword">,</span> z<span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="comment">// end of [printf]
+</span><span class="keyword">end</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [gcd_mt.dats] *)</span>
+</pre>
+</body>
+</html>

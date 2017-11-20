@@ -1,0 +1,189 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: October, 2010
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// book: AUP (2nd edition), pages 300 - 301
+</span><span class="comment">// section 5.6: Implementing a Shell (Version 2)
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/types.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/wait.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/stdlib.sats"</span> <span class="comment">// for getenv
+</span><span class="keyword">staload</span> <span class="staexp">"libc/SATS/unistd.sats"</span> <span class="comment">// for environ_get_arrsz
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="421"><span class="stacstdec">ptrarr0 <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">@[</span>ptr?<span class="keyword">]</span><span class="keyword">[</span>n<span class="keyword">]</span></span></a></span>
+
+<span class="keyword">dataview</span>
+<span class="prfexp"><span class="staexp"><a name="460"><span class="stacstdec">getargs_v <span class="keyword">(</span>n0<span class="keyword">:</span>int<span class="keyword">,</span> l<span class="keyword">:</span>addr<span class="keyword">,</span> int<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">n<span class="keyword">:</span>nat</span> <span class="keyword">|</span> <span class="staexp">n <span class="keyword">&lt;</span> n0</span><span class="keyword">}</span>
+    getargs_v_succ <span class="staexp"><span class="keyword">(</span>n0<span class="keyword">,</span> l<span class="keyword">,</span> n<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>
+      ptrarr <span class="keyword">(</span>n<span class="keyword">)</span> @ l<span class="keyword">,</span> ptrarr <span class="keyword">(</span>n<span class="keyword">)</span> @ l <span class="keyword">-&lt;</span>lin<span class="keyword">,</span>prf<span class="keyword">&gt;</span> ptrarr0 <span class="keyword">(</span>n0<span class="keyword">)</span> @ l
+    <span class="keyword">)</span></span> <span class="comment">// end of [getargs_v_succ]
+</span>  <span class="keyword">|</span> getargs_v_fail <span class="staexp"><span class="keyword">(</span>n0<span class="keyword">,</span> l<span class="keyword">,</span> ~1<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>ptrarr0 <span class="keyword">(</span>n0<span class="keyword">)</span> @ l<span class="keyword">)</span></span></span>
+<span class="comment">// end of [getargs_v]
+</span>
+<span class="keyword">extern</span>
+<span class="keyword">fun</span> <a name="735"><span class="dyncstdec">getargs <span class="staexp"><span class="keyword">{</span>n0<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+  <span class="prfexp">pfargv<span class="keyword">:</span> <span class="staexp">ptrarr0 <span class="keyword">(</span>n0<span class="keyword">)</span> @ l</span></span> <span class="keyword">|</span> pargv<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">,</span> n0<span class="keyword">:</span> <span class="staexp">int n0</span><span class="keyword">,</span> iseof<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bool? &gt;&gt; bool</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>n<span class="keyword">:</span>int<span class="keyword">]</span> <span class="keyword">(</span>getargs_v <span class="keyword">(</span>n0<span class="keyword">,</span> l<span class="keyword">,</span> n<span class="keyword">)</span> <span class="keyword">|</span> int n<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#getargs"
+<span class="comment">// end of [getargs]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> printenv <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>pos<span class="keyword">}</span></span> <span class="keyword">(</span>
+  argc<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">,</span> argv<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><span class="keyword">(</span><span class="keyword">@[</span>string<span class="keyword">]</span><span class="keyword">[</span>n<span class="keyword">]</span><span class="keyword">)</span></span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> m<span class="keyword">:</span> <span class="staexp">size_t</span> <span class="comment">// uninitialized
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf</span><span class="keyword">,</span> <span class="prfexp">fpf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> environ_get_arrsz <span class="keyword">(</span>m<span class="keyword">)</span>
+  <span class="keyword">stavar</span> <span class="staexp">m<span class="keyword">:</span> int</span>
+  <span class="keyword">val</span> m<span class="keyword">:</span> <span class="staexp">size_t m</span> <span class="keyword">=</span> m
+  <span class="keyword">var</span> i<span class="keyword">:</span> <span class="staexp">sizeLte m</span>
+  <span class="keyword">val</span> _0 <span class="keyword">=</span> size1_of_int1 <span class="keyword">(</span>0<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">for</span>
+    <span class="keyword">(</span>i := _0<span class="keyword">;</span> i <span class="keyword">&lt;</span> m<span class="keyword">;</span> i := i+1<span class="keyword">)</span> <span class="keyword">(</span>printf<span class="keyword">(</span>"%s\n"<span class="keyword">,</span> <span class="keyword">@(</span><span class="keyword">!</span>p<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">i</span><span class="keyword">]</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="comment">// end of [val]
+</span>  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fpf <span class="keyword">(</span>pf<span class="keyword">)</span></span>
+<span class="keyword">in</span>
+  <span class="comment">// nothing
+</span><span class="keyword">end</span> <span class="comment">// end of [printenv]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> assgnenv <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>pos<span class="keyword">}</span></span>
+  <span class="keyword">(</span>argc<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">,</span> argv<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><span class="keyword">(</span><span class="keyword">@[</span>string<span class="keyword">]</span><span class="keyword">[</span>n<span class="keyword">]</span><span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> nerr<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> 0
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">while</span> <span class="keyword">(</span>true<span class="keyword">)</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>
+      <span class="keyword">if</span> argc &lt;= 2 <span class="keyword">then</span> <span class="keyword">(</span>nerr := 1<span class="keyword">;</span> <span class="keyword">break</span><span class="keyword">;</span> assertfalse<span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>n &gt;= 3<span class="keyword">]</span> void</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">(</span>setenv <span class="keyword">(</span>argv<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">1</span><span class="keyword">]</span><span class="keyword">,</span> argv<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">2</span><span class="keyword">]</span><span class="keyword">,</span> 1<span class="comment">(*overwritten*)</span><span class="keyword">)</span> <span class="keyword">&lt;</span> 0<span class="keyword">)</span> <span class="keyword">then</span>
+      nerr := 2
+    <span class="comment">// end of [val]
+</span>  <span class="keyword">in</span>
+    <span class="keyword">break</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> nerr <span class="keyword">of</span>
+    <span class="keyword">|</span> 1 <span class="keyword">=&gt;</span> printf <span class="keyword">(</span>"Incorrect command format for &lt;assgn&gt;\n"<span class="keyword">,</span> <span class="keyword">@(</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">|</span> 2 <span class="keyword">=&gt;</span> printf <span class="keyword">(</span>"[setenv] failed\n"<span class="keyword">,</span> <span class="keyword">@(</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="comment">// nothing
+</span><span class="keyword">end</span> <span class="comment">// end of [assgnenv]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> quit <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>pos<span class="keyword">}</span></span>
+  <span class="keyword">(</span>argc<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">,</span> argv<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><span class="keyword">(</span><span class="keyword">@[</span>string<span class="keyword">]</span><span class="keyword">[</span>n<span class="keyword">]</span><span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> exit<span class="keyword">(</span>0<span class="keyword">)</span>
+<span class="comment">// end of [quit]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span>
+<span class="keyword">fun</span> <a name="2077"><span class="dyncstdec">execute2 <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>pos<span class="keyword">}</span></span> <span class="keyword">(</span>argc<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">,</span> argv<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>ptrarr<span class="keyword">(</span>n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="comment">// end of [execute2]
+</span>
+<span class="keyword">implement</span>
+execute2
+  <span class="keyword">(</span>argc<span class="keyword">,</span> argv<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> pid <span class="keyword">=</span> fork_err <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> pid <span class="keyword">=</span> int_of_pid <span class="keyword">(</span>pid<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+  <span class="keyword">|</span> _ <span class="keyword">when</span> pid <span class="keyword">=</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// child
+</span>      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span>pf1<span class="keyword">,</span> fpf1<span class="keyword">)</span> <span class="keyword">=</span> ptrarr_takeout<span class="staexp"><span class="keyword">{</span>string<span class="keyword">}</span></span> <span class="keyword">(</span>view@<span class="keyword">(</span>argv<span class="keyword">)</span><span class="keyword">)</span></span>
+      <span class="keyword">val</span> arg0 <span class="keyword">=</span> argv<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">0</span><span class="keyword">]</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> view@<span class="keyword">(</span>argv<span class="keyword">)</span> := fpf1 <span class="keyword">(</span>pf1<span class="keyword">)</span></span>
+      <span class="keyword">val</span> _err <span class="keyword">=</span> execvp <span class="keyword">(</span>arg0<span class="keyword">,</span> argv<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> _err <span class="keyword">&lt;</span> 0 <span class="keyword">then</span> prerr "execute2: child: [execvp] failed\n"
+    <span class="keyword">in</span>
+      _exit <span class="keyword">(</span>EXIT_FAILURE<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_ when ...]
+</span>  <span class="keyword">|</span> _ <span class="keyword">when</span> pid <span class="keyword">&gt;</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// parent
+</span>      <span class="keyword">val</span> _err <span class="keyword">=</span> int_of_pid <span class="keyword">(</span>wait_null <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> _err <span class="keyword">&lt;</span> 0 <span class="keyword">then</span> prerr "execute2: parent: [wait] failed\n"
+    <span class="keyword">in</span>
+      <span class="comment">// nothing
+</span>    <span class="keyword">end</span> <span class="comment">// end of [_ when ...]
+</span>  <span class="keyword">|</span> _ <span class="comment">(*pid = -1*)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> prerr "execute2: [fork] failed"
+    <span class="keyword">in</span>
+      <span class="comment">// nothing
+</span>    <span class="keyword">end</span> <span class="comment">// end of [_]
+</span><span class="keyword">end</span> <span class="comment">// end of [execute2]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+main <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+<span class="keyword">while</span> <span class="keyword">(</span>true<span class="keyword">)</span> <span class="keyword">let</span>
+  <span class="keyword">#define</span> <span class="neuexp">MAXARG 32</span>
+  <span class="keyword">var</span> <span class="keyword">!</span>pargv <span class="keyword">with</span> <span class="prfexp">pfargv</span> <span class="keyword">=</span> <span class="keyword">@[</span><span class="staexp">ptr?</span><span class="keyword">]</span><span class="keyword">[</span>MAXARG<span class="keyword">]</span><span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> printf <span class="keyword">(</span>"@ "<span class="keyword">,</span> <span class="keyword">@(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">var</span> iseof<span class="keyword">:</span> <span class="staexp">bool</span> <span class="comment">// uninitialized
+</span>  <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">n<span class="keyword">:</span>int</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pfargs</span> <span class="keyword">|</span> argc<span class="keyword">)</span> <span class="keyword">=</span> getargs <span class="keyword">(</span><span class="prfexp">pfargv</span> <span class="keyword">|</span> pargv<span class="keyword">,</span> MAXARG<span class="keyword">,</span> iseof<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> argc &gt;= 0 <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">var</span> leftover<span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> false
+    <span class="keyword">prval</span> <span class="prfexp">getargs_v_succ <span class="keyword">(</span>pf<span class="keyword">,</span> fpf<span class="keyword">)</span> <span class="keyword">=</span> pfargs</span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span>pf1<span class="keyword">,</span> fpf1<span class="keyword">)</span> <span class="keyword">=</span> ptrarr_takeout<span class="staexp"><span class="keyword">{</span>string<span class="keyword">}</span></span> <span class="keyword">(</span>pf<span class="keyword">)</span></span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">(</span>argc <span class="keyword">&gt;</span> 0<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> arg0 <span class="keyword">=</span> pargv<span class="keyword">-&gt;</span><span class="keyword">[</span><span class="prfexp">0</span><span class="keyword">]</span> <span class="keyword">in</span> <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+      <span class="keyword">|</span> _ <span class="keyword">when</span> arg0 <span class="keyword">=</span> "quit" <span class="keyword">=&gt;</span> quit <span class="keyword">(</span>argc<span class="keyword">,</span> <span class="keyword">!</span>pargv<span class="keyword">)</span>
+      <span class="keyword">|</span> _ <span class="keyword">when</span> arg0 <span class="keyword">=</span> "print" <span class="keyword">=&gt;</span> printenv <span class="keyword">(</span>argc<span class="keyword">,</span> <span class="keyword">!</span>pargv<span class="keyword">)</span>
+      <span class="keyword">|</span> _ <span class="keyword">when</span> arg0 <span class="keyword">=</span> "assgn" <span class="keyword">=&gt;</span> assgnenv <span class="keyword">(</span>argc<span class="keyword">,</span> <span class="keyword">!</span>pargv<span class="keyword">)</span>
+      <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> leftover := true
+    <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf := fpf1 <span class="keyword">(</span>pf1<span class="keyword">)</span></span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> argc <span class="keyword">&gt;</span> 0 <span class="keyword">then</span>
+      <span class="keyword">if</span> leftover <span class="keyword">then</span> execute2 <span class="keyword">(</span>argc<span class="keyword">,</span> <span class="keyword">!</span>pargv<span class="keyword">)</span>
+    <span class="comment">// end of [val]
+</span>    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pfargv := fpf <span class="keyword">(</span>pf<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="comment">// nothing
+</span>  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">getargs_v_fail <span class="keyword">(</span>pf<span class="keyword">)</span> <span class="keyword">=</span> pfargs</span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pfargv := pf</span>
+  <span class="keyword">in</span>
+    <span class="comment">// nothing
+</span>  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="comment">//
+</span><span class="keyword">in</span>
+  <span class="keyword">if</span> iseof <span class="keyword">then</span> exit <span class="keyword">(</span>EXIT_SUCCESS<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [AUP_5_6.dats] *)</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,377 @@
+<HTML>
+<HEAD>
+<STYLE TYPE="text/css">
+span.comment {color:787878;font-style:italic}
+span.extern  {color:A52A2A}
+span.keyword {color:000000;font-weight:bold}
+span.neuexp  {color:800080}
+span.staexp  {color:0000FF}
+span.dynexp  {color:E80000}
+span.prfexp  {color:009000}
+span.stacstdec  {text-decoration:none}
+span.stacstuse  {color:0000CF;text-decoration:underline}
+span.dyncstdec  {text-decoration:none}
+span.dyncstimp  {color:B80000;text-decoration:underline}
+span.dyncstuse  {color:B80000;text-decoration:underline}
+</STYLE>
+</HEAD>
+
+<BODY BGCOLOR="#E0E0E0" TEXT="#E80000">
+<PRE>
+<span class="comment">(*
+**
+** An implementation of functional maps based on AVL trees.
+**
+** Contributed by Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+** Time: May, 2009
+**
+*)</span>
+
+<span class="comment">//
+</span><span class="comment">// License: LGPL 3.0 (available at http://www.gnu.org/licenses/lgpl.txt)
+</span><span class="comment">//
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">ATS_DYNLOADFLAG 0</span> <span class="comment">// no dynamic loading
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><A name="332"><span class="stacstdec">bitvec_int_t0ype</span></span></A> <span class="keyword">(</span>n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="comment">// an abstract type of unspecified size 
+</span><span class="keyword">stadef</span> <span class="staexp"><A name="405"><span class="stacstdec">bitvec_t <span class="keyword">=</span> bitvec_int_t0ype</span></span></A>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><A name="463"><span class="stacstdec">bit <span class="keyword">=</span> <span class="keyword">[</span>b<span class="keyword">:</span> two<span class="keyword">]</span> int b</span></span></A> <span class="comment">// b=0 or b=1
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <A name="531"><span class="dyncstdec">bitvec_make <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>n<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>free_gc_v l<span class="keyword">,</span> bitvec_t <span class="keyword">(</span>n<span class="keyword">)</span> @ l <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></span></A>
+  <span class="keyword">=</span> "linbitvec_bitvec_make"
+<span class="comment">// end of [bitvec_make]
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <A name="683"><span class="dyncstdec">bitvec_make_empty <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>n<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>free_gc_v l<span class="keyword">,</span> bitvec_t <span class="keyword">(</span>n<span class="keyword">)</span> @ l <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></span></A>
+  <span class="keyword">=</span> "linbitvec_bitvec_make_empty"
+<span class="comment">// end of [bitvec_make_empty]
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <A name="853"><span class="dyncstdec">bitvec_make_full <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>n<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>free_gc_v l<span class="keyword">,</span> bitvec_t <span class="keyword">(</span>n<span class="keyword">)</span> @ l <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></span></A>
+  <span class="keyword">=</span> "linbitvec_bitvec_make_full"
+<span class="comment">// end of [bitvec_make_full]
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <A name="1020"><span class="dyncstdec">bitvec_free <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf_gc<span class="keyword">:</span> <span class="staexp">free_gc_v l</span></span><span class="keyword">,</span> <span class="prfexp">pf_vec<span class="keyword">:</span> <span class="staexp">bitvec_t n @ l</span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></A>  
+  <span class="keyword">=</span> "linbitvec_bitvec_free"
+<span class="comment">// end of [bitvec_free]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <A name="1202"><span class="dyncstdec">bitvec_get_at
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i <span class="keyword">&lt;</span> n<span class="keyword">}</span></span> <span class="keyword">(</span>vec<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bit</span></span></A>
+  <span class="keyword">=</span> "linbitvec_bitvec_get_at"
+<span class="comment">// end of [bitvec_get_at]
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <A name="1343"><span class="dyncstdec">bitvec_set_at
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i <span class="keyword">&lt;</span> n<span class="keyword">}</span></span> <span class="keyword">(</span>vec<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">,</span> b<span class="keyword">:</span> <span class="staexp">bit</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></A>
+  <span class="keyword">=</span> "linbitvec_bitvec_set_at"
+<span class="comment">// end of [bitvec_set_at]
+</span>
+<span class="keyword">overload</span> <span class="neuexp"><span class="keyword">[</span><span class="keyword">]</span> <span class="keyword">with</span> bitvec_get_at</span>
+<span class="keyword">overload</span> <span class="neuexp"><span class="keyword">[</span><span class="keyword">]</span> <span class="keyword">with</span> bitvec_set_at</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <A name="1577"><span class="dyncstdec">bitvec_is_empty <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>vec<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span></span></A>
+  <span class="keyword">=</span> "linbitvec_bitvec_is_empty"
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <A name="1685"><span class="dyncstdec">bitvec_isnot_empty <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>vec<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span></span></A>
+
+<span class="keyword">implement</span> bitvec_isnot_empty <span class="keyword">(</span>vec<span class="keyword">,</span> n<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">~</span>bitvec_is_empty <span class="keyword">(</span>vec<span class="keyword">,</span> n<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <A name="1852"><span class="dyncstdec">bitvec_is_full <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>vec<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span></span></A>
+  <span class="keyword">=</span> "linbitvec_bitvec_is_full"
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <A name="1958"><span class="dyncstdec">bitvec_isnot_full <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>vec<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span></span></A>
+
+<span class="keyword">implement</span> bitvec_isnot_full <span class="keyword">(</span>vec<span class="keyword">,</span> n<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">~</span>bitvec_is_full <span class="keyword">(</span>vec<span class="keyword">,</span> n<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// vec1 = vec2 ?
+</span><span class="keyword">extern</span> <span class="keyword">fun</span> <A name="2139"><span class="dyncstdec">bitvec_equal <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>vec1<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> vec2<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></A>
+  <span class="keyword">=</span> "linbitvec_bitvec_equal"
+<span class="comment">// end of [bitvec_equal]
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <A name="2288"><span class="dyncstdec">bitvec_notequal <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>vec1<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> vec2<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bool</span></span></A>
+
+<span class="keyword">implement</span> bitvec_notequal <span class="keyword">(</span>vec1<span class="keyword">,</span> vec2<span class="keyword">,</span> n<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">~</span>bitvec_equal <span class="keyword">(</span>vec1<span class="keyword">,</span> vec2<span class="keyword">,</span> n<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// vec1 &lt;- vec2
+</span><span class="keyword">extern</span> <span class="keyword">fun</span> <A name="2498"><span class="dyncstdec">bitvec_copy <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>vec1<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> vec2<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></A>
+  <span class="keyword">=</span> "linbitvec_bitvec_copy"
+<span class="comment">// end of [bitvec_copy]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// complement operation
+</span><span class="keyword">extern</span> <span class="keyword">fun</span> <A name="2689"><span class="dyncstdec">bitvec_neg <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>vec<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></A>
+  <span class="keyword">=</span> "linbitvec_bitvec_neg"
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <A name="2787"><span class="dyncstdec">bitvec_or <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>vec1<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> vec2<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></A>
+  <span class="keyword">=</span> "linbitvec_bitvec_or"
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <A name="2903"><span class="dyncstdec">bitvec_and <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>vec1<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> vec2<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></A>
+  <span class="keyword">=</span> "linbitvec_bitvec_and"
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <A name="3021"><span class="dyncstdec">bitvec_xor <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>vec1<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> vec2<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></A>
+  <span class="keyword">=</span> "linbitvec_bitvec_xor"
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <A name="3139"><span class="dyncstdec">bitvec_diff <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>vec1<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> vec2<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bitvec_t n</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></A>
+  <span class="keyword">=</span> "linbitvec_bitvec_diff"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+
+#define NBIT_PER_BYTE 8
+#define NBIT_PER_BYTE_LOG 3
+
+/* ****** ****** */
+
+#ifndef __WORDSIZE
+#error "[__WORDSIZE] is undefined.\n"
+#endif
+
+#if (__WORDSIZE == 32)
+
+#define NBYTE_PER_WORD 4
+#define NBYTE_PER_WORD_LOG 2
+#if (NBYTE_PER_WORD != (1 &lt;&lt; NBYTE_PER_WORD_LOG))
+#error "NBYTE_PER_WORD != (1 &lt;&lt; NBYTE_PER_WORD_LOG)\n"
+#endif
+
+#elif (__WORDSIZE == 64)
+
+#define NBYTE_PER_WORD 8
+#define NBYTE_PER_WORD_LOG 3
+#if (NBYTE_PER_WORD != (1 &lt;&lt; NBYTE_PER_WORD_LOG))
+#error "NBYTE_PER_WORD != (1 &lt;&lt; NBYTE_PER_WORD_LOG)\n"
+#endif
+
+#else
+#error "[__WORDSIZE] is not supported.\n"
+#endif
+
+/* ****** ****** */
+
+#define NBIT_PER_WORD (NBIT_PER_BYTE * NBYTE_PER_WORD)
+#define NBIT_PER_WORD_LOG (NBIT_PER_BYTE_LOG + NBYTE_PER_WORD_LOG)
+#if (NBIT_PER_WORD != (1 &lt;&lt; NBIT_PER_WORD_LOG))
+#error "NBIT_PER_WORD != (1 &lt;&lt; NBIT_PER_WORD_LOG)\n"
+#endif
+
+%}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+
+ats_ptr_type
+linbitvec_bitvec_make
+  (ats_size_type nbit) {
+  uintptr_t *p_vec ; size_t nwrd ;
+  nwrd = (nbit + NBIT_PER_WORD - 1) &gt;&gt; NBIT_PER_WORD_LOG ;
+  p_vec = ATS_CALLOC (nwrd, NBYTE_PER_WORD) ; // initialized to zero
+  return p_vec ;
+} /* end of [linbitvec_bitvec_make] */
+
+ats_ptr_type // same as [linbitvec_bitvec_make]
+linbitvec_bitvec_make_empty (ats_size_type nbit) {
+  uintptr_t *p_vec ; size_t nwrd ;
+  nwrd = (nbit + NBIT_PER_WORD - 1) &gt;&gt; NBIT_PER_WORD_LOG ;
+  p_vec = ATS_CALLOC (nwrd, NBYTE_PER_WORD) ; // initialized to zero
+  return p_vec ;
+} /* end of [linbitvec_bitvec_make_empty] */
+
+ats_ptr_type
+linbitvec_bitvec_make_full (ats_size_type nbit) {
+  uintptr_t *p_vec, zc; size_t nwrd ; int next ;
+  nwrd = (nbit + NBIT_PER_WORD - 1) &gt;&gt; NBIT_PER_WORD_LOG ;
+  next = (nwrd &lt;&lt; NBIT_PER_WORD_LOG) - nbit ; // extra bits
+  p_vec = ATS_CALLOC (nwrd, NBYTE_PER_WORD) ; // initialized to zero
+  memset (p_vec, 0xFF, nwrd * NBYTE_PER_WORD) ;
+/*
+** extra bits, which are in the front, must be set to zero!!!
+*/
+  if (nwrd &gt; 0) { zc = ~0; p_vec[nwrd-1] &amp;= (zc &gt;&gt; next) ; }
+  return p_vec ;
+} /* end of [linbitvec_bitvec_make_full] */
+
+ats_void_type
+linbitvec_bitvec_free
+  (ats_ptr_type p_vec) { ATS_FREE (p_vec) ; return ; }
+/* end of [linbitvec_bitvec_free] */
+
+%}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+
+ats_bool_type
+linbitvec_bitvec_is_empty (
+  ats_ptr_type p0, ats_size_type nbit
+) {
+  int nwrd = (nbit + NBIT_PER_WORD - 1) &gt;&gt; NBIT_PER_WORD_LOG ;
+  uintptr_t *p = p0 ;
+  if (!nwrd) return ats_true_bool ;
+  if (*p != 0) return ats_false_bool ;
+  while (--nwrd &gt; 0) { if (*++p != 0) return ats_false_bool ; }
+  return ats_true_bool ;
+} /* end of [linbitvec_bitvec_is_empty] */
+
+ats_bool_type
+linbitvec_bitvec_is_full (
+  ats_ptr_type p0, ats_size_type nbit
+) {
+  int nwrd = (nbit + NBIT_PER_WORD - 1) &gt;&gt; NBIT_PER_WORD_LOG ;
+  int next = (nwrd &lt;&lt; NBIT_PER_WORD_LOG) - nbit ; // extra bits
+  uintptr_t *p = p0, zc = ~0 ;
+  while (nwrd &gt; 1) {
+    if (*p != zc) return ats_false_bool ; --nwrd ; ++p ;
+  } ;
+/*
+** extra bits, which are in the front, must be zero!!!
+*/
+  if (nwrd) { if (*p != (zc &gt;&gt; next)) return ats_false_bool ; } ;
+  return ats_true_bool ;  
+} /* end of [linbitvec_bitvec_is_full] */
+
+%}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+
+ats_bool_type
+linbitvec_bitvec_equal (
+  ats_ptr_type p10, ats_ptr_type p20, ats_size_type nbit
+) {
+  int nwrd = (nbit + NBIT_PER_WORD - 1) &gt;&gt; NBIT_PER_WORD_LOG ;
+  uintptr_t *p1 = p10, *p2 = p20 ;
+  if (!nwrd) return ats_true_bool ;
+  if (*p1 != *p2) return ats_false_bool ;
+  while (--nwrd &gt; 0) { if (*++p1 != *++p2) return ats_false_bool ; } ;
+  return ats_true_bool ;  
+} /* end of [linbitvec_bitvec_copy] */
+
+%}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+
+ats_void_type
+linbitvec_bitvec_copy (
+  ats_ptr_type p10, ats_ptr_type p20, ats_size_type nbit
+) {
+  int nwrd = (nbit + NBIT_PER_WORD - 1) &gt;&gt; NBIT_PER_WORD_LOG ;
+  uintptr_t *p1 = p10, *p2 = p20 ;
+  if (!nwrd) return ;
+  *p1 = *p2 ; while (--nwrd &gt; 0) { *(++p1) = *(++p2) ; }
+  return ;  
+} /* end of [linbitvec_bitvec_copy] */
+
+%}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+
+ats_void_type
+linbitvec_bitvec_neg (
+  ats_ptr_type p0, ats_size_type nbit
+) {
+  int nwrd = (nbit + NBIT_PER_WORD - 1) &gt;&gt; NBIT_PER_WORD_LOG ;
+  int next = (nwrd &lt;&lt; NBIT_PER_WORD_LOG) - nbit ; // extra bits
+  uintptr_t *p = p0, zc = ~0 ;
+  while (nwrd &gt; 1) {
+    *p = ~(*p) ; --nwrd ; ++p ;
+  }
+/*
+** extra bits, which are in the front, must be set to zero!!!
+*/
+  if (nwrd &gt; 0) { *p = ~(*p) ; *p &amp;= (zc &gt;&gt; next) ; }
+  return ;  
+} /* end of [linbitvec_bitvec_neg] */
+
+ats_void_type
+linbitvec_bitvec_or (
+  ats_ptr_type p10, ats_ptr_type p20, ats_size_type nbit
+) {
+  int nwrd = (nbit + NBIT_PER_WORD - 1) &gt;&gt; NBIT_PER_WORD_LOG ;
+  uintptr_t *p1 = p10, *p2 = p20 ;
+  if (!nwrd) return ;
+  *p1 |= *p2 ; while (--nwrd &gt; 0) { *(++p1) |= *(++p2) ; }
+  return ;  
+} /* end of [linbitvec_bitvec_or] */
+
+ats_void_type
+linbitvec_bitvec_and (
+  ats_ptr_type p10, ats_ptr_type p20, ats_size_type nbit
+) {
+  int nwrd = (nbit + NBIT_PER_WORD - 1) &gt;&gt; NBIT_PER_WORD_LOG ;
+  uintptr_t *p1 = p10, *p2 = p20 ;
+  if (!nwrd) return ;
+  *p1 &amp;= *p2 ; while (--nwrd &gt; 0) { *(++p1) &amp;= *(++p2) ; }
+  return ;  
+} /* end of [linbitvec_bitvec_and] */
+
+ats_void_type
+linbitvec_bitvec_xor ( // symmetric difference
+  ats_ptr_type p10, ats_ptr_type p20, ats_size_type nbit
+) {
+  int nwrd = (nbit + NBIT_PER_WORD - 1) &gt;&gt; NBIT_PER_WORD_LOG ;
+  uintptr_t *p1 = p10, *p2 = p20 ;
+  if (!nwrd) return ;
+  *p1 ^= *p2 ; while (--nwrd &gt; 0) { *(++p1) ^= *(++p2) ; }
+  return ;  
+} /* end of [linbitvec_bitvec_xor] */
+
+ats_void_type
+linbitvec_bitvec_diff ( // difference
+  ats_ptr_type p10, ats_ptr_type p20, ats_size_type nbit
+) {
+  int nwrd = (nbit + NBIT_PER_WORD - 1) &gt;&gt; NBIT_PER_WORD_LOG ;
+  uintptr_t *p1 = p10, *p2 = p20 ;
+  if (!nwrd) return ;
+  *p1 &amp;= ~(*p2) ; while (--nwrd &gt; 0) { *(++p1) &amp;= ~(*(++p2)) ; }
+  return ;  
+} /* end of [linbitvec_bitvec_diff] */
+
+%}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [linbitvec.dats] *)</span>
+</PRE>
+</BODY>
+</HTML>

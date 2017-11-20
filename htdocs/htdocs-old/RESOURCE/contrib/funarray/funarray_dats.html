@@ -1,0 +1,387 @@
+<HTML>
+<HEAD>
+<STYLE TYPE="text/css">
+span.comment {color:787878;font-style:italic}
+span.extern  {color:A52A2A}
+span.keyword {color:000000;font-weight:bold}
+span.neuexp  {color:800080}
+span.staexp  {color:0000FF}
+span.dynexp  {color:E80000}
+span.prfexp  {color:009000}
+span.stacstdec  {text-decoration:none}
+span.stacstuse  {color:0000CF;text-decoration:underline}
+span.dyncstdec  {text-decoration:none}
+span.dyncstimp  {color:B80000;text-decoration:underline}
+span.dyncstuse  {color:B80000;text-decoration:underline}
+</STYLE>
+</HEAD>
+
+<BODY BGCOLOR="#E0E0E0" TEXT="#E80000">
+<PRE>
+<span class="comment">(*
+**
+** An implementation of functional arrays based on Braun trees.
+**
+** Contributed by Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+** Time: October, 2008
+**
+*)</span>
+
+<span class="comment">//
+</span><span class="comment">// License: LGPL 3.0 (available at http://www.gnu.org/licenses/lgpl.txt)
+</span><span class="comment">//
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">ATS_DYNLOADFLAG 0</span> <span class="comment">// no dynamic loading
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abstype</span> <span class="staexp"><A name="339"><span class="stacstdec">funarray_t</span></span></A> <span class="keyword">(</span>a<span class="keyword">:</span>t@ype+ <span class="comment">(*element*)</span><span class="keyword">,</span>  n<span class="keyword">:</span>int <span class="comment">(*size*)</span><span class="keyword">)</span>
+<span class="keyword">typedef</span> <span class="staexp"><A name="398"><span class="stacstdec">farr <span class="keyword">(</span>a<span class="keyword">:</span> t@ype<span class="keyword">,</span> n<span class="keyword">:</span> int<span class="keyword">)</span> <span class="keyword">=</span> funarray_t <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span></span></A> <span class="comment">// an abbreviation
+</span><span class="keyword">typedef</span> <span class="staexp"><A name="469"><span class="stacstdec">farr <span class="keyword">(</span>a<span class="keyword">:</span> t@ype<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">[</span>n<span class="keyword">:</span>nat<span class="keyword">]</span> funarray_t <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span></span></A>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// create an empty array
+</span><span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="keyword">}</span> <A name="573"><span class="dyncstdec">funarray_nil <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>t@ype<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="comment">(*pure*)</span><span class="keyword">&gt;</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> 0<span class="keyword">)</span></span></span></A>
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="keyword">}</span> <A name="635"><span class="dyncstdec">funarray_empty <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>t@ype<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="comment">(*pure*)</span><span class="keyword">&gt;</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> 0<span class="keyword">)</span></span></span></A>
+
+<span class="comment">// compute the size of [A]
+</span><span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="734"><span class="dyncstdec">funarray_length <span class="comment">(* O(log^2(n)) *)</span>
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>A<span class="keyword">:</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="comment">(*pure*)</span><span class="keyword">&gt;</span> <span class="staexp">int n</span></span></A>
+
+<span class="comment">// obtain the element stored in 'A[i]'
+</span><span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="872"><span class="dyncstdec">funarray_get_elt_at <span class="comment">(* O(log(n)) *)</span>
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>A<span class="keyword">:</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">natLt n</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="comment">(*pure*)</span><span class="keyword">&gt;</span> <span class="staexp">a</span></span></A>
+
+<span class="comment">// update 'A[i]' with 'x'; note that this creates a new array!
+</span><span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="1044"><span class="dyncstdec">funarray_set_elt_at <span class="comment">(* O(log(n)) *)</span>
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>A<span class="keyword">:</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">natLt n</span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp">a</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="comment">(*pure*)</span><span class="keyword">&gt;</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span></span></A>
+
+<span class="keyword">overload</span> <span class="neuexp"><span class="keyword">[</span><span class="keyword">]</span> <span class="keyword">with</span> funarray_get_elt_at</span>
+<span class="keyword">overload</span> <span class="neuexp"><span class="keyword">[</span><span class="keyword">]</span> <span class="keyword">with</span> funarray_set_elt_at</span>
+  
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="1267"><span class="dyncstdec">funarray_get_elt_at_exn
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>A<span class="keyword">:</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">Nat</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exn</span><span class="keyword">&gt;</span> <span class="staexp">a</span></span></A>
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="1355"><span class="dyncstdec">funarray_set_elt_at_exn
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>A<span class="keyword">:</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">Nat</span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp">a</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exn</span><span class="keyword">&gt;</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span></span></A>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// exchange elements stored in 'A[i]' and 'x'
+</span><span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="1527"><span class="dyncstdec">funarray_xch_elt_at <span class="comment">(* O(log(n)) *)</span>
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>A<span class="keyword">:</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">natLt n</span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>a &gt;&gt; a</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="comment">(*pure*)</span><span class="keyword">&gt;</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span></span></A>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// insert an element to the start of the array
+</span><span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="1726"><span class="dyncstdec">funarray_loadd <span class="comment">(* O(log(n)) *)</span>
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>A<span class="keyword">:</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp">a</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="comment">(*pure*)</span><span class="keyword">&gt;</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n+1<span class="keyword">)</span></span></span></A>
+
+<span class="comment">// remove an element from the start of the array
+</span><span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="1885"><span class="dyncstdec">funarray_lorem <span class="comment">(* O(log(n)) *)</span>
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>pos<span class="keyword">}</span></span> <span class="keyword">(</span>A<span class="keyword">:</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="comment">(*pure*)</span><span class="keyword">&gt;</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n-1<span class="keyword">)</span></span></span></A>
+
+<span class="comment">// remove an element from the start of the array and obtain it
+</span><span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="2052"><span class="dyncstdec">funarray_lorem_get <span class="comment">(* O(log(n)) *)</span>
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>pos<span class="keyword">}</span></span> <span class="keyword">(</span>A<span class="keyword">:</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>a? &gt;&gt; a</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="comment">(*pure*)</span><span class="keyword">&gt;</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n-1<span class="keyword">)</span></span></span></A>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// insert an element to the end of the array
+</span><span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="2239"><span class="dyncstdec">funarray_hiadd <span class="comment">(* O(log(n)) *)</span>
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>A<span class="keyword">:</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp">a</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="comment">(*pure*)</span><span class="keyword">&gt;</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n+1<span class="keyword">)</span></span></span></A>
+
+<span class="comment">// remove an element from the end of the array
+</span><span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="2406"><span class="dyncstdec">funarray_hirem <span class="comment">(* O(log(n)) *)</span>
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>pos<span class="keyword">}</span></span> <span class="keyword">(</span>A<span class="keyword">:</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="comment">(*pure*)</span><span class="keyword">&gt;</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n-1<span class="keyword">)</span></span></span></A>
+
+<span class="comment">// remove an element from the end of the array and obtain it
+</span><span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="2581"><span class="dyncstdec">funarray_hirem_get <span class="comment">(* O(log(n)) *)</span>
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>pos<span class="keyword">}</span></span> <span class="keyword">(</span>A<span class="keyword">:</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>a? &gt;&gt; a</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="comment">(*pure*)</span><span class="keyword">&gt;</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n-1<span class="keyword">)</span></span></span></A>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+** these higher-order functions are probably not particularly useful as
+** they can be readily replaced with for-loops. See the implementation.
+*)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="2884"><span class="dyncstdec">funarray_foreach_clo <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+ <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v</span></span> <span class="keyword">|</span> A<span class="keyword">:</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">,</span> f<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><span class="keyword">(</span><span class="keyword">!</span>v <span class="keyword">|</span> a<span class="keyword">)</span> <span class="keyword">-&lt;</span>clo<span class="keyword">&gt;</span> void</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></A>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="3014"><span class="dyncstdec">funarray_foreach_cloref <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+ <span class="keyword">(</span>A<span class="keyword">:</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">,</span> f<span class="keyword">:</span> <span class="staexp">a <span class="keyword">-&lt;</span>cloref<span class="keyword">&gt;</span> void</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></A>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="3128"><span class="dyncstdec">funarray_iforeach_clo <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+ <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v</span></span> <span class="keyword">|</span> A<span class="keyword">:</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">,</span> f<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><span class="keyword">(</span><span class="keyword">!</span>v <span class="keyword">|</span> natLt n<span class="keyword">,</span> a<span class="keyword">)</span> <span class="keyword">-&lt;</span>clo<span class="keyword">&gt;</span> void</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></A>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span><span class="keyword">{</span><span class="staexp">a<span class="keyword">:</span>t@ype</span><span class="keyword">}</span> <A name="3268"><span class="dyncstdec">funarray_iforeach_cloref <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+ <span class="keyword">(</span>A<span class="keyword">:</span> <span class="staexp">farr <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">,</span> f<span class="keyword">:</span>  <span class="staexp"><span class="keyword">(</span>natLt n<span class="keyword">,</span> a<span class="keyword">)</span> <span class="keyword">-&lt;</span>cloref<span class="keyword">&gt;</span> void</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></A>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><A name="3405"><span class="stacstdec">brauntree <span class="keyword">(</span>a<span class="keyword">:</span>t@ype+<span class="keyword">,</span> int<span class="keyword">)</span></span></span></A> <span class="keyword">=</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">n1<span class="keyword">,</span>n2<span class="keyword">:</span>nat</span> <span class="keyword">|</span> <span class="staexp">n2 &lt;= n1</span><span class="keyword">;</span> <span class="staexp">n1 &lt;= n2+1</span><span class="keyword">}</span>
+    B <span class="staexp"><span class="keyword">(</span>a<span class="keyword">,</span> n1+n2+1<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>a<span class="keyword">,</span> brauntree <span class="keyword">(</span>a<span class="keyword">,</span> n1<span class="keyword">)</span><span class="keyword">,</span> brauntree <span class="keyword">(</span>a<span class="keyword">,</span> n2<span class="keyword">)</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> E <span class="staexp"><span class="keyword">(</span>a<span class="keyword">,</span> 0<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">)</span></span>
+
+<span class="keyword">stadef</span> <span class="staexp"><A name="3563"><span class="stacstdec">bt <span class="keyword">=</span> brauntree</span></span></A> <span class="comment">// an abbreviation
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">assume</span> <span class="staexp">funarray_t <span class="keyword">(</span>a<span class="keyword">:</span> t@ype<span class="keyword">,</span> n<span class="keyword">:</span>int<span class="keyword">)</span> <span class="keyword">=</span> brauntree <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="keyword">}</span> funarray_nil <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> E <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="keyword">}</span> funarray_empty <span class="staexp"><span class="keyword">{</span>a<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> E <span class="keyword">(</span><span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span> funarray_length <span class="keyword">(</span>A<span class="keyword">)</span> <span class="keyword">=</span> size <span class="keyword">(</span>A<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="comment">// this algorithm is taken from a paper by Okasaki
+</span>  <span class="keyword">fun</span> diff <span class="staexp"><span class="keyword">{</span>nl<span class="keyword">,</span>nr<span class="keyword">:</span>nat <span class="keyword">|</span> nr &lt;= nl &amp;&amp; nl &lt;= nr+1<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>nr<span class="keyword">&gt;.</span></span> 
+    <span class="keyword">(</span>nr<span class="keyword">:</span> <span class="staexp">int nr</span><span class="keyword">,</span> t<span class="keyword">:</span> <span class="staexp">bt <span class="keyword">(</span>a<span class="keyword">,</span> nl<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int <span class="keyword">(</span>nl-nr<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> t <span class="keyword">of</span>
+    <span class="keyword">|</span> B <span class="keyword">(</span>_<span class="keyword">,</span> tl<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> nr <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> nr2 <span class="keyword">=</span> nr / 2
+        <span class="keyword">in</span>
+          <span class="keyword">if</span> nr <span class="keyword">&gt;</span> nr2 + nr2 <span class="keyword">then</span> diff <span class="keyword">(</span>nr2<span class="keyword">,</span> tl<span class="keyword">)</span> <span class="keyword">else</span> diff <span class="keyword">(</span>nr2-1<span class="keyword">,</span> tr<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+          1 <span class="comment">// return value
+</span>        <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>      <span class="keyword">end</span> <span class="comment">// end of [B]
+</span>     <span class="keyword">|</span> E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> 0
+  <span class="keyword">end</span> <span class="comment">// end of [diff]
+</span>
+  <span class="keyword">fun</span> size <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n<span class="keyword">&gt;.</span></span> <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">bt <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int n</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> t <span class="keyword">of</span>
+    <span class="keyword">|</span> B <span class="keyword">(</span>_<span class="keyword">,</span> tl<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">let</span> <span class="keyword">val</span> nr <span class="keyword">=</span> size tr <span class="keyword">in</span> 1 + nr + nr + diff <span class="keyword">(</span>nr<span class="keyword">,</span> tl<span class="keyword">)</span> <span class="keyword">end</span>
+      <span class="keyword">end</span> <span class="comment">// end of [B]
+</span>    <span class="keyword">|</span> E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> 0
+  <span class="keyword">end</span> <span class="comment">// end of [size]
+</span><span class="keyword">}</span> <span class="comment">// end of [funarray_length]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span> funarray_get_elt_at <span class="keyword">(</span>A<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">=</span> get_at <span class="keyword">(</span>A<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> get_at <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i <span class="keyword">&lt;</span> n<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n<span class="keyword">&gt;.</span></span> <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">bt <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int i</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">a</span> <span class="keyword">=</span>
+    <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> i2 <span class="keyword">=</span> i / 2
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> i <span class="keyword">&gt;</span> i2 + i2 <span class="keyword">then</span> <span class="keyword">let</span>
+        <span class="keyword">val+</span> B <span class="keyword">(</span>_<span class="keyword">,</span> tl<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=</span> t <span class="keyword">in</span> get_at <span class="keyword">(</span>tl<span class="keyword">,</span> i2<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+        <span class="keyword">val+</span> B <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=</span> t <span class="keyword">in</span> get_at <span class="keyword">(</span>tr<span class="keyword">,</span> i2-1<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+      <span class="keyword">val+</span> B <span class="keyword">(</span>x<span class="keyword">,</span> _<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=</span> t <span class="keyword">in</span> x
+    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">}</span> <span class="comment">// end of [funarray_get_at]
+</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span> funarray_set_elt_at
+  <span class="keyword">(</span>A<span class="keyword">,</span> i<span class="keyword">,</span> x0<span class="keyword">)</span> <span class="keyword">=</span> set_at <span class="keyword">(</span>A<span class="keyword">,</span> i<span class="keyword">,</span> x0<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> set_at <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i <span class="keyword">&lt;</span> n<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">bt <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int i</span><span class="keyword">,</span> x0<span class="keyword">:</span> <span class="staexp">a</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bt <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span> <span class="keyword">=</span>
+    <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val+</span> B <span class="keyword">(</span>x<span class="keyword">,</span> tl<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=</span> t<span class="keyword">;</span> <span class="keyword">val</span> i2 <span class="keyword">=</span> i / 2
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> i <span class="keyword">&gt;</span> i2 + i2 <span class="keyword">then</span> <span class="keyword">begin</span>
+        B <span class="keyword">(</span>x<span class="keyword">,</span> set_at <span class="keyword">(</span>tl<span class="keyword">,</span> i2<span class="keyword">,</span> x0<span class="keyword">)</span><span class="keyword">,</span> tr<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+        B <span class="keyword">(</span>x<span class="keyword">,</span> tl<span class="keyword">,</span> set_at <span class="keyword">(</span>tr<span class="keyword">,</span> i2-1<span class="keyword">,</span> x0<span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+      <span class="keyword">val+</span> B <span class="keyword">(</span>_<span class="keyword">,</span> t1<span class="keyword">,</span> t2<span class="keyword">)</span> <span class="keyword">=</span> t <span class="keyword">in</span> B <span class="keyword">(</span>x0<span class="keyword">,</span> t1<span class="keyword">,</span> t2<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">}</span> <span class="comment">// end of [funarray_set_at]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span>
+  funarray_get_elt_at_exn <span class="keyword">(</span>A<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">=</span> get_at <span class="keyword">(</span>A<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> get_at <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>i<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n<span class="keyword">&gt;.</span></span> <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">bt <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int i</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">a</span> <span class="keyword">=</span>
+    <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> i2 <span class="keyword">=</span> i / 2 <span class="keyword">in</span>
+      <span class="keyword">if</span> i <span class="keyword">&gt;</span> i2 + i2 <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> t <span class="keyword">of</span>
+        <span class="keyword">|</span> B <span class="keyword">(</span>_<span class="keyword">,</span> tl<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> get_at <span class="keyword">(</span>tl<span class="keyword">,</span> i2<span class="keyword">)</span> <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">$raise</span> SubscriptException
+      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span> <span class="keyword">case+</span> t <span class="keyword">of</span>
+        <span class="keyword">|</span> B <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=&gt;</span> get_at <span class="keyword">(</span>tr<span class="keyword">,</span> i2-1<span class="keyword">)</span> <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">$raise</span> SubscriptException
+      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span> <span class="keyword">case+</span> t <span class="keyword">of</span> <span class="comment">// i = 0
+</span>      <span class="keyword">|</span> B <span class="keyword">(</span>x<span class="keyword">,</span> _<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> x <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">$raise</span> SubscriptException
+    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">}</span> <span class="comment">// end of [funarray_get_at_exn]
+</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span> funarray_set_elt_at_exn
+  <span class="keyword">(</span>A<span class="keyword">,</span> i<span class="keyword">,</span> x0<span class="keyword">)</span> <span class="keyword">=</span> set_at <span class="keyword">(</span>A<span class="keyword">,</span> i<span class="keyword">,</span> x0<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> set_at <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>i<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">bt <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int i</span><span class="keyword">,</span> x0<span class="keyword">:</span> <span class="staexp">a</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exn</span><span class="keyword">&gt;</span> <span class="staexp">bt <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span> <span class="keyword">=</span>
+    <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> i2 <span class="keyword">=</span> i / 2
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> i <span class="keyword">&gt;</span> i2 + i2 <span class="keyword">then</span> <span class="keyword">begin</span> <span class="keyword">case+</span> t <span class="keyword">of</span>
+        <span class="keyword">|</span> B <span class="keyword">(</span>x<span class="keyword">,</span> tl<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+            <span class="keyword">val</span> tl <span class="keyword">=</span> set_at <span class="keyword">(</span>tl<span class="keyword">,</span> i2<span class="keyword">,</span> x0<span class="keyword">)</span> <span class="keyword">in</span> B <span class="keyword">(</span>x<span class="keyword">,</span> tl<span class="keyword">,</span> tr<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [B]
+</span>        <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">$raise</span> SubscriptException
+      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span> <span class="keyword">case+</span> t <span class="keyword">of</span>
+        <span class="keyword">|</span> B <span class="keyword">(</span>x<span class="keyword">,</span> tl<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+            <span class="keyword">val</span> tr <span class="keyword">=</span> set_at <span class="keyword">(</span>tr<span class="keyword">,</span> i2-1<span class="keyword">,</span> x0<span class="keyword">)</span> <span class="keyword">in</span> B <span class="keyword">(</span>x<span class="keyword">,</span> tl<span class="keyword">,</span> tr<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [B]
+</span>        <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">$raise</span> SubscriptException
+      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span> <span class="keyword">case+</span> t <span class="keyword">of</span> <span class="comment">// i = 0
+</span>      <span class="keyword">|</span> B <span class="keyword">(</span>x<span class="keyword">,</span> tl<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=&gt;</span> B <span class="keyword">(</span>x0<span class="keyword">,</span> tl<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">$raise</span> SubscriptException
+    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">}</span> <span class="comment">// end of [funarray_get_at_exn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span> funarray_xch_elt_at
+  <span class="keyword">(</span>A<span class="keyword">,</span> i<span class="keyword">,</span> x0<span class="keyword">)</span> <span class="keyword">=</span> xch_at <span class="keyword">(</span>A<span class="keyword">,</span> i<span class="keyword">,</span> x0<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> xch_at <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i <span class="keyword">&lt;</span> n<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">bt <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int i</span><span class="keyword">,</span> x0<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>a &gt;&gt; a</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bt <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span> <span class="keyword">=</span>
+    <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val+</span> B <span class="keyword">(</span>x<span class="keyword">,</span> tl<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=</span> t<span class="keyword">;</span> <span class="keyword">val</span> i2 <span class="keyword">=</span> i / 2
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> i <span class="keyword">&gt;</span> i2 + i2 <span class="keyword">then</span> <span class="keyword">begin</span>
+        B <span class="keyword">(</span>x<span class="keyword">,</span> xch_at <span class="keyword">(</span>tl<span class="keyword">,</span> i2<span class="keyword">,</span> x0<span class="keyword">)</span><span class="keyword">,</span> tr<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+        B <span class="keyword">(</span>x<span class="keyword">,</span> tl<span class="keyword">,</span> xch_at <span class="keyword">(</span>tr<span class="keyword">,</span> i2-1<span class="keyword">,</span> x0<span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> x0_val <span class="keyword">=</span> x0<span class="keyword">;</span> <span class="keyword">val+</span> B <span class="keyword">(</span>x<span class="keyword">,</span> t1<span class="keyword">,</span> t2<span class="keyword">)</span> <span class="keyword">=</span> t<span class="keyword">;</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> x0 := x
+    <span class="keyword">in</span>
+      B <span class="keyword">(</span>x0_val<span class="keyword">,</span> t1<span class="keyword">,</span> t2<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">}</span> <span class="comment">// end of [funarray_xch_at]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span> funarray_loadd
+  <span class="keyword">(</span>t<span class="keyword">,</span> x0<span class="keyword">)</span> <span class="keyword">=</span> loadd <span class="keyword">(</span>t<span class="keyword">,</span> x0<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> loadd <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">bt <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> x0<span class="keyword">:</span> <span class="staexp">a</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bt <span class="keyword">(</span>a<span class="keyword">,</span> n+1<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> t <span class="keyword">of</span>
+    <span class="keyword">|</span> B <span class="keyword">(</span>x<span class="keyword">,</span> tl<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=&gt;</span> B <span class="keyword">(</span>x0<span class="keyword">,</span> loadd <span class="keyword">(</span>tr<span class="keyword">,</span> x<span class="keyword">)</span><span class="keyword">,</span> tl<span class="keyword">)</span>
+    <span class="keyword">|</span> E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> B <span class="keyword">(</span>x0<span class="keyword">,</span> E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [loadd]
+</span><span class="keyword">}</span> <span class="comment">// end of [funarray_loadd]
+</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span> funarray_lorem <span class="keyword">(</span>t<span class="keyword">)</span> <span class="keyword">=</span> lorem <span class="keyword">(</span>t<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> lorem <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>int <span class="keyword">|</span> n <span class="keyword">&gt;</span> 0<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">bt <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bt <span class="keyword">(</span>a<span class="keyword">,</span> n-1<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val+</span> B <span class="keyword">(</span>_<span class="keyword">,</span> tl<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=</span> t
+  <span class="keyword">in</span>
+    <span class="keyword">case+</span> tl <span class="keyword">of</span>
+    <span class="keyword">|</span> B <span class="keyword">(</span>xl<span class="keyword">,</span> _<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> B <span class="keyword">(</span>xl<span class="keyword">,</span> tr<span class="keyword">,</span> lorem tl<span class="keyword">)</span> <span class="keyword">|</span> E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> E <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [lorem]
+</span><span class="keyword">}</span> <span class="comment">// end of [brauntree_lorem]
+</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span> funarray_lorem_get <span class="keyword">(</span>t<span class="keyword">,</span> x<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val+</span> B <span class="keyword">(</span>x0<span class="keyword">,</span> tl<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=</span> t<span class="keyword">;</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>x := x0<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> tl <span class="keyword">of</span>
+  <span class="keyword">|</span> B <span class="keyword">(</span>xl<span class="keyword">,</span> _<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> B <span class="keyword">(</span>xl<span class="keyword">,</span> tr<span class="keyword">,</span> funarray_lorem&lt;<span class="staexp">a</span><span class="keyword">&gt;</span> tl<span class="keyword">)</span> <span class="keyword">|</span> E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> E <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [funarray_lorem_get]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span> funarray_hiadd
+  <span class="keyword">(</span>t<span class="keyword">,</span> n<span class="keyword">,</span> x0<span class="keyword">)</span> <span class="keyword">=</span> hiadd <span class="keyword">(</span>t<span class="keyword">,</span> n<span class="keyword">,</span> x0<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> hiadd <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">bt <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">,</span> x0<span class="keyword">:</span> <span class="staexp">a</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bt <span class="keyword">(</span>a<span class="keyword">,</span> n+1<span class="keyword">)</span></span> <span class="keyword">=</span>
+    <span class="keyword">if</span> n <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val+</span> B <span class="keyword">(</span>x<span class="keyword">,</span> tl<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=</span> t<span class="keyword">;</span> <span class="keyword">val</span> n2 <span class="keyword">=</span> n / 2
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> n <span class="keyword">&gt;</span> n2 + n2 <span class="keyword">then</span> <span class="keyword">begin</span>
+        B <span class="keyword">(</span>x<span class="keyword">,</span> hiadd <span class="keyword">(</span>tl<span class="keyword">,</span> n2<span class="keyword">,</span> x0<span class="keyword">)</span><span class="keyword">,</span> tr<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+        B <span class="keyword">(</span>x<span class="keyword">,</span> tl<span class="keyword">,</span> hiadd <span class="keyword">(</span>tr<span class="keyword">,</span> n2-1<span class="keyword">,</span> x0<span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      B <span class="keyword">(</span>x0<span class="keyword">,</span> E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">}</span> <span class="comment">// end of [funarray_hiadd]
+</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span> funarray_hirem
+  <span class="keyword">(</span>t<span class="keyword">,</span> n<span class="keyword">)</span> <span class="keyword">=</span> hirem <span class="keyword">(</span>t<span class="keyword">,</span> n<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> hirem <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>pos<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">bt <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bt <span class="keyword">(</span>a<span class="keyword">,</span> n-1<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val+</span> B <span class="keyword">(</span>x<span class="keyword">,</span> tl<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=</span> t<span class="keyword">;</span> <span class="keyword">val</span> n2 <span class="keyword">=</span> n / 2
+  <span class="keyword">in</span>
+    <span class="keyword">case+</span> tl <span class="keyword">of</span>
+    <span class="keyword">|</span> B _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> n <span class="keyword">&gt;</span> n2 + n2 <span class="keyword">then</span> <span class="keyword">begin</span>
+          B <span class="keyword">(</span>x<span class="keyword">,</span> tl<span class="keyword">,</span> hirem <span class="keyword">(</span>tr<span class="keyword">,</span> n2<span class="keyword">)</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+          B <span class="keyword">(</span>x<span class="keyword">,</span> hirem <span class="keyword">(</span>tl<span class="keyword">,</span> n2<span class="keyword">)</span><span class="keyword">,</span> tr<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>      <span class="keyword">end</span> <span class="comment">// end of [B]
+</span>    <span class="keyword">|</span> E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> E <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [hirem]
+</span><span class="keyword">}</span> <span class="comment">// end of [funarray_hirem]
+</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span> funarray_hirem_get
+  <span class="keyword">(</span>t<span class="keyword">,</span> n<span class="keyword">,</span> x0<span class="keyword">)</span> <span class="keyword">=</span> hirem_get <span class="keyword">(</span>t<span class="keyword">,</span> n<span class="keyword">,</span> x0<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> hirem_get <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>pos<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">bt <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">,</span> x0<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>a? &gt;&gt; a</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">bt <span class="keyword">(</span>a<span class="keyword">,</span> n-1<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val+</span> B <span class="keyword">(</span>x<span class="keyword">,</span> tl<span class="keyword">,</span> tr<span class="keyword">)</span> <span class="keyword">=</span> t<span class="keyword">;</span> <span class="keyword">val</span> n2 <span class="keyword">=</span> n / 2
+  <span class="keyword">in</span>
+    <span class="keyword">case+</span> tl <span class="keyword">of</span>
+    <span class="keyword">|</span> B _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> n <span class="keyword">&gt;</span> n2 + n2 <span class="keyword">then</span> <span class="keyword">begin</span>
+          B <span class="keyword">(</span>x<span class="keyword">,</span> tl<span class="keyword">,</span> hirem_get <span class="keyword">(</span>tr<span class="keyword">,</span> n2<span class="keyword">,</span> x0<span class="keyword">)</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+          B <span class="keyword">(</span>x<span class="keyword">,</span> hirem_get <span class="keyword">(</span>tl<span class="keyword">,</span> n2<span class="keyword">,</span> x0<span class="keyword">)</span><span class="keyword">,</span> tr<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>      <span class="keyword">end</span> <span class="comment">// end of [B]
+</span>    <span class="keyword">|</span> E <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>x0 := x<span class="keyword">;</span> E <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">end</span>
+  <span class="comment">// end of [hirem_get]
+</span><span class="keyword">}</span> <span class="comment">// end of [funarray_hirem_get]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span> funarray_foreach_clo <span class="staexp"><span class="keyword">{</span>v<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> A<span class="keyword">,</span> n<span class="keyword">,</span> f<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> i<span class="keyword">:</span> <span class="staexp">natLte n</span>
+<span class="keyword">in</span>
+  <span class="keyword">for*</span> <span class="keyword">{</span><span class="staexp">i<span class="keyword">:</span>nat</span> <span class="keyword">|</span> <span class="staexp">i &lt;= n</span><span class="keyword">}</span> <span class="keyword">.&lt;</span><span class="staexp">n-i</span><span class="keyword">&gt;.</span> <span class="comment">// term metric
+</span>    <span class="keyword">(</span>i<span class="keyword">:</span> <span class="staexp">int i</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>i := 0<span class="keyword">;</span> i <span class="keyword">&lt;</span> n<span class="keyword">;</span> i := i+1<span class="keyword">)</span> f <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> A[<span class="prfexp">i</span><span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [funarray_foreach_clo]
+</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span> funarray_foreach_cloref <span class="staexp"><span class="keyword">{</span>n<span class="keyword">}</span></span> <span class="keyword">(</span>A<span class="keyword">,</span> n<span class="keyword">,</span> f<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> i<span class="keyword">:</span> <span class="staexp">natLte n</span>
+<span class="keyword">in</span>
+  <span class="keyword">for*</span> <span class="keyword">{</span><span class="staexp">i<span class="keyword">:</span>nat</span> <span class="keyword">|</span> <span class="staexp">i &lt;= n</span><span class="keyword">}</span> <span class="keyword">.&lt;</span><span class="staexp">n-i</span><span class="keyword">&gt;.</span> <span class="comment">// term metric
+</span>    <span class="keyword">(</span>i<span class="keyword">:</span> <span class="staexp">int i</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>i := 0<span class="keyword">;</span> i <span class="keyword">&lt;</span> n<span class="keyword">;</span> i := i+1<span class="keyword">)</span> f <span class="keyword">(</span>A[<span class="prfexp">i</span><span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [funarray_foreach_cloref]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span> funarray_iforeach_clo <span class="staexp"><span class="keyword">{</span>v<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> A<span class="keyword">,</span> n<span class="keyword">,</span> f<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> i<span class="keyword">:</span> <span class="staexp">natLte n</span>
+<span class="keyword">in</span>
+  <span class="keyword">for*</span> <span class="keyword">{</span><span class="staexp">i<span class="keyword">:</span>nat</span> <span class="keyword">|</span> <span class="staexp">i &lt;= n</span><span class="keyword">}</span> <span class="keyword">.&lt;</span><span class="staexp">n-i</span><span class="keyword">&gt;.</span> <span class="comment">// term metric
+</span>    <span class="keyword">(</span>i<span class="keyword">:</span> <span class="staexp">int i</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>i := 0<span class="keyword">;</span> i <span class="keyword">&lt;</span> n<span class="keyword">;</span> i := i+1<span class="keyword">)</span> f <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> i<span class="keyword">,</span> A[<span class="prfexp">i</span><span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [funarray_iforeach_clo]
+</span>
+<span class="keyword">implement</span><span class="keyword">{</span><span class="staexp">a</span><span class="keyword">}</span> funarray_iforeach_cloref <span class="staexp"><span class="keyword">{</span>n<span class="keyword">}</span></span> <span class="keyword">(</span>A<span class="keyword">,</span> n<span class="keyword">,</span> f<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> i<span class="keyword">:</span> <span class="staexp">natLte n</span>
+<span class="keyword">in</span>
+  <span class="keyword">for*</span> <span class="keyword">{</span><span class="staexp">i<span class="keyword">:</span>nat</span> <span class="keyword">|</span> <span class="staexp">i &lt;= n</span><span class="keyword">}</span> <span class="keyword">.&lt;</span><span class="staexp">n-i</span><span class="keyword">&gt;.</span> <span class="comment">// term metric
+</span>    <span class="keyword">(</span>i<span class="keyword">:</span> <span class="staexp">int i</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>i := 0<span class="keyword">;</span> i <span class="keyword">&lt;</span> n<span class="keyword">;</span> i := i+1<span class="keyword">)</span> f <span class="keyword">(</span>i<span class="keyword">,</span> A[<span class="prfexp">i</span><span class="keyword">]</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [funarray_iforeach_cloref]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [funarray.dats] *)</span>
+</PRE>
+</BODY>
+</HTML>

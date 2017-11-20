@@ -1,0 +1,698 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: October 2007
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Loc <span class="keyword">=</span> "ats_location.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Lst <span class="keyword">=</span> "ats_list.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">PM <span class="keyword">=</span> "ats_posmark.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_syntax.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">nil list_nil</span>
+<span class="keyword">#define</span> <span class="neuexp">cons list_cons</span>
+<span class="keyword">#define</span> <span class="neuexp">:: list_cons</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="1800"><span class="stacstdec">loc_t <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_t</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> externloc_posmark
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> loc_begoff <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_begpos_toff loc
+  <span class="keyword">val</span> loc_endoff <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_endpos_toff loc
+<span class="keyword">in</span>
+  $PM<span class="keyword">.</span>posmark_insert_extern_beg loc_begoff<span class="keyword">;</span>
+  $PM<span class="keyword">.</span>posmark_insert_extern_end loc_endoff<span class="keyword">;</span>
+<span class="keyword">end</span> <span class="comment">// end of [externloc_posmark]
+</span>
+<span class="keyword">fn</span> neuexploc_posmark
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> loc_begoff <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_begpos_toff loc
+  <span class="keyword">val</span> loc_endoff <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_endpos_toff loc
+<span class="keyword">in</span>
+  $PM<span class="keyword">.</span>posmark_insert_neuexp_beg loc_begoff<span class="keyword">;</span>
+  $PM<span class="keyword">.</span>posmark_insert_neuexp_end loc_endoff<span class="keyword">;</span>
+<span class="keyword">end</span> <span class="comment">// end of [neuexploc_posmark]
+</span>
+<span class="keyword">fn</span> staexploc_posmark
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> loc_begoff <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_begpos_toff loc
+  <span class="keyword">val</span> loc_endoff <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_endpos_toff loc
+<span class="keyword">in</span>
+  $PM<span class="keyword">.</span>posmark_insert_staexp_beg loc_begoff<span class="keyword">;</span>
+  $PM<span class="keyword">.</span>posmark_insert_staexp_end loc_endoff<span class="keyword">;</span>
+<span class="keyword">end</span> <span class="comment">// end of [staexploc_posmark]
+</span>
+<span class="keyword">fn</span> prfexploc_posmark
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> loc_begoff <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_begpos_toff loc
+  <span class="keyword">val</span> loc_endoff <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_endpos_toff loc
+<span class="keyword">in</span>
+  $PM<span class="keyword">.</span>posmark_insert_prfexp_beg loc_begoff<span class="keyword">;</span>
+  $PM<span class="keyword">.</span>posmark_insert_prfexp_end loc_endoff<span class="keyword">;</span>
+<span class="keyword">end</span> <span class="comment">// end of [prfexploc_posmark]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> e0xp_posmark <span class="keyword">(</span>e<span class="keyword">:</span> <span class="staexp">e0xp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  neuexploc_posmark <span class="keyword">(</span>e<span class="keyword">.</span>e0xp_loc<span class="keyword">)</span>
+
+<span class="keyword">fn</span> s0exp_posmark <span class="keyword">(</span>s0e<span class="keyword">:</span> <span class="staexp">s0exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  staexploc_posmark <span class="keyword">(</span>s0e<span class="keyword">.</span>s0exp_loc<span class="keyword">)</span>
+
+<span class="keyword">fun</span> s0explst_posmark <span class="keyword">(</span>s0es<span class="keyword">:</span> <span class="staexp">s0explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>s0es<span class="keyword">,</span> s0exp_posmark<span class="keyword">)</span> 
+
+<span class="keyword">fn</span> s0expopt_posmark <span class="keyword">(</span>os0e<span class="keyword">:</span> <span class="staexp">s0expopt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> os0e <span class="keyword">of</span> Some s0e <span class="keyword">=&gt;</span> s0exp_posmark s0e <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+
+<span class="keyword">fn</span> s0explstlst_posmark <span class="keyword">(</span>s0ess<span class="keyword">:</span> <span class="staexp">s0explstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>s0ess<span class="keyword">,</span> s0explst_posmark<span class="keyword">)</span> 
+
+<span class="keyword">fun</span> labs0explst_posmark <span class="keyword">(</span>ls0es<span class="keyword">:</span> <span class="staexp">labs0explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> ls0es <span class="keyword">of</span>
+  <span class="keyword">|</span> LABS0EXPLSTcons <span class="keyword">(</span>lab<span class="keyword">,</span> s0e<span class="keyword">,</span> ls0es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> loc1 <span class="keyword">=</span> lab<span class="keyword">.</span>l0ab_loc <span class="keyword">and</span> loc2 <span class="keyword">=</span> s0e<span class="keyword">.</span>s0exp_loc
+      <span class="keyword">val</span> loc_begoff <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_begpos_toff loc1
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $PM<span class="keyword">.</span>posmark_insert_staexp_beg loc_begoff
+      <span class="keyword">val</span> loc_endoff <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_endpos_toff loc2
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $PM<span class="keyword">.</span>posmark_insert_staexp_end loc_endoff
+    <span class="keyword">in</span>
+      labs0explst_posmark <span class="keyword">(</span>ls0es<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [LABS0EXPcons]
+</span>  <span class="keyword">|</span> LABS0EXPLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [labs0explst_posmark]
+</span>
+<span class="keyword">fun</span> t1mps0explstlst_posmark <span class="keyword">(</span>ts0ess<span class="keyword">:</span> <span class="staexp">t1mps0explstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> ts0ess <span class="keyword">of</span>
+  <span class="keyword">|</span> T1MPS0EXPLSTLSTcons <span class="keyword">(</span>_<span class="comment">(*loc*)</span><span class="keyword">,</span> s0es<span class="keyword">,</span> ts0ess<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      s0explst_posmark s0es<span class="keyword">;</span> t1mps0explstlst_posmark ts0ess
+    <span class="keyword">end</span> <span class="comment">// end of [T1MPS0EXPLSTLSTcons]
+</span>  <span class="keyword">|</span> T1MPS0EXPLSTLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [tmps0explstlst_posmark]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> s0arg_posmark <span class="keyword">(</span>s0a<span class="keyword">:</span> <span class="staexp">s0arg</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  staexploc_posmark <span class="keyword">(</span>s0a<span class="keyword">.</span>s0arg_loc<span class="keyword">)</span>
+
+<span class="keyword">fn</span> s0arglst_posmark <span class="keyword">(</span>s0as<span class="keyword">:</span> <span class="staexp">s0arglst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>s0as<span class="keyword">,</span> s0arg_posmark<span class="keyword">)</span>
+
+<span class="keyword">fn</span> s0arglstlst_posmark <span class="keyword">(</span>s0ass<span class="keyword">:</span> <span class="staexp">s0arglstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>s0ass<span class="keyword">,</span> s0arglst_posmark<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> s0qua_posmark <span class="keyword">(</span>s0q<span class="keyword">:</span> <span class="staexp">s0qua</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  staexploc_posmark <span class="keyword">(</span>s0q<span class="keyword">.</span>s0qua_loc<span class="keyword">)</span>
+
+<span class="keyword">fn</span> s0qualst_posmark <span class="keyword">(</span>s0qs<span class="keyword">:</span> <span class="staexp">s0qualst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+ $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>s0qs<span class="keyword">,</span> s0qua_posmark<span class="keyword">)</span>
+
+<span class="keyword">fn</span> s0qualstlst_posmark <span class="keyword">(</span>s0qss<span class="keyword">:</span> <span class="staexp">s0qualstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+ $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>s0qss<span class="keyword">,</span> s0qualst_posmark<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> e0fftag_posmark <span class="keyword">(</span>tag<span class="keyword">:</span> <span class="staexp">e0fftag</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  staexploc_posmark <span class="keyword">(</span>tag<span class="keyword">.</span>e0fftag_loc<span class="keyword">)</span>
+
+<span class="keyword">fn</span> e0fftaglst_posmark <span class="keyword">(</span>tags<span class="keyword">:</span> <span class="staexp">e0fftaglst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>tags<span class="keyword">,</span> e0fftag_posmark<span class="keyword">)</span> 
+
+<span class="keyword">fn</span> e0fftaglstopt_posmark
+  <span class="keyword">(</span>otags<span class="keyword">:</span> <span class="staexp">e0fftaglstopt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">case+</span> otags <span class="keyword">of</span>
+  <span class="keyword">|</span> Some tags <span class="keyword">=&gt;</span> e0fftaglst_posmark tags <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> 
+<span class="comment">// end of [e0fftaglstopt_posmark]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> p0at_prf_posmark <span class="keyword">(</span>p0t<span class="keyword">:</span> <span class="staexp">p0at</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  prfexploc_posmark p0t<span class="keyword">.</span>p0at_loc<span class="keyword">;</span> p0at_posmark p0t<span class="keyword">;</span>
+<span class="keyword">end</span> <span class="comment">// end of [p0at_prf_posmark]
+</span>
+<span class="keyword">fun</span> p0atlst_prf_posmark <span class="keyword">(</span>p0ts<span class="keyword">:</span> <span class="staexp">p0atlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>p0ts<span class="keyword">,</span> p0at_prf_posmark<span class="keyword">)</span>
+
+<span class="keyword">fn</span> p0atopt_posmark <span class="keyword">(</span>op0t<span class="keyword">:</span> <span class="staexp">p0atopt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> op0t <span class="keyword">of</span> Some p0t <span class="keyword">=&gt;</span> p0at_posmark p0t <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [p0atopt_posmark]
+</span>
+<span class="keyword">fun</span> labp0atlst_posmark <span class="keyword">(</span>lp0ts<span class="keyword">:</span> <span class="staexp">labp0atlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> lp0ts <span class="keyword">of</span>
+  <span class="keyword">|</span> LABP0ATLSTcons <span class="keyword">(</span>_<span class="comment">(*lab*)</span><span class="keyword">,</span> p0t<span class="keyword">,</span> lp0ts<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      p0at_posmark p0t<span class="keyword">;</span> labp0atlst_posmark lp0ts
+    <span class="keyword">end</span> <span class="comment">// end of [LABP0ATLSTcons]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [labp0atlst_posmark]
+</span>
+<span class="keyword">implement</span> p0at_posmark <span class="keyword">(</span>p0t<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> p0t<span class="keyword">.</span>p0at_node <span class="keyword">of</span>
+  <span class="keyword">|</span> P0Tann <span class="keyword">(</span>p0t<span class="keyword">,</span> s0e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      p0at_posmark p0t<span class="keyword">;</span> staexploc_posmark <span class="keyword">(</span>s0e<span class="keyword">.</span>s0exp_loc<span class="keyword">)</span><span class="keyword">;</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> P0Tapp <span class="keyword">(</span>p0t1<span class="keyword">,</span> p0t2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      p0at_posmark p0t1<span class="keyword">;</span> p0at_posmark p0t2<span class="keyword">;</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> P0Tas <span class="keyword">(</span>_<span class="comment">(*id*)</span><span class="keyword">,</span> p0t<span class="keyword">)</span> <span class="keyword">=&gt;</span> p0at_posmark p0t
+  <span class="keyword">|</span> P0Texist s0as <span class="keyword">=&gt;</span> s0arglst_posmark s0as
+  <span class="keyword">|</span> P0Tfree p0t <span class="keyword">=&gt;</span> p0at_posmark p0t
+  <span class="keyword">|</span> P0Tlist <span class="keyword">(</span>p0ts<span class="keyword">)</span> <span class="keyword">=&gt;</span> p0atlst_posmark p0ts
+  <span class="keyword">|</span> P0Tlist2 <span class="keyword">(</span>p0ts1<span class="keyword">,</span> p0ts2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      p0atlst_prf_posmark p0ts1<span class="keyword">;</span> p0atlst_posmark p0ts2<span class="keyword">;</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> P0Tlst p0ts <span class="keyword">=&gt;</span> p0atlst_posmark p0ts
+  <span class="keyword">|</span> P0Trec <span class="keyword">(</span>_<span class="comment">(*recknd*)</span><span class="keyword">,</span> lp0ts<span class="keyword">)</span> <span class="keyword">=&gt;</span> labp0atlst_posmark lp0ts
+  <span class="keyword">|</span> P0Tsvararg s0vs <span class="keyword">=&gt;</span> staexploc_posmark <span class="keyword">(</span>p0t<span class="keyword">.</span>p0at_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> P0Ttup <span class="keyword">(</span>_<span class="comment">(*tupknd*)</span><span class="keyword">,</span> p0ts<span class="keyword">)</span> <span class="keyword">=&gt;</span> p0atlst_posmark p0ts
+  <span class="keyword">|</span> P0Ttup2 <span class="keyword">(</span>_<span class="comment">(*tupknd*)</span><span class="keyword">,</span> p0ts1<span class="keyword">,</span> p0ts2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      p0atlst_prf_posmark p0ts1<span class="keyword">;</span> p0atlst_posmark p0ts2<span class="keyword">;</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [p0at_posmark]
+</span>
+<span class="keyword">implement</span> p0atlst_posmark <span class="keyword">(</span>p0ts<span class="keyword">)</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>p0ts<span class="keyword">,</span> p0at_posmark<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> p0arg_posmark <span class="keyword">(</span>p0a<span class="keyword">:</span> <span class="staexp">p0arg</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  s0expopt_posmark <span class="keyword">(</span>p0a<span class="keyword">.</span>p0arg_ann<span class="keyword">)</span>
+
+<span class="keyword">fn</span> p0arglst_posmark <span class="keyword">(</span>p0as<span class="keyword">:</span> <span class="staexp">p0arglst</span><span class="keyword">)</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>p0as<span class="keyword">,</span> p0arg_posmark<span class="keyword">)</span>
+
+
+<span class="keyword">fn</span> p0arg_prf_posmark <span class="keyword">(</span>p0a<span class="keyword">:</span> <span class="staexp">p0arg</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  prfexploc_posmark <span class="keyword">(</span>p0a<span class="keyword">.</span>p0arg_loc<span class="keyword">)</span><span class="keyword">;</span> s0expopt_posmark <span class="keyword">(</span>p0a<span class="keyword">.</span>p0arg_ann<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [p0arg_prf_posmark]
+</span>
+<span class="keyword">fn</span> p0arglst_prf_posmark <span class="keyword">(</span>p0as<span class="keyword">:</span> <span class="staexp">p0arglst</span><span class="keyword">)</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>p0as<span class="keyword">,</span> p0arg_prf_posmark<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> d0arg_posmark <span class="keyword">(</span>d0a<span class="keyword">:</span> <span class="staexp">d0arg</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> d0a<span class="keyword">.</span>d0arg_node <span class="keyword">of</span>
+  <span class="keyword">|</span> D0ARGsta _ <span class="keyword">=&gt;</span> staexploc_posmark <span class="keyword">(</span>d0a<span class="keyword">.</span>d0arg_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> D0ARGdyn p0as <span class="keyword">=&gt;</span> p0arglst_posmark p0as
+  <span class="keyword">|</span> D0ARGdyn2 <span class="keyword">(</span>p0as1<span class="keyword">,</span> p0as2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      p0arglst_prf_posmark p0as1<span class="keyword">;</span> p0arglst_posmark p0as2
+    <span class="keyword">end</span> <span class="comment">// end of [D0ARGdyn2]
+</span><span class="comment">// end of [d0arg_posmark]
+</span>
+<span class="keyword">fn</span> d0arglst_posmark <span class="keyword">(</span>d0as<span class="keyword">:</span> <span class="staexp">d0arglst</span><span class="keyword">)</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>d0as<span class="keyword">,</span> d0arg_posmark<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> f0arg_posmark <span class="keyword">(</span>f0a<span class="keyword">:</span> <span class="staexp">f0arg</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> f0a<span class="keyword">.</span>f0arg_node <span class="keyword">of</span>
+  <span class="keyword">|</span> F0ARGsta1 _ <span class="keyword">=&gt;</span> staexploc_posmark <span class="keyword">(</span>f0a<span class="keyword">.</span>f0arg_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> F0ARGsta2 _ <span class="keyword">=&gt;</span> staexploc_posmark <span class="keyword">(</span>f0a<span class="keyword">.</span>f0arg_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> F0ARGdyn p0t <span class="keyword">=&gt;</span> p0at_posmark p0t
+  <span class="keyword">|</span> F0ARGmet _ <span class="keyword">=&gt;</span> staexploc_posmark <span class="keyword">(</span>f0a<span class="keyword">.</span>f0arg_loc<span class="keyword">)</span>
+<span class="comment">// end of [f0arg_posmark]
+</span>
+<span class="keyword">fn</span> f0arglst_posmark <span class="keyword">(</span>f0as<span class="keyword">:</span> <span class="staexp">f0arglst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>f0as<span class="keyword">,</span> f0arg_posmark<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> i0nvarglst_posmark <span class="keyword">(</span>args<span class="keyword">:</span> <span class="staexp">i0nvarglst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">case+</span> args <span class="keyword">of</span>
+  <span class="keyword">|</span> arg :: args <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      s0expopt_posmark arg<span class="keyword">.</span>i0nvarg_typ<span class="keyword">;</span> i0nvarglst_posmark args
+    <span class="keyword">end</span> <span class="comment">// end of [::]
+</span>  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [i0nvarglst_posmark]
+</span>
+<span class="keyword">fn</span> i0nvresstate_posmark <span class="keyword">(</span>res<span class="keyword">:</span> <span class="staexp">i0nvresstate</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> res<span class="keyword">.</span>i0nvresstate_qua <span class="keyword">of</span>
+    <span class="keyword">|</span> Some s0qs <span class="keyword">=&gt;</span> s0qualst_posmark s0qs <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  i0nvarglst_posmark <span class="keyword">(</span>res<span class="keyword">.</span>i0nvresstate_arg<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [i0nvresstate_posmark]
+</span>
+<span class="keyword">fn</span> loopi0nv_posmark <span class="keyword">(</span>inv<span class="keyword">:</span> <span class="staexp">loopi0nv</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> inv<span class="keyword">.</span>loopi0nv_qua <span class="keyword">of</span>
+    <span class="keyword">|</span> Some s0qs <span class="keyword">=&gt;</span> s0qualst_posmark s0qs <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> inv<span class="keyword">.</span>loopi0nv_met <span class="keyword">of</span>
+    <span class="keyword">|</span> Some s0es <span class="keyword">=&gt;</span> s0explst_posmark s0es <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> i0nvarglst_posmark inv<span class="keyword">.</span>loopi0nv_arg
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> i0nvresstate_posmark inv<span class="keyword">.</span>loopi0nv_res
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [loopi0nv_posmark]
+</span>
+<span class="keyword">fn</span> loopi0nvopt_posmark <span class="keyword">(</span>oinv<span class="keyword">:</span> <span class="staexp">loopi0nvopt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> oinv <span class="keyword">of</span> Some inv <span class="keyword">=&gt;</span> loopi0nv_posmark inv <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [loopi0nvopt_posmark]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> d0exp_prf_posmark <span class="keyword">(</span>d0e<span class="keyword">:</span> <span class="staexp">d0exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  prfexploc_posmark d0e<span class="keyword">.</span>d0exp_loc<span class="keyword">;</span> d0exp_posmark d0e<span class="keyword">;</span>
+<span class="keyword">end</span> <span class="comment">// end of [d0exp_prf_posmark]
+</span>
+<span class="keyword">fn</span> d0explst_prf_posmark <span class="keyword">(</span>d0es<span class="keyword">:</span> <span class="staexp">d0explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>d0es<span class="keyword">,</span> d0exp_prf_posmark<span class="keyword">)</span>
+
+<span class="keyword">fn</span> d0explstlst_posmark <span class="keyword">(</span>d0ess<span class="keyword">:</span> <span class="staexp">d0explstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>d0ess<span class="keyword">,</span> d0explst_prf_posmark<span class="keyword">)</span>
+
+<span class="keyword">fn</span> d0expopt_posmark <span class="keyword">(</span>od0e<span class="keyword">:</span> <span class="staexp">d0expopt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> od0e <span class="keyword">of</span> Some d0e <span class="keyword">=&gt;</span> d0exp_posmark d0e <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+
+<span class="keyword">fn</span> m0atch_posmark <span class="keyword">(</span>m0at<span class="keyword">:</span> <span class="staexp">m0atch</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  d0exp_posmark <span class="keyword">(</span>m0at<span class="keyword">.</span>m0atch_exp<span class="keyword">)</span><span class="keyword">;</span> p0atopt_posmark <span class="keyword">(</span>m0at<span class="keyword">.</span>m0atch_pat<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [m0atch_posmark]
+</span>
+<span class="keyword">fn</span> m0atchlst_posmark <span class="keyword">(</span>m0ats<span class="keyword">:</span> <span class="staexp">m0atchlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>m0ats<span class="keyword">,</span> m0atch_posmark<span class="keyword">)</span>
+
+<span class="keyword">fn</span> guap0at_posmark <span class="keyword">(</span>gp0t<span class="keyword">:</span> <span class="staexp">guap0at</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  p0at_posmark gp0t<span class="keyword">.</span>guap0at_pat<span class="keyword">;</span> m0atchlst_posmark gp0t<span class="keyword">.</span>guap0at_gua
+<span class="keyword">end</span> <span class="comment">// end of [guap0at_posmark]
+</span>
+<span class="keyword">fn</span> c0lau_posmark <span class="keyword">(</span>c0l<span class="keyword">:</span> <span class="staexp">c0lau</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  guap0at_posmark c0l<span class="keyword">.</span>c0lau_pat<span class="keyword">;</span> d0exp_posmark c0l<span class="keyword">.</span>c0lau_body
+<span class="keyword">end</span> <span class="comment">// end of [c0clau_posmark]
+</span>
+<span class="keyword">fn</span> c0laulst_posmark <span class="keyword">(</span>c0ls<span class="keyword">:</span> <span class="staexp">c0laulst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>c0ls<span class="keyword">,</span> c0lau_posmark<span class="keyword">)</span>
+
+<span class="keyword">fun</span> labd0explst_posmark <span class="keyword">(</span>ld0es<span class="keyword">:</span> <span class="staexp">labd0explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> ld0es <span class="keyword">of</span>
+  <span class="keyword">|</span> LABD0EXPLSTcons <span class="keyword">(</span>_<span class="comment">(*lab*)</span><span class="keyword">,</span> d0e<span class="keyword">,</span> ld0es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d0exp_posmark d0e<span class="keyword">;</span> labd0explst_posmark ld0es
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> LABD0EXPLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [labd0explst_posmark]
+</span>
+<span class="keyword">implement</span> d0exp_posmark <span class="keyword">(</span>d0e0<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> d0e0<span class="keyword">.</span>d0exp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> D0Eann <span class="keyword">(</span>d0e<span class="keyword">,</span> s0e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d0exp_posmark d0e<span class="keyword">;</span> s0exp_posmark <span class="keyword">(</span>s0e<span class="keyword">)</span><span class="keyword">;</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> D0Eapp <span class="keyword">(</span>d0e_fun<span class="keyword">,</span> d0e_arg<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d0exp_posmark d0e_fun<span class="keyword">;</span> d0exp_posmark d0e_arg<span class="keyword">;</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> D0Earrinit <span class="keyword">(</span>s0e_elt<span class="keyword">,</span> od0e_asz<span class="keyword">,</span> d0es_elt<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      s0exp_posmark s0e_elt<span class="keyword">;</span> d0expopt_posmark od0e_asz<span class="keyword">;</span> d0explst_posmark d0es_elt<span class="keyword">;</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D0Earrinit]
+</span>  <span class="keyword">|</span> D0Earrsub <span class="keyword">(</span>_<span class="comment">(*id*)</span><span class="keyword">,</span> _<span class="comment">(*loc_ind*)</span><span class="keyword">,</span> d0ess<span class="keyword">)</span> <span class="keyword">=&gt;</span> d0explstlst_posmark d0ess
+  <span class="keyword">|</span> D0Ecaseof <span class="keyword">(</span>hd<span class="keyword">,</span> d0e<span class="keyword">,</span> c0ls<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d0exp_posmark d0e<span class="keyword">;</span> c0laulst_posmark c0ls
+    <span class="keyword">end</span> <span class="comment">// end of [D0Ecaseof]
+</span>  <span class="keyword">|</span> D0Eexist <span class="keyword">(</span>qualoc<span class="keyword">,</span> _<span class="comment">(*s0exparg*)</span><span class="keyword">,</span> d0e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      staexploc_posmark qualoc<span class="keyword">;</span> d0exp_posmark d0e
+    <span class="keyword">end</span> <span class="comment">// end of [D0Eexist]
+</span>  <span class="keyword">|</span> D0Eextval <span class="keyword">(</span>s0e<span class="keyword">,</span> _<span class="comment">(*code*)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s0exp_posmark s0e
+  <span class="keyword">|</span> D0Efix <span class="keyword">(</span>
+      _<span class="comment">(*knd*)</span><span class="keyword">,</span> _<span class="comment">(*id*)</span><span class="keyword">,</span> f0as<span class="keyword">,</span> os0e<span class="keyword">,</span> otags<span class="keyword">,</span> d0e_body
+    <span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      f0arglst_posmark f0as<span class="keyword">;</span>
+      s0expopt_posmark os0e<span class="keyword">;</span> e0fftaglstopt_posmark otags<span class="keyword">;</span>
+      d0exp_posmark d0e_body<span class="keyword">;</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D0Efix]
+</span>  <span class="keyword">|</span> D0Efor <span class="keyword">(</span>inv<span class="keyword">,</span> loc_inv<span class="keyword">,</span> d0e_ini<span class="keyword">,</span> d0e_test<span class="keyword">,</span> d0e_post<span class="keyword">,</span> d0e_body<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      loopi0nvopt_posmark inv<span class="keyword">;</span>
+      d0exp_posmark d0e_ini<span class="keyword">;</span> d0exp_posmark d0e_test<span class="keyword">;</span>
+      d0exp_posmark d0e_post<span class="keyword">;</span> d0exp_posmark d0e_body<span class="keyword">;</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D0Efor]
+</span>  <span class="keyword">|</span> D0Eif <span class="keyword">(</span>hd<span class="keyword">,</span> d0e_cond<span class="keyword">,</span> d0e_then<span class="keyword">,</span> od0e_else<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d0exp_posmark d0e_cond<span class="keyword">;</span>
+      d0exp_posmark d0e_then<span class="keyword">;</span>
+      d0expopt_posmark od0e_else<span class="keyword">;</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D0Eif]
+</span>  <span class="keyword">|</span> D0Elam <span class="keyword">(</span>_<span class="comment">(*lin*)</span><span class="keyword">,</span> f0as<span class="keyword">,</span> os0e<span class="keyword">,</span> otags<span class="keyword">,</span> d0e_body<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      f0arglst_posmark f0as<span class="keyword">;</span>
+      s0expopt_posmark os0e<span class="keyword">;</span> e0fftaglstopt_posmark otags<span class="keyword">;</span>
+      d0exp_posmark d0e_body<span class="keyword">;</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> D0Elet <span class="keyword">(</span>d0cs<span class="keyword">,</span> d0e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d0eclst_posmark d0cs<span class="keyword">;</span> d0exp_posmark d0e<span class="keyword">;</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> D0Elist d0es <span class="keyword">=&gt;</span> d0explst_posmark d0es
+  <span class="keyword">|</span> D0Elist2 <span class="keyword">(</span>d0es1<span class="keyword">,</span> d0es2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d0explst_prf_posmark d0es1<span class="keyword">;</span> d0explst_posmark d0es2<span class="keyword">;</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> D0Elst <span class="keyword">(</span>
+      _<span class="comment">(*lstknd*)</span><span class="keyword">,</span> os0e<span class="keyword">,</span> d0e_elts
+    <span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      s0expopt_posmark os0e<span class="keyword">;</span> d0exp_posmark d0e_elts<span class="keyword">;</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D0Elst]
+</span>  <span class="keyword">|</span> D0Emacsyn <span class="keyword">(</span>_<span class="comment">(*knd*)</span><span class="keyword">,</span> d0e<span class="keyword">)</span> <span class="keyword">=&gt;</span> d0exp_posmark d0e
+  <span class="keyword">|</span> D0Eraise <span class="keyword">(</span>d0e<span class="keyword">)</span> <span class="keyword">=&gt;</span> d0exp_posmark d0e
+  <span class="keyword">|</span> D0Erec <span class="keyword">(</span>_<span class="comment">(*recknd*)</span><span class="keyword">,</span> ld0es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      labd0explst_posmark ld0es<span class="keyword">;</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> D0Esel_ind <span class="keyword">(</span>_<span class="comment">(*ptr*)</span><span class="keyword">,</span> d0ess<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d0explstlst_posmark d0ess<span class="keyword">;</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> D0Eseq d0es <span class="keyword">=&gt;</span> d0explst_posmark d0es
+  <span class="keyword">|</span> D0Esexparg _<span class="comment">(*s0exparg*)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      staexploc_posmark <span class="keyword">(</span>d0e0<span class="keyword">.</span>d0exp_loc<span class="keyword">)</span><span class="keyword">;</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> D0Esif <span class="keyword">(</span>hd<span class="keyword">,</span> s0e_cond<span class="keyword">,</span> d0e_then<span class="keyword">,</span> d0e_else<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="comment">// val () =  prfexploc_posmark (d0e0.d0exp_loc)
+</span>    <span class="keyword">in</span>
+      s0exp_posmark s0e_cond<span class="keyword">;</span>
+      d0exp_posmark d0e_then<span class="keyword">;</span>
+      d0exp_posmark d0e_else<span class="keyword">;</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D0Esif]
+</span>  <span class="keyword">|</span> D0Estruct ld0es <span class="keyword">=&gt;</span> labd0explst_posmark ld0es
+  <span class="keyword">|</span> D0Etmpid <span class="keyword">(</span>_<span class="comment">(*id*)</span><span class="keyword">,</span> ts0ess<span class="keyword">)</span> <span class="keyword">=&gt;</span> t1mps0explstlst_posmark ts0ess
+  <span class="keyword">|</span> D0Etrywith <span class="keyword">(</span>hd<span class="keyword">,</span> d0e<span class="keyword">,</span> c0ls<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d0exp_posmark d0e<span class="keyword">;</span> c0laulst_posmark c0ls<span class="keyword">;</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D0Etrywith]
+</span>  <span class="keyword">|</span> D0Etup <span class="keyword">(</span>_<span class="comment">(*tupknd*)</span><span class="keyword">,</span> d0es<span class="keyword">)</span> <span class="keyword">=&gt;</span> d0explst_posmark d0es
+  <span class="keyword">|</span> D0Etup2 <span class="keyword">(</span>_<span class="comment">(*tupknd*)</span><span class="keyword">,</span> d0es1<span class="keyword">,</span> d0es2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d0explst_prf_posmark d0es1<span class="keyword">;</span> d0explst_posmark d0es2<span class="keyword">;</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> D0Ewhere <span class="keyword">(</span>d0e<span class="keyword">,</span> d0cs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d0eclst_posmark d0cs<span class="keyword">;</span> d0exp_posmark d0e<span class="keyword">;</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> D0Ewhile <span class="keyword">(</span>inv<span class="keyword">,</span> loc_inv<span class="keyword">,</span> d0e_test<span class="keyword">,</span> d0e_body<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      loopi0nvopt_posmark inv<span class="keyword">;</span> d0exp_posmark d0e_test<span class="keyword">;</span> d0exp_posmark d0e_body<span class="keyword">;</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D0Ewhile]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [d0exp_posmark]
+</span>
+<span class="keyword">implement</span> d0explst_posmark <span class="keyword">(</span>d0es<span class="keyword">)</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>d0es<span class="keyword">,</span> d0exp_posmark<span class="keyword">)</span>
+
+<span class="keyword">implement</span> d0explstopt_posmark <span class="keyword">(</span>od0es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> od0es <span class="keyword">of</span> Some d0es <span class="keyword">=&gt;</span> d0explst_posmark d0es <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d0explstopt_posmark]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> stacstdecloc_posmark <span class="keyword">(</span>loc_id<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> loc_begoff <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_begpos_toff loc_id
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $PM<span class="keyword">.</span>posmark_insert_stacstdec_beg <span class="keyword">(</span>loc_begoff<span class="keyword">,</span> loc_id<span class="keyword">)</span>
+  <span class="keyword">val</span> loc_endoff <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_endpos_toff loc_id
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $PM<span class="keyword">.</span>posmark_insert_stacstdec_end <span class="keyword">(</span>loc_endoff<span class="keyword">,</span> loc_id<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [stacstdecloc_posmark]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> s0expdef_posmark <span class="keyword">(</span>d0c<span class="keyword">:</span> <span class="staexp">s0expdef</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> loc <span class="keyword">=</span> d0c<span class="keyword">.</span>s0expdef_loc<span class="keyword">;</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> stacstdecloc_posmark <span class="keyword">(</span>loc<span class="keyword">)</span>
+<span class="keyword">in</span>
+  staexploc_posmark <span class="keyword">(</span>loc<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s0expdef_posmark]
+</span>
+<span class="keyword">fn</span> s0expdeflst_posmark <span class="keyword">(</span>d0cs<span class="keyword">:</span> <span class="staexp">s0expdeflst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>d0cs<span class="keyword">,</span> s0expdef_posmark<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> d0atcon_posmark <span class="keyword">(</span>d0c<span class="keyword">:</span> <span class="staexp">d0atcon</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  s0qualstlst_posmark d0c<span class="keyword">.</span>d0atcon_qua<span class="keyword">;</span>
+  s0expopt_posmark d0c<span class="keyword">.</span>d0atcon_arg<span class="keyword">;</span>
+  s0expopt_posmark d0c<span class="keyword">.</span>d0atcon_ind<span class="keyword">;</span>
+<span class="keyword">end</span> <span class="comment">// end of [d0atcon_posmark]
+</span>
+<span class="keyword">fn</span> d0atconlst_posmark <span class="keyword">(</span>d0cs<span class="keyword">:</span> <span class="staexp">d0atconlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>d0cs<span class="keyword">,</span> d0atcon_posmark<span class="keyword">)</span>
+
+<span class="keyword">fn</span> d0atdec_posmark
+  <span class="keyword">(</span>d0c<span class="keyword">:</span> <span class="staexp">d0atdec</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> headloc <span class="keyword">=</span> d0c<span class="keyword">.</span>d0atdec_headloc
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> stacstdecloc_posmark <span class="keyword">(</span>headloc<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> staexploc_posmark <span class="keyword">(</span>headloc<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> d0atconlst_posmark <span class="keyword">(</span>d0c<span class="keyword">.</span>d0atdec_con<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [d0atdec_posmark]
+</span>
+<span class="keyword">fn</span> d0atdeclst_posmark <span class="keyword">(</span>d0cs<span class="keyword">:</span> <span class="staexp">d0atdeclst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>d0cs<span class="keyword">,</span> d0atdec_posmark<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> e0xndec_posmark <span class="keyword">(</span>d0c<span class="keyword">:</span> <span class="staexp">e0xndec</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  s0qualstlst_posmark <span class="keyword">(</span>d0c<span class="keyword">.</span>e0xndec_qua<span class="keyword">)</span><span class="keyword">;</span>
+  s0expopt_posmark <span class="keyword">(</span>d0c<span class="keyword">.</span>e0xndec_arg<span class="keyword">)</span><span class="keyword">;</span>
+<span class="keyword">end</span> <span class="comment">// end of [e0xndec_posmark]
+</span>
+<span class="keyword">fn</span> e0xndeclst_posmark <span class="keyword">(</span>d0cs<span class="keyword">:</span> <span class="staexp">e0xndeclst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>d0cs<span class="keyword">,</span> e0xndec_posmark<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> dyncstdecloc_posmark <span class="keyword">(</span>loc_id<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> loc_begoff <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_begpos_toff loc_id
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $PM<span class="keyword">.</span>posmark_insert_dyncstdec_beg <span class="keyword">(</span>loc_begoff<span class="keyword">,</span> loc_id<span class="keyword">)</span>
+  <span class="keyword">val</span> loc_endoff <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_endpos_toff loc_id
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $PM<span class="keyword">.</span>posmark_insert_dyncstdec_end <span class="keyword">(</span>loc_endoff<span class="keyword">,</span> loc_id<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [dyncstdecloc_posmark]
+</span>
+<span class="keyword">fn</span> d0cstdec_posmark <span class="keyword">(</span>d0c<span class="keyword">:</span> <span class="staexp">d0cstdec</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> loc <span class="keyword">=</span> d0c<span class="keyword">.</span>d0cstdec_loc
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> dyncstdecloc_posmark <span class="keyword">(</span>loc<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> d0arglst_posmark <span class="keyword">(</span>d0c<span class="keyword">.</span>d0cstdec_arg<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> e0fftaglstopt_posmark <span class="keyword">(</span>d0c<span class="keyword">.</span>d0cstdec_eff<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s0exp_posmark <span class="keyword">(</span>d0c<span class="keyword">.</span>d0cstdec_res<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [d0cstdec_posmark]
+</span>
+<span class="keyword">fn</span> d0cstdeclst_posmark <span class="keyword">(</span>d0cs<span class="keyword">:</span> <span class="staexp">d0cstdeclst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>d0cs<span class="keyword">,</span> d0cstdec_posmark<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> v0aldec_posmark <span class="keyword">(</span>d0c<span class="keyword">:</span> <span class="staexp">v0aldec</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  p0at_posmark d0c<span class="keyword">.</span>v0aldec_pat<span class="keyword">;</span> d0exp_posmark d0c<span class="keyword">.</span>v0aldec_def<span class="keyword">;</span>
+<span class="keyword">end</span> <span class="comment">// end of [v0aldec_posmark]
+</span>
+<span class="keyword">fn</span> v0aldeclst_posmark <span class="keyword">(</span>d0cs<span class="keyword">:</span> <span class="staexp">v0aldeclst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>d0cs<span class="keyword">,</span> v0aldec_posmark<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> f0undec_posmark <span class="keyword">(</span>d0c<span class="keyword">:</span> <span class="staexp">f0undec</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  f0arglst_posmark d0c<span class="keyword">.</span>f0undec_arg<span class="keyword">;</span>
+  e0fftaglstopt_posmark d0c<span class="keyword">.</span>f0undec_eff<span class="keyword">;</span>
+  s0expopt_posmark d0c<span class="keyword">.</span>f0undec_res<span class="keyword">;</span>
+  d0exp_posmark d0c<span class="keyword">.</span>f0undec_def<span class="keyword">;</span>
+<span class="keyword">end</span> <span class="comment">// end of [f0undec_posmark]
+</span>
+<span class="keyword">fn</span> f0undeclst_posmark <span class="keyword">(</span>d0cs<span class="keyword">:</span> <span class="staexp">f0undeclst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>d0cs<span class="keyword">,</span> f0undec_posmark<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> v0ardec_posmark
+  <span class="keyword">(</span>d0c<span class="keyword">:</span> <span class="staexp">v0ardec</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s0expopt_posmark d0c<span class="keyword">.</span>v0ardec_typ
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> d0c<span class="keyword">.</span>v0ardec_wth <span class="keyword">of</span>
+    <span class="keyword">|</span> Some id <span class="keyword">=&gt;</span> prfexploc_posmark <span class="keyword">(</span>id<span class="keyword">.</span>i0de_loc<span class="keyword">)</span>
+    <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> d0expopt_posmark d0c<span class="keyword">.</span>v0ardec_ini
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [v0ardec_posmark]
+</span>
+<span class="keyword">fn</span> v0ardeclst_posmark <span class="keyword">(</span>d0cs<span class="keyword">:</span> <span class="staexp">v0ardeclst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>d0cs<span class="keyword">,</span> v0ardec_posmark<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> i0mpdec_posmark
+  <span class="keyword">(</span>d0c<span class="keyword">:</span> <span class="staexp">i0mpdec</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> qid <span class="keyword">=</span> d0c<span class="keyword">.</span>i0mpdec_qid
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> t1mps0explstlst_posmark <span class="keyword">(</span>qid<span class="keyword">.</span>impqi0de_arg<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> f0arglst_posmark <span class="keyword">(</span>d0c<span class="keyword">.</span>i0mpdec_arg<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s0expopt_posmark <span class="keyword">(</span>d0c<span class="keyword">.</span>i0mpdec_res<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> d0exp_posmark <span class="keyword">(</span>d0c<span class="keyword">.</span>i0mpdec_def<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [i0mpdec_posmark]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> guad0ec_node_posmark
+  <span class="keyword">(</span>gdn<span class="keyword">:</span> <span class="staexp">guad0ec_node</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> gdn <span class="keyword">of</span>
+  <span class="keyword">|</span> GD0Cone <span class="keyword">(</span>e0xp<span class="keyword">,</span> d0cs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      e0xp_posmark e0xp<span class="keyword">;</span> d0eclst_posmark d0cs<span class="keyword">;</span>
+    <span class="keyword">end</span> <span class="comment">// end of [GD0Cone]
+</span>  <span class="keyword">|</span> GD0Ctwo <span class="keyword">(</span>e0xp<span class="keyword">,</span> d0cs1<span class="keyword">,</span> d0cs2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      e0xp_posmark e0xp<span class="keyword">;</span>
+      d0eclst_posmark d0cs1<span class="keyword">;</span> d0eclst_posmark d0cs2<span class="keyword">;</span>
+    <span class="keyword">end</span> <span class="comment">// end of [GD0Ctwo]
+</span>  <span class="keyword">|</span> GD0Ccons <span class="keyword">(</span>e0xp<span class="keyword">,</span> d0cs<span class="keyword">,</span> knd<span class="keyword">,</span> gdn<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      e0xp_posmark e0xp<span class="keyword">;</span>
+      d0eclst_posmark d0cs<span class="keyword">;</span> guad0ec_node_posmark gdn<span class="keyword">;</span>
+    <span class="keyword">end</span> <span class="comment">// end of [GD0Ccons]
+</span><span class="keyword">end</span> <span class="comment">// end of [guad0ec_node_posmark]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d0ec_posmark <span class="keyword">(</span>d0c0<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> d0c0<span class="keyword">.</span>d0ec_node <span class="keyword">of</span>
+  <span class="keyword">|</span> D0Cfixity _ <span class="keyword">=&gt;</span> neuexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> D0Cnonfix _ <span class="keyword">=&gt;</span> neuexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> D0Cinclude _ <span class="keyword">=&gt;</span> neuexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> D0Csymintr _ <span class="keyword">=&gt;</span> neuexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> D0Ce0xpdef _ <span class="keyword">=&gt;</span> neuexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> D0Ce0xpundef _ <span class="keyword">=&gt;</span> neuexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> D0Ce0xpact _ <span class="keyword">=&gt;</span> neuexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> D0Cdatsrts _ <span class="keyword">=&gt;</span> staexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> D0Csrtdefs _ <span class="keyword">=&gt;</span> staexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> D0Cstacons _ <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> loc <span class="keyword">=</span> d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">;</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> stacstdecloc_posmark <span class="keyword">(</span>loc<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      staexploc_posmark <span class="keyword">(</span>loc<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D0Cstacons]
+</span>  <span class="keyword">|</span> D0Cstacsts _ <span class="keyword">=&gt;</span> staexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> D0Cstavars _ <span class="keyword">=&gt;</span> staexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> D0Csexpdefs <span class="keyword">(</span>_<span class="keyword">,</span> d0c<span class="keyword">,</span> d0cs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      s0expdef_posmark <span class="keyword">(</span>d0c<span class="keyword">)</span><span class="keyword">;</span> s0expdeflst_posmark <span class="keyword">(</span>d0cs<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D0Csexpdefs]
+</span>  <span class="keyword">|</span> D0Csaspdec _ <span class="keyword">=&gt;</span> staexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> D0Cdcstdecs <span class="keyword">(</span>dk<span class="keyword">,</span> s0qss<span class="keyword">,</span> d0c<span class="keyword">,</span> d0cs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> isprf <span class="keyword">=</span> dcstkind_is_proof dk
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> isprf <span class="keyword">then</span> prfexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s0qualstlst_posmark s0qss
+    <span class="keyword">in</span>
+      d0cstdec_posmark d0c<span class="keyword">;</span> d0cstdeclst_posmark d0cs
+    <span class="keyword">end</span> <span class="comment">// end of [D0Cdcstdecs]
+</span>  <span class="keyword">|</span> D0Cdatdecs <span class="keyword">(</span>dk<span class="keyword">,</span> d0c1<span class="keyword">,</span> d0cs1<span class="keyword">,</span> d0cs2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> isprf <span class="keyword">=</span> datakind_is_proof dk
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> isprf <span class="keyword">then</span> prfexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>d0atdec_posmark d0c1<span class="keyword">;</span> d0atdeclst_posmark d0cs1<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s0expdeflst_posmark d0cs2
+    <span class="keyword">in</span>
+      <span class="comment">// empty
+</span>    <span class="keyword">end</span> <span class="comment">// end of [D0Cdatdecs]
+</span>  <span class="keyword">|</span> D0Cexndecs <span class="keyword">(</span>d0c<span class="keyword">,</span> d0cs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      e0xndec_posmark d0c<span class="keyword">;</span> e0xndeclst_posmark d0cs
+    <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">|</span> D0Cclassdec _ <span class="keyword">=&gt;</span> staexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> D0Coverload _ <span class="keyword">=&gt;</span> neuexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> D0Cextype _ <span class="keyword">=&gt;</span> staexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> D0Cextval <span class="keyword">(</span>_<span class="comment">(*name*)</span><span class="keyword">,</span> d0e<span class="keyword">)</span> <span class="keyword">=&gt;</span> d0exp_posmark d0e
+  <span class="keyword">|</span> D0Cextcode <span class="keyword">(</span>_<span class="keyword">,</span> code<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      externloc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D0Cextcode]
+</span>  <span class="keyword">|</span> D0Cvaldecs <span class="keyword">(</span>vk<span class="keyword">,</span> d0c<span class="keyword">,</span> d0cs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">if</span> valkind_is_proof vk <span class="keyword">then</span>
+        prfexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span><span class="keyword">;</span>
+      v0aldec_posmark d0c<span class="keyword">;</span> v0aldeclst_posmark d0cs<span class="keyword">;</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D0Cvaldecs]
+</span>  <span class="keyword">|</span> D0Cvaldecs_par <span class="keyword">(</span>d0c<span class="keyword">,</span> d0cs<span class="keyword">)</span> <span class="keyword">=&gt;</span>  <span class="keyword">begin</span>
+      v0aldec_posmark d0c<span class="keyword">;</span> v0aldeclst_posmark d0cs
+    <span class="keyword">end</span> <span class="comment">// end of [D0Cvaldecs_par]
+</span>  <span class="keyword">|</span> D0Cvaldecs_rec <span class="keyword">(</span>d0c<span class="keyword">,</span> d0cs<span class="keyword">)</span> <span class="keyword">=&gt;</span>  <span class="keyword">begin</span>
+      v0aldec_posmark d0c<span class="keyword">;</span> v0aldeclst_posmark d0cs
+    <span class="keyword">end</span> <span class="comment">// end of [D0Cvaldecs_rec]
+</span>  <span class="keyword">|</span> D0Cfundecs <span class="keyword">(</span>fk<span class="keyword">,</span> decarg<span class="keyword">,</span> d0c<span class="keyword">,</span> d0cs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> isprf <span class="keyword">=</span> funkind_is_proof fk
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> isprf <span class="keyword">then</span> prfexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s0qualstlst_posmark decarg
+    <span class="keyword">in</span>
+      f0undec_posmark d0c<span class="keyword">;</span> f0undeclst_posmark d0cs
+    <span class="keyword">end</span> <span class="comment">// end of [D0Cfundecs]
+</span>  <span class="keyword">|</span> D0Cvardecs <span class="keyword">(</span>d0c<span class="keyword">,</span> d0cs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      v0ardec_posmark d0c<span class="keyword">;</span> v0ardeclst_posmark d0cs<span class="keyword">;</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D0Cvardecs]
+</span>  <span class="keyword">|</span> D0Cmacdefs _ <span class="keyword">=&gt;</span> neuexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> D0Cimpdec <span class="keyword">(</span>decarg<span class="keyword">,</span> d0c<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      s0arglstlst_posmark decarg<span class="keyword">;</span> i0mpdec_posmark d0c
+    <span class="keyword">end</span> <span class="comment">// end of [D0Cimpdec]
+</span>  <span class="keyword">|</span> D0Cdynload _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> D0Cstaload _ <span class="keyword">=&gt;</span> staexploc_posmark <span class="keyword">(</span>d0c0<span class="keyword">.</span>d0ec_loc<span class="keyword">)</span>
+  <span class="keyword">|</span> D0Clocal <span class="keyword">(</span>d0cs1<span class="keyword">,</span> d0cs2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d0eclst_posmark d0cs1<span class="keyword">;</span> d0eclst_posmark d0cs2<span class="keyword">;</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D0Clocal]
+</span>  <span class="keyword">|</span> D0Cguadec <span class="keyword">(</span>_<span class="comment">(*knd*)</span><span class="keyword">,</span> gd0c<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      guad0ec_node_posmark <span class="keyword">(</span>gd0c<span class="keyword">.</span>guad0ec_node<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D0Cguadec]
+</span><span class="comment">// end of [d0ec_posmark]
+</span>
+<span class="keyword">implement</span> d0eclst_posmark <span class="keyword">(</span>d0cs<span class="keyword">)</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>d0cs<span class="keyword">,</span> d0ec_posmark<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_syntax_posmark.dats] *)</span>
+</pre>
+</body>
+</html>

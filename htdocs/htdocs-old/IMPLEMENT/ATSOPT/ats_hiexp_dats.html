@@ -1,0 +1,895 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Start Time: March 2008
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* high-level intermediate representation *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Err <span class="keyword">=</span> "ats_error.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Syn <span class="keyword">=</span> "ats_syntax.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp2.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_hiexp.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">ABS_TYPE_NAME           "ats_abs_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">BOOL_TYPE_NAME          "ats_bool_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">CHAR_TYPE_NAME          "ats_char_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">CLO_TYPE_NAME           "ats_clo_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">CLO_PTR_TYPE_NAME       "ats_clo_ptr_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">CLO_REF_TYPE_NAME       "ats_clo_ref_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">DOUBLE_TYPE_NAME        "ats_double_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">FLOAT_TYPE_NAME         "ats_float_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">INT_TYPE_NAME           "ats_int_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">PROOF_TYPE_NAME         "ats_proof_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">PTR_TYPE_NAME           "ats_ptr_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">REF_TYPE_NAME           "ats_ref_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">RECTEMP_TYPE_NAME       "ats_rectemp_type"</span>
+<span class="comment">// #define STRING_TYPE_NAME     "ats_string_type"
+</span><span class="keyword">#define</span> <span class="neuexp">STRING_TYPE_NAME        "ats_ptr_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">SUM_PTR_TYPE_NAME       "ats_sum_ptr_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">SUMTEMP_TYPE_NAME       "ats_sumtemp_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">VAR_TYPE_NAME           "ats_var_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">VARET_TYPE_NAME         "ats_varet_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">VOID_TYPE_NAME          "ats_void_type"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3482"><span class="dyncstimp">hityp_abs</span></a> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3976"><span class="dyncstuse">hityp_extype_nil</span></a> ABS_TYPE_NAME
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3504"><span class="dyncstimp">hityp_bool</span></a> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3976"><span class="dyncstuse">hityp_extype_nil</span></a> BOOL_TYPE_NAME
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3527"><span class="dyncstimp">hityp_char</span></a> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3976"><span class="dyncstuse">hityp_extype_nil</span></a> CHAR_TYPE_NAME
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3550"><span class="dyncstimp">hityp_clo</span></a> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3976"><span class="dyncstuse">hityp_extype_nil</span></a> CLO_TYPE_NAME
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3572"><span class="dyncstimp">hityp_clo_ptr</span></a> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3976"><span class="dyncstuse">hityp_extype_nil</span></a> CLO_PTR_TYPE_NAME
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3598"><span class="dyncstimp">hityp_clo_ref</span></a> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3976"><span class="dyncstuse">hityp_extype_nil</span></a> CLO_REF_TYPE_NAME
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3624"><span class="dyncstimp">hityp_double</span></a> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3976"><span class="dyncstuse">hityp_extype_nil</span></a> DOUBLE_TYPE_NAME
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3649"><span class="dyncstimp">hityp_float</span></a> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3976"><span class="dyncstuse">hityp_extype_nil</span></a> FLOAT_TYPE_NAME
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3673"><span class="dyncstimp">hityp_int</span></a> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3976"><span class="dyncstuse">hityp_extype_nil</span></a> INT_TYPE_NAME
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3695"><span class="dyncstimp">hityp_proof</span></a> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3976"><span class="dyncstuse">hityp_extype_nil</span></a> PROOF_TYPE_NAME
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3719"><span class="dyncstimp">hityp_ptr</span></a> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3976"><span class="dyncstuse">hityp_extype_nil</span></a> PTR_TYPE_NAME
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3741"><span class="dyncstimp">hityp_string</span></a> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3976"><span class="dyncstuse">hityp_extype_nil</span></a> STRING_TYPE_NAME
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3766"><span class="dyncstimp">hityp_tysum_ptr</span></a> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3976"><span class="dyncstuse">hityp_extype_nil</span></a> SUM_PTR_TYPE_NAME
+<span class="comment">(*
+implement hityp_var = hityp_extype_nil VAR_TYPE_NAME
+implement hityp_varet = hityp_extype_nil VARET_TYPE_NAME
+*)</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3871"><span class="dyncstimp">hityp_void</span></a> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3976"><span class="dyncstuse">hityp_extype_nil</span></a> VOID_TYPE_NAME
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">val</span> hityp_name_ptr<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#2748"><span class="stacstuse">hityp_name</span></a></span> <span class="keyword">=</span> HITNAM <span class="keyword">(</span>0<span class="keyword">,</span> PTR_TYPE_NAME<span class="keyword">)</span>
+<span class="keyword">val</span> hityp_name_ref<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#2748"><span class="stacstuse">hityp_name</span></a></span> <span class="keyword">=</span> HITNAM <span class="keyword">(</span>0<span class="keyword">,</span> REF_TYPE_NAME<span class="keyword">)</span>
+<span class="keyword">val</span> hityp_name_var<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#2748"><span class="stacstuse">hityp_name</span></a></span> <span class="keyword">=</span> HITNAM <span class="keyword">(</span>0<span class="keyword">,</span> VAR_TYPE_NAME<span class="keyword">)</span>
+<span class="keyword">val</span> hityp_name_varet<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#2748"><span class="stacstuse">hityp_name</span></a></span> <span class="keyword">=</span> HITNAM <span class="keyword">(</span>0<span class="keyword">,</span> VARET_TYPE_NAME<span class="keyword">)</span>
+
+<span class="keyword">val</span> hityp_name_tyrectemp_box<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#2748"><span class="stacstuse">hityp_name</span></a></span> <span class="keyword">=</span>
+  HITNAM <span class="keyword">(</span>1<span class="comment">(*box*)</span><span class="keyword">,</span> RECTEMP_TYPE_NAME<span class="keyword">)</span>
+
+<span class="keyword">val</span> hityp_name_tyrectemp_flt<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#2748"><span class="stacstuse">hityp_name</span></a></span> <span class="keyword">=</span>
+  HITNAM <span class="keyword">(</span>0<span class="comment">(*flt*)</span><span class="keyword">,</span> RECTEMP_TYPE_NAME<span class="keyword">)</span>
+
+<span class="keyword">val</span> hityp_name_tysumtemp<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#2748"><span class="stacstuse">hityp_name</span></a></span> <span class="keyword">=</span>
+  HITNAM <span class="keyword">(</span>1<span class="comment">(*box*)</span><span class="keyword">,</span> SUMTEMP_TYPE_NAME<span class="keyword">)</span>
+
+<span class="keyword">val</span> hityp_name_vararg <span class="keyword">=</span> HITNAM <span class="keyword">(</span>0<span class="comment">(*non*)</span><span class="keyword">,</span> "..."<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3916"><span class="dyncstimp">hityp_extype</span></a>
+  <span class="keyword">(</span>name<span class="keyword">,</span> arglst<span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#2808"><span class="stacstuse">hityp</span></a></span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> HITNAM <span class="keyword">(</span>0<span class="comment">(*non*)</span><span class="keyword">,</span> name<span class="keyword">)</span>
+<span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITextype <span class="keyword">(</span>name<span class="keyword">,</span> arglst<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hityp_extype]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3976"><span class="dyncstimp">hityp_extype_nil</span></a> <span class="keyword">(</span>name<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3916"><span class="dyncstuse">hityp_extype</span></a> <span class="keyword">(</span>name<span class="keyword">,</span> list_nil<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#4020"><span class="dyncstimp">hityp_fun</span></a> <span class="keyword">(</span>fc<span class="keyword">,</span> hits_arg<span class="keyword">,</span> hit_res<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> hityp_name_ptr<span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITfun <span class="keyword">(</span>fc<span class="keyword">,</span> hits_arg<span class="keyword">,</span> hit_res<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hityp_fun]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#4088"><span class="dyncstimp">hityp_refarg</span></a> <span class="keyword">(</span>refval<span class="keyword">,</span> hit_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> name <span class="keyword">=</span> <span class="keyword">(</span>
+    <span class="keyword">if</span> refval <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> hityp_name_ref <span class="keyword">else</span> hit_arg<span class="keyword">.</span>hityp_name
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#2748"><span class="stacstuse">hityp_name</span></a></span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> name
+<span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITrefarg <span class="keyword">(</span>refval<span class="keyword">,</span> hit_arg<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [hityp_refarg]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> hityp_namstr_get
+  <span class="keyword">(</span>hit<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#2808"><span class="stacstuse">hityp</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15989"><span class="stacstuse">string</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> HITNAM <span class="keyword">(</span>knd<span class="keyword">,</span> name<span class="keyword">)</span> <span class="keyword">=</span> hit<span class="keyword">.</span>hityp_name
+<span class="keyword">in</span>
+  <span class="keyword">if</span> knd <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> PTR_TYPE_NAME <span class="keyword">else</span> name
+<span class="keyword">end</span> <span class="comment">// end of [hityp_namstr_get]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#4178"><span class="dyncstimp">hityp_tyarr</span></a>
+  <span class="keyword">(</span>hit_elt<span class="keyword">,</span> s2ess_dim<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> name_elt <span class="keyword">=</span> hityp_namstr_get <span class="keyword">(</span>hit_elt<span class="keyword">)</span>
+  <span class="keyword">val</span> sbp <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#13837"><span class="dyncstuse">stringlst_concat</span></a> <span class="keyword">'[</span> "["<span class="keyword">,</span> name_elt<span class="keyword">,</span> "]"<span class="keyword">]</span>
+  <span class="keyword">val</span> name_arr <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#20637"><span class="dyncstuse">string_of_strptr</span></a> <span class="keyword">(</span>sbp<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> HITNAM <span class="keyword">(</span>0<span class="comment">(*non*)</span><span class="keyword">,</span> name_arr<span class="keyword">)</span>
+<span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITtyarr <span class="keyword">(</span>hit_elt<span class="keyword">,</span> s2ess_dim<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [hityp_tyarr]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#4243"><span class="dyncstimp">hityp_tyrec</span></a> <span class="keyword">(</span>knd<span class="keyword">,</span> name<span class="keyword">,</span> lhits<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> HITNAM <span class="keyword">(</span>knd<span class="comment">(*non/ptr*)</span><span class="keyword">,</span> name<span class="keyword">)</span><span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITtyrec <span class="keyword">(</span>knd<span class="keyword">,</span> lhits<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hityp_tyrecflt]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#4317"><span class="dyncstimp">hityp_tyrectemp</span></a> <span class="keyword">(</span>knd<span class="keyword">,</span> lhits<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> name <span class="keyword">=</span> <span class="keyword">(</span>
+    <span class="keyword">if</span> knd <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> hityp_name_tyrectemp_box <span class="keyword">else</span> hityp_name_tyrectemp_flt
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#2748"><span class="stacstuse">hityp_name</span></a></span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> name<span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITtyrectemp <span class="keyword">(</span>knd<span class="keyword">,</span> lhits<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [hityp_tyrecflttemp]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#4381"><span class="dyncstimp">hityp_tyrecsin</span></a> <span class="keyword">(</span>hit<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> hit<span class="keyword">.</span>hityp_name<span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITtyrecsin hit
+<span class="keyword">}</span> <span class="comment">// end of [hityp_sin]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#4421"><span class="dyncstimp">hityp_tysum</span></a> <span class="keyword">(</span>name<span class="keyword">,</span> d2c<span class="keyword">,</span> hits<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> HITNAM <span class="keyword">(</span>1<span class="comment">(*box*)</span><span class="keyword">,</span> name<span class="keyword">)</span><span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITtysum <span class="keyword">(</span>d2c<span class="keyword">,</span> hits<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hityp_tysum]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#4489"><span class="dyncstimp">hityp_tysumtemp</span></a> <span class="keyword">(</span>d2c<span class="keyword">,</span> hits<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> hityp_name_tysumtemp<span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITtysumtemp <span class="keyword">(</span>d2c<span class="keyword">,</span> hits<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hityp_tysumtemp]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#4548"><span class="dyncstimp">hityp_union</span></a> <span class="keyword">(</span>name<span class="keyword">,</span> lhits<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> HITNAM <span class="keyword">(</span>0<span class="keyword">,</span> name<span class="keyword">)</span><span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITunion lhits
+<span class="keyword">}</span> <span class="comment">// end of [hityp_union]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#4607"><span class="dyncstimp">hityp_varetize</span></a> <span class="keyword">(</span>hit<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> HITNAM <span class="keyword">(</span>knd<span class="keyword">,</span> name<span class="keyword">)</span> <span class="keyword">=</span> hit<span class="keyword">.</span>hityp_name
+<span class="keyword">in</span>
+  <span class="keyword">if</span> name <span class="keyword">=</span> VAR_TYPE_NAME <span class="keyword">then</span> <span class="keyword">'{</span>
+    hityp_name<span class="keyword">=</span> hityp_name_varet<span class="keyword">,</span> hityp_node<span class="keyword">=</span> hit<span class="keyword">.</span>hityp_node
+  <span class="keyword">}</span> <span class="keyword">else</span> hit
+<span class="keyword">end</span> <span class="comment">// end of [hityp_varetize]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#4139"><span class="dyncstimp">hityp_s2var</span></a> <span class="keyword">(</span>s2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">if</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#17612"><span class="dyncstuse">s2var_is_boxed</span></a> s2v <span class="keyword">then</span> <span class="keyword">begin</span>
+    <span class="keyword">'{</span> hityp_name<span class="keyword">=</span> hityp_name_ptr<span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITs2var s2v <span class="keyword">}</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+    <span class="keyword">'{</span> hityp_name<span class="keyword">=</span> hityp_name_var<span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITs2var s2v <span class="keyword">}</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">(* end of [hityp_s2var] *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#3846"><span class="dyncstimp">hityp_vararg</span></a> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> hityp_name_vararg<span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITvararg <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hityp_vararg]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#7093"><span class="dyncstimp">hipat_ann</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hip<span class="keyword">,</span> hit_ann<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPann <span class="keyword">(</span>hip<span class="keyword">,</span> hit_ann<span class="keyword">)</span>
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_ann]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#7157"><span class="dyncstimp">hipat_any</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPany <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_any]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#7199"><span class="dyncstimp">hipat_as</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> refknd<span class="keyword">,</span> d2v<span class="keyword">,</span> hip<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPas <span class="keyword">(</span>refknd<span class="keyword">,</span> d2v<span class="keyword">,</span> hip<span class="keyword">)</span>
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_as]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#7275"><span class="dyncstimp">hipat_bool</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> b<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPbool b
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_bool]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#7327"><span class="dyncstimp">hipat_char</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPchar c
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_char]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#7380"><span class="dyncstimp">hipat_con</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> freeknd<span class="keyword">,</span> d2c<span class="keyword">,</span> hips<span class="keyword">,</span> hit_sum<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPcon <span class="keyword">(</span>freeknd<span class="keyword">,</span> d2c<span class="keyword">,</span> hips<span class="keyword">,</span> hit_sum<span class="keyword">)</span>
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_con]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#7506"><span class="dyncstimp">hipat_con_any</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> freeknd<span class="keyword">,</span> d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPcon_any <span class="keyword">(</span>freeknd<span class="keyword">,</span> d2c<span class="keyword">)</span>
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_con_any]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#7579"><span class="dyncstimp">hipat_empty</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPempty <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_empty]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#7623"><span class="dyncstimp">hipat_int</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> str<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPint <span class="keyword">(</span>str<span class="keyword">,</span> int<span class="keyword">)</span>
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_int]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#7693"><span class="dyncstimp">hipat_lst</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit_lst<span class="keyword">,</span> hit_elt<span class="keyword">,</span> hips<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPlst <span class="keyword">(</span>hit_elt<span class="keyword">,</span> hips<span class="keyword">)</span>
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit_lst
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_lst]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#7765"><span class="dyncstimp">hipat_rec</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> knd<span class="keyword">,</span> lhips<span class="keyword">,</span> hit_rec<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPrec <span class="keyword">(</span>knd<span class="keyword">,</span> lhips<span class="keyword">,</span> hit_rec<span class="keyword">)</span>
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_rec]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#7871"><span class="dyncstimp">hipat_string</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> str<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPstring str
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_string]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#7927"><span class="dyncstimp">hipat_var</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> refknd<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPvar <span class="keyword">(</span>refknd<span class="keyword">,</span> d2v<span class="keyword">)</span>
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_var]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#16007"><span class="dyncstimp">hiexp_app</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit_app<span class="keyword">,</span> hit_fun<span class="keyword">,</span> hie_fun<span class="keyword">,</span> hies_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEapp <span class="keyword">(</span>hit_fun<span class="keyword">,</span> hie_fun<span class="keyword">,</span> hies_arg<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit_app
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_app]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#16099"><span class="dyncstimp">hiexp_arrinit</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit_arr<span class="keyword">,</span> hit_elt<span class="keyword">,</span> ohie_asz<span class="keyword">,</span> hies_elt<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEarrinit <span class="keyword">(</span>hit_elt<span class="keyword">,</span> ohie_asz<span class="keyword">,</span> hies_elt<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit_arr
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_arrinit]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#16207"><span class="dyncstimp">hiexp_arrsize</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit_arr<span class="keyword">,</span> hit_elt<span class="keyword">,</span> hies_elt<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEarrsize <span class="keyword">(</span>hit_elt<span class="keyword">,</span> hies_elt<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit_arr
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_arrsize]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#16288"><span class="dyncstimp">hiexp_assgn_ptr</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hie_ptr<span class="keyword">,</span> hils<span class="keyword">,</span> hie_val<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEassgn_ptr <span class="keyword">(</span>hie_ptr<span class="keyword">,</span> hils<span class="keyword">,</span> hie_val<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_assgn_ptr]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#16384"><span class="dyncstimp">hiexp_assgn_var</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> d2v_ptr<span class="keyword">,</span> hils<span class="keyword">,</span> hie_val<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEassgn_var <span class="keyword">(</span>d2v_ptr<span class="keyword">,</span> hils<span class="keyword">,</span> hie_val<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_assgn_var]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#16482"><span class="dyncstimp">hiexp_bool</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> b<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEbool b<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_bool]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#16556"><span class="dyncstimp">hiexp_caseof</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> knd<span class="keyword">,</span> hies<span class="keyword">,</span> hicls<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEcaseof <span class="keyword">(</span>knd<span class="keyword">,</span> hies<span class="keyword">,</span> hicls<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_caseof]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#16776"><span class="dyncstimp">hiexp_castfn</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> d2c<span class="keyword">,</span> hie<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEcastfn <span class="keyword">(</span>d2c<span class="keyword">,</span> hie<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_castfn]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#16869"><span class="dyncstimp">hiexp_char</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEchar c<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_char]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#16922"><span class="dyncstimp">hiexp_con</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hit_sum<span class="keyword">,</span> d2c<span class="keyword">,</span> hies_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEcon <span class="keyword">(</span>hit_sum<span class="keyword">,</span> d2c<span class="keyword">,</span> hies_arg<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_con]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#17011"><span class="dyncstimp">hiexp_cst</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEcst d2c<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_cst]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#17067"><span class="dyncstimp">hiexp_cstsp</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> cst<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEcstsp cst<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_cstsp]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#17129"><span class="dyncstimp">hiexp_dynload</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> fil<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEdynload fil<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_dynload]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#17186"><span class="dyncstimp">hiexp_empty</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEempty <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_empty]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#17231"><span class="dyncstimp">hiexp_extval</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> code<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEextval code<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_extval]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#17291"><span class="dyncstimp">hiexp_fix</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> knd<span class="keyword">,</span> d2v<span class="keyword">,</span> hie<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEfix <span class="keyword">(</span>knd<span class="keyword">,</span> d2v<span class="keyword">,</span> hie<span class="keyword">)</span><span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_fix]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#17400"><span class="dyncstimp">hiexp_float</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> str<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEfloat str<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_float]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#17455"><span class="dyncstimp">hiexp_floatsp</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> str<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEfloatsp str<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_floatsp]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#17513"><span class="dyncstimp">hiexp_freeat</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hie<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEfreeat hie<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_freeat]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#17569"><span class="dyncstimp">hiexp_if</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> _cond<span class="keyword">,</span> _then<span class="keyword">,</span> _else<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEif <span class="keyword">(</span>_cond<span class="keyword">,</span> _then<span class="keyword">,</span> _else<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_if]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#17658"><span class="dyncstimp">hiexp_int</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> str<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEint <span class="keyword">(</span>str<span class="keyword">,</span> int<span class="keyword">)</span><span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_int]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#17731"><span class="dyncstimp">hiexp_intsp</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> str<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEintsp <span class="keyword">(</span>str<span class="keyword">,</span> int<span class="keyword">)</span><span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_intsp]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#17827"><span class="dyncstimp">hiexp_is_lam</span></a> <span class="keyword">(</span>hie<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>
+  <span class="keyword">case+</span> hie<span class="keyword">.</span>hiexp_node <span class="keyword">of</span> HIElam _ <span class="keyword">=&gt;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#4327"><span class="dyncstuse">true</span></a> <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#4371"><span class="dyncstuse">false</span></a>
+<span class="keyword">)</span> <span class="comment">// end of [hiexp_is_lam]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#17864"><span class="dyncstimp">hiexp_lam</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hips_arg<span class="keyword">,</span> hie_body<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIElam <span class="keyword">(</span>hips_arg<span class="keyword">,</span> hie_body<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_lam]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#17961"><span class="dyncstimp">hiexp_laminit</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hips_arg<span class="keyword">,</span> hie_body<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIElaminit <span class="keyword">(</span>hips_arg<span class="keyword">,</span> hie_body<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_laminit]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#18087"><span class="dyncstimp">hiexp_lazy_delay</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hie<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIElazy_delay <span class="keyword">(</span>hie<span class="comment">(*eval*)</span><span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit <span class="comment">(* type of eval *)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_lazy_delay]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#18157"><span class="dyncstimp">hiexp_lazy_vt_delay</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hie1<span class="keyword">,</span> hie2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIElazy_vt_delay <span class="keyword">(</span>hie1<span class="comment">(*eval*)</span><span class="keyword">,</span> hie2<span class="comment">(*free*)</span><span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit <span class="comment">(* type of eval *)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_lazy_vt_delay]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#18244"><span class="dyncstimp">hiexp_lazy_force</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> lin<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span><span class="keyword">,</span> hie<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIElazy_force <span class="keyword">(</span>lin<span class="keyword">,</span> hie<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit <span class="comment">(* type of lazy value *)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_lazy_force]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#18347"><span class="dyncstimp">hiexp_let</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hids<span class="keyword">,</span> hie<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIElet <span class="keyword">(</span>hids<span class="keyword">,</span> hie<span class="keyword">)</span><span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_let]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#18434"><span class="dyncstimp">hiexp_loop</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> _init<span class="keyword">,</span> _test<span class="keyword">,</span> _post<span class="keyword">,</span> _body<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEloop <span class="keyword">(</span>_init<span class="keyword">,</span> _test<span class="keyword">,</span> _post<span class="keyword">,</span> _body<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_loop]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#18564"><span class="dyncstimp">hiexp_loopexn</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEloopexn i<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_loopexn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#18640"><span class="dyncstimp">hiexp_lst</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> lin<span class="keyword">,</span> hit_elt<span class="keyword">,</span> hies_elt<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIElst <span class="keyword">(</span>lin<span class="keyword">,</span> hit_elt<span class="keyword">,</span> hies_elt<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_lst]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#18727"><span class="dyncstimp">hiexp_ptrof_ptr</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hie_ptr<span class="keyword">,</span> hils<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEptrof_ptr <span class="keyword">(</span>hie_ptr<span class="keyword">,</span> hils<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_ptrof_ptr]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#18807"><span class="dyncstimp">hiexp_ptrof_var</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> d2v_ptr<span class="keyword">,</span> hils<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEptrof_var <span class="keyword">(</span>d2v_ptr<span class="keyword">,</span> hils<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_ptrof_ptr]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#18889"><span class="dyncstimp">hiexp_raise</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hie<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEraise hie<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_raise]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#18944"><span class="dyncstimp">hiexp_rec</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> knd<span class="keyword">,</span> hit_rec<span class="keyword">,</span> lhies<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIErec <span class="keyword">(</span>knd<span class="keyword">,</span> hit_rec<span class="keyword">,</span> lhies<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_rec]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#19031"><span class="dyncstimp">hiexp_refarg</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> refval<span class="keyword">,</span> freeknd<span class="keyword">,</span> hie<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIErefarg <span class="keyword">(</span>refval<span class="keyword">,</span> freeknd<span class="keyword">,</span> hie<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_refarg]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#19118"><span class="dyncstimp">hiexp_sel</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hie<span class="keyword">,</span> hils<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEsel <span class="keyword">(</span>hie<span class="keyword">,</span> hils<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_sel]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#19191"><span class="dyncstimp">hiexp_sel_ptr</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hie_ptr<span class="keyword">,</span> hils<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEsel_ptr <span class="keyword">(</span>hie_ptr<span class="keyword">,</span> hils<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_sel_ptr]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#19269"><span class="dyncstimp">hiexp_sel_var</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> d2v_ptr<span class="keyword">,</span> hils<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEsel_var <span class="keyword">(</span>d2v_ptr<span class="keyword">,</span> hils<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_sel_var]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#19349"><span class="dyncstimp">hiexp_seq</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hies<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEseq hies<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_seq]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#19405"><span class="dyncstimp">hiexp_sif</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hie_then<span class="keyword">,</span> hie_else<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEsif <span class="keyword">(</span>hie_then<span class="keyword">,</span> hie_else<span class="keyword">)</span><span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_sif]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#19486"><span class="dyncstimp">hiexp_sizeof</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hit_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEsizeof hit_arg<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_sizeof]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#19545"><span class="dyncstimp">hiexp_string</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> str<span class="keyword">,</span> len<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEstring <span class="keyword">(</span>str<span class="keyword">,</span> len<span class="keyword">)</span><span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_string]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#19610"><span class="dyncstimp">hiexp_tmpcst</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> d2c<span class="keyword">,</span> hitss_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEtmpcst <span class="keyword">(</span>d2c<span class="keyword">,</span> hitss_arg<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_tmpcst]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#19688"><span class="dyncstimp">hiexp_tmpvar</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> d2v<span class="keyword">,</span> hitss_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEtmpvar <span class="keyword">(</span>d2v<span class="keyword">,</span> hitss_arg<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_tmpvar]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#19766"><span class="dyncstimp">hiexp_top</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEtop <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_top]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#19809"><span class="dyncstimp">hiexp_trywith</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hie<span class="keyword">,</span> hicls<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEtrywith <span class="keyword">(</span>hie<span class="keyword">,</span> hicls<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_trywith]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#19882"><span class="dyncstimp">hiexp_var</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEvar d2v<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_var]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#19958"><span class="dyncstimp">hilab_lab</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> l<span class="keyword">,</span> hit_rec<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hilab_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hilab_node<span class="keyword">=</span> HILlab <span class="keyword">(</span>l<span class="keyword">,</span> hit_rec<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hilab_lab]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#20016"><span class="dyncstimp">hilab_ind</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hiess_ind<span class="keyword">,</span> hit_elt<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hilab_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hilab_node<span class="keyword">=</span> HILind <span class="keyword">(</span>hiess_ind<span class="keyword">,</span> hit_elt<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hilab_ind]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#20102"><span class="dyncstimp">himat_make</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hie<span class="keyword">,</span> ohip<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  himat_loc<span class="keyword">=</span> loc<span class="keyword">,</span> himat_exp<span class="keyword">=</span> hie<span class="keyword">,</span> himat_pat<span class="keyword">=</span> ohip
+<span class="keyword">}</span> <span class="comment">// end of [himat_make]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#20159"><span class="dyncstimp">hiclau_make</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hips<span class="keyword">,</span> gua<span class="keyword">,</span> body<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiclau_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiclau_pat<span class="keyword">=</span> hips
+<span class="keyword">,</span> hiclau_gua<span class="keyword">=</span> gua
+<span class="keyword">,</span> hiclau_exp<span class="keyword">=</span> body
+<span class="keyword">}</span> <span class="comment">// end of [hiclau_make]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#20262"><span class="dyncstimp">hidec_list</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hids<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDlist hids
+<span class="keyword">}</span> <span class="comment">// end of [hidec_list]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#20309"><span class="dyncstimp">hidec_saspdec</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> saspdec<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDsaspdec saspdec
+<span class="keyword">}</span> <span class="comment">// end of [hidec_saspdec]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#20359"><span class="dyncstimp">hidec_dcstdec</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> knd<span class="keyword">,</span> d2cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDdcstdec <span class="keyword">(</span>knd<span class="keyword">,</span> d2cs<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_dcstdec]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#20427"><span class="dyncstimp">hidec_datdec</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> knd<span class="keyword">,</span> s2cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDdatdec <span class="keyword">(</span>knd<span class="keyword">,</span> s2cs<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_datdec]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#20493"><span class="dyncstimp">hidec_exndec</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> d2cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDexndec <span class="keyword">(</span>d2cs<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_exndec]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#20542"><span class="dyncstimp">hidec_extern</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> position<span class="keyword">,</span> code<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDextern <span class="keyword">(</span>position<span class="keyword">,</span> code<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_extern]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#20606"><span class="dyncstimp">hidec_extype</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> name<span class="keyword">,</span> hit_def<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDextype <span class="keyword">(</span>name<span class="keyword">,</span> hit_def<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_extype]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#20668"><span class="dyncstimp">hidec_extval</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> name<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15989"><span class="stacstuse">string</span></a></span><span class="keyword">,</span> hie_def<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDextval <span class="keyword">(</span>name<span class="keyword">,</span> hie_def<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_extval]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#21491"><span class="dyncstimp">hidec_impdec</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> impdec<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDimpdec <span class="keyword">(</span>impdec<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_impdec]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#21659"><span class="dyncstimp">hidec_impdec_prf</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> impdec_prf<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDimpdec_prf <span class="keyword">(</span>impdec_prf<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_impdec_prf]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#20731"><span class="dyncstimp">hifundec_make</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> _fun<span class="keyword">,</span> _def<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hifundec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hifundec_var<span class="keyword">=</span> _fun<span class="keyword">,</span> hifundec_def<span class="keyword">=</span> _def
+<span class="keyword">}</span> <span class="comment">// end of [hifundec_make]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#20796"><span class="dyncstimp">hidec_fundecs</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> tmp<span class="keyword">,</span> knd<span class="keyword">,</span> hids<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDfundecs <span class="keyword">(</span>tmp<span class="keyword">,</span> knd<span class="keyword">,</span> hids<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_fundecs]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#20894"><span class="dyncstimp">hivaldec_make</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> _pat<span class="keyword">,</span> _def<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hivaldec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hivaldec_pat<span class="keyword">=</span> _pat<span class="keyword">,</span> hivaldec_def<span class="keyword">=</span> _def
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#20957"><span class="dyncstimp">hidec_valdecs</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> knd<span class="keyword">,</span> hids<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDvaldecs <span class="keyword">(</span>knd<span class="keyword">,</span> hids<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#21033"><span class="dyncstimp">hidec_valdecs_par</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hids<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDvaldecs_par <span class="keyword">(</span>hids<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#21092"><span class="dyncstimp">hidec_valdecs_rec</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hids<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDvaldecs_rec <span class="keyword">(</span>hids<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#21152"><span class="dyncstimp">hivardec_make</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> knd<span class="keyword">,</span> d2v<span class="keyword">,</span> ini<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hivardec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hivardec_knd<span class="keyword">=</span> knd<span class="keyword">,</span> hivardec_ptr<span class="keyword">=</span> d2v<span class="keyword">,</span> hivardec_ini<span class="keyword">=</span> ini
+<span class="keyword">}</span> <span class="comment">// end of [hivardec_make]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#21232"><span class="dyncstimp">hidec_vardecs</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> hids<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDvardecs <span class="keyword">(</span>hids<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#21309"><span class="dyncstimp">hiimpdec_make</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> d2c<span class="keyword">,</span> tmp<span class="keyword">,</span> decarg<span class="keyword">,</span> tmparg<span class="keyword">,</span> hie_def<span class="keyword">,</span> d2cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiimpdec_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiimpdec_cst<span class="keyword">=</span> d2c
+<span class="keyword">,</span> hiimpdec_tmp<span class="keyword">=</span> tmp
+<span class="keyword">,</span> hiimpdec_decarg<span class="keyword">=</span> decarg<span class="comment">(*s2qualst*)</span><span class="keyword">,</span> hiimpdec_tmparg<span class="keyword">=</span> tmparg<span class="comment">(*hityplstlst*)</span>
+<span class="keyword">,</span> hiimpdec_def<span class="keyword">=</span> hie_def
+<span class="keyword">,</span> hiimpdec_cstset<span class="keyword">=</span> d2cs
+<span class="keyword">}</span> <span class="comment">// end of [hiimpdec_make]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#21542"><span class="dyncstimp">hiimpdec_prf_make</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> d2c<span class="keyword">,</span> d2cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiimpdec_prf_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiimpdec_prf_cst<span class="keyword">=</span> d2c<span class="keyword">,</span> hiimpdec_prf_cstset<span class="keyword">=</span> d2cs
+<span class="keyword">}</span> <span class="comment">// end of [hiimpdec_prf_make]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#21739"><span class="dyncstimp">hidec_local</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> _head<span class="keyword">,</span> _body<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDlocal <span class="keyword">(</span>_head<span class="keyword">,</span> _body<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_local]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#21808"><span class="dyncstimp">hidec_staload</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> fil<span class="keyword">,</span> loadflag<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDstaload <span class="keyword">(</span>fil<span class="keyword">,</span> loadflag<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_staload]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#21869"><span class="dyncstimp">hidec_dynload</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> fil<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDdynload <span class="keyword">(</span>fil<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_dynload]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="20764"><span class="stacstdec">vartyp <span class="keyword">=</span> <span class="keyword">'{</span>
+  vartyp_var<span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2719"><span class="stacstuse">d2var_t</span></a><span class="keyword">,</span> vartyp_typ<span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#21941"><span class="stacstuse">hityp_t</span></a>
+<span class="keyword">}</span></span></a></span>
+
+<span class="keyword">assume</span> <span class="staexp">vartyp_t <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2edats.html#20764"><span class="stacstuse">vartyp</span></a></span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">fn</span> _vartyp_make
+  <span class="keyword">(</span>d2v<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2719"><span class="stacstuse">d2var_t</span></a></span><span class="keyword">,</span> hit<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#21941"><span class="stacstuse">hityp_t</span></a></span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2edats.html#20764"><span class="stacstuse">vartyp</span></a></span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  vartyp_var<span class="keyword">=</span> d2v<span class="keyword">,</span> vartyp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [_vartyp_make]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#23282"><span class="dyncstimp">vartyp_typ_get</span></a> <span class="keyword">(</span>vtp<span class="keyword">)</span> <span class="keyword">=</span> vtp<span class="keyword">.</span>vartyp_typ
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#23328"><span class="dyncstimp">vartyp_var_get</span></a> <span class="keyword">(</span>vtp<span class="keyword">)</span> <span class="keyword">=</span> vtp<span class="keyword">.</span>vartyp_var
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#23226"><span class="dyncstimp">vartyp_make</span></a> <span class="keyword">(</span>d2v<span class="keyword">,</span> hit<span class="keyword">)</span> <span class="keyword">=</span> _vartyp_make <span class="keyword">(</span>d2v<span class="keyword">,</span> hit<span class="keyword">)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#23375"><span class="dyncstimp">eq_vartyp_vartyp</span></a> <span class="keyword">(</span>vtp1<span class="keyword">,</span> vtp2<span class="keyword">)</span> <span class="keyword">=</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#8234"><span class="dyncstuse">eq_d2var_d2var</span></a> <span class="keyword">(</span>vtp1<span class="keyword">.</span>vartyp_var<span class="keyword">,</span> vtp2<span class="keyword">.</span>vartyp_var<span class="keyword">)</span>
+<span class="comment">// end of [eq_vartyp_vartyp]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#23465"><span class="dyncstimp">compare_vartyp_vartyp</span></a> <span class="keyword">(</span>vtp1<span class="keyword">,</span> vtp2<span class="keyword">)</span> <span class="keyword">=</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#8404"><span class="dyncstuse">compare_d2var_d2var</span></a> <span class="keyword">(</span>vtp1<span class="keyword">.</span>vartyp_var<span class="keyword">,</span> vtp2<span class="keyword">.</span>vartyp_var<span class="keyword">)</span>
+<span class="comment">// end of [compare_vartyp_vartyp]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">typedef</span> <span class="staexp">"hipat_t" <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#6324"><span class="stacstuse">hipat</span></a></span>
+
+<span class="extern">%{$
+
+ats_void_type
+ats_hiexp_hipat_asvar_set (
+  ats_ptr_type hip, ats_ptr_type od2v
+) {
+  ((hipat_t)hip)-&gt;atslab_hipat_asvar = od2v; return ;
+} // end of [ats_hiexp_hipat_asvar_set]
+
+%}</span> <span class="comment">// end of [%{$]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_hiexp.dats] *)</span>
+</pre>
+</body>
+</html>

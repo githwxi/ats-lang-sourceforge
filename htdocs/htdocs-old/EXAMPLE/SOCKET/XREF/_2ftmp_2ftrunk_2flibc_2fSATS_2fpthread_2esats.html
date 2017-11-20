@@ -1,0 +1,304 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2010 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the  terms of the  GNU General Public License as published by the Free
+** Software Foundation; either version 2.1, or (at your option) any later
+** version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* author: Hongwei Xi (hwxi AT cs DOT bu DOT edu) *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">//
+</span><span class="comment">// some history:
+</span><span class="comment">//
+</span><span class="comment">// Rui Shi and Hongwei Xi first did [pthread] in ATS/Proto, on which
+</span><span class="comment">// this version is primarily based.
+</span><span class="comment">//
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{#
+#include "libc/CATS/pthread.cats"
+%}</span> <span class="comment">// end of [%{#]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">ATS_STALOADFLAG 0</span> <span class="comment">// no need for static loading at run-time
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="1813"><span class="stacstdec">pthread_t <span class="keyword">=</span> <span class="keyword">$extype</span> "pthread_t"</span></a></span>
+<span class="keyword">castfn</span> <a name="1852"><span class="dyncstdec">int_of_pthread <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">pthread_t</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int</span></span></a>
+<span class="keyword">castfn</span> <a name="1896"><span class="dyncstdec">lint_of_pthread <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">pthread_t</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">lint</span></span></a>
+<span class="keyword">fun</span> <a name="1939"><span class="dyncstdec">pthread_self <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">pthread_t</span></span></a> <span class="keyword">=</span> "#atslib_pthread_self"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">absviewt@ype</span> <span class="staexp"><a name="2026"><span class="stacstdec">pthread_attr_t <span class="keyword">=</span> <span class="keyword">$extype</span> "pthread_attr_t"</span></a></span>
+
+<span class="keyword">fun</span> <a name="2073"><span class="dyncstdec">pthread_attr_init
+  <span class="keyword">(</span>attr<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>pthread_attr_t? &gt;&gt; opt <span class="keyword">(</span>pthread_attr_t<span class="keyword">,</span> i == 0<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>nat<span class="keyword">]</span> int i</span></span></a>
+  <span class="keyword">=</span> "#atslib_pthread_attr_init"
+<span class="comment">// end of [pthread_attr_init]
+</span>
+<span class="keyword">fun</span> <a name="2233"><span class="dyncstdec">pthread_attr_destroy <span class="comment">// HX: this function does not fail?
+</span>  <span class="keyword">(</span>attr<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>pthread_attr_t &gt;&gt; opt <span class="keyword">(</span>pthread_attr_t<span class="keyword">,</span> i <span class="keyword">&gt;</span> 0<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>nat<span class="keyword">]</span> int i</span></span></a>
+  <span class="keyword">=</span> "#atslib_pthread_attr_destroy"
+<span class="comment">// end of [pthread_attr_destroy]
+</span>
+<span class="comment">//
+</span><span class="comment">// HX: possible failure: ENOMEM, which is remote
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="2491"><span class="dyncstdec">pthread_attr_init_exn
+  <span class="keyword">(</span>attr<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>pthread_attr_t? &gt;&gt; pthread_attr_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atslib_pthread_attr_init_exn"
+<span class="comment">// end of [pthread_attr_init_exn]
+</span>
+<span class="keyword">fun</span> <a name="2638"><span class="dyncstdec">pthread_attr_destroy_exn
+  <span class="keyword">(</span>attr<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>pthread_attr_t &gt;&gt; pthread_attr_t?</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atslib_pthread_attr_destroy_exn"
+<span class="comment">// end of [pthread_attr_destroy_exn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="2815"><span class="dyncstdec">pthread_create <span class="keyword">(</span>
+    tid<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>pthread_t? &gt;&gt; pthread_t</span>
+  <span class="keyword">,</span> attr<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>pthread_attr_t</span><span class="keyword">,</span> fthread<span class="keyword">:</span> <span class="staexp">ptr <span class="keyword">-&gt;</span> ptr</span><span class="keyword">,</span> arg<span class="keyword">:</span> <span class="staexp">ptr</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_pthread_create"
+<span class="comment">// end of [pthread_create]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="3013"><span class="dyncstdec">pthread_join
+  <span class="keyword">(</span>tid<span class="keyword">:</span> <span class="staexp">pthread_t</span><span class="keyword">,</span> status<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>ptr? &gt;&gt; ptr</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_pthread_join"
+<span class="comment">// end of [pthread_join]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: this one is implemented in [$ATSHOME/ccomp/runtime/ats_prelude.c]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="3226"><span class="dyncstdec">pthread_create_detached <span class="staexp"><span class="keyword">{</span>vt<span class="keyword">:</span>viewtype<span class="keyword">}</span></span>
+  <span class="keyword">(</span>f<span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>vt<span class="keyword">)</span> <span class="keyword">-&lt;</span>fun1<span class="keyword">&gt;</span> void</span><span class="keyword">,</span> env<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>vt &gt;&gt; opt <span class="keyword">(</span>vt<span class="keyword">,</span> i <span class="keyword">&gt;</span> 0<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>nat<span class="keyword">]</span> int i</span></span></a>
+  <span class="keyword">=</span> "ats_pthread_create_detached"
+<span class="comment">// end of [pthread_create_detached]
+</span>
+<span class="comment">//
+</span><span class="comment">// HX: [pthread_create_detached_exn] is implemented in
+</span><span class="comment">// [$ATSHOME/libc/DATS/pthread.dats]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="3507"><span class="dyncstdec">pthread_create_detached_exn <span class="staexp"><span class="keyword">{</span>vt<span class="keyword">:</span>viewtype<span class="keyword">}</span></span>
+  <span class="keyword">(</span>f<span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>vt<span class="keyword">)</span> <span class="keyword">-&lt;</span>fun1<span class="keyword">&gt;</span> void</span><span class="keyword">,</span> env<span class="keyword">:</span> <span class="staexp">vt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="comment">// env is to be processed by f
+</span><span class="comment">// end of [pthread_create_detached_exn]
+</span>
+<span class="comment">//
+</span><span class="comment">// HX: [pthread_create_detached_cloptr] is implemented in
+</span><span class="comment">// [$ATSHOME/libc/DATS/pthread.dats]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="3766"><span class="dyncstdec">pthread_create_detached_cloptr
+  <span class="keyword">(</span>f<span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">-&lt;</span>lincloptr1<span class="keyword">&gt;</span> void</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="comment">// HX: closure is freed to avoid leak!
+</span><span class="comment">// end of [pthread_create_detached_cloptr]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: [pval] is used for supporting [pthread_join]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="3997"><span class="dyncstdec">pthread_exit
+  <span class="keyword">(</span>pval<span class="keyword">:</span> <span class="staexp">ptr</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "#atslib_pthread_exit" <span class="comment">// macro!
+</span><span class="comment">// end of [pthread_exit]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="4116"><span class="dyncstdec">pthread_cancel
+  <span class="keyword">(</span>tid<span class="keyword">:</span> <span class="staexp">pthread_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_pthread_cancel" <span class="comment">// macro!
+</span><span class="comment">// end of [pthread_cancel]
+</span>
+<span class="keyword">fun</span> <a name="4224"><span class="dyncstdec">pthread_testcancel <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "#atslib_pthread_testcancel" <span class="comment">// macro!
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">absview</span> <span class="staexp"><a name="4323"><span class="stacstdec">pthread_cleanup_v</span></a></span>
+
+<span class="keyword">fun</span> <a name="4346"><span class="dyncstdec">pthread_cleanup_push
+  <span class="staexp"><span class="keyword">{</span>vt<span class="keyword">:</span>viewtype<span class="keyword">}</span></span> <span class="keyword">(</span>handler<span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>vt<span class="keyword">)</span> <span class="keyword">-&gt;</span> void</span><span class="keyword">,</span> arg<span class="keyword">:</span> <span class="staexp">vt</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>pthread_cleanup_v <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_pthread_cleanup_push"
+<span class="comment">// end of [pthread_cleanup_push]
+</span>
+<span class="keyword">fun</span> <a name="4518"><span class="dyncstdec">pthread_cleanup_pop
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">pthread_cleanup_v</span></span> <span class="keyword">|</span> execute<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "#atslib_pthread_cleanup_pop"
+<span class="comment">// end of [pthread_cleanup_pop]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">absviewt@ype</span>
+<span class="staexp"><a name="4684"><span class="stacstdec">pthread_mutex_view_viewt0ype
+  <span class="keyword">(</span>v<span class="keyword">:</span>view<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">$extype</span> "pthread_mutex_t"</span></a></span>
+<span class="comment">// end of [absviewt@ype]
+</span><span class="keyword">stadef</span> <span class="staexp"><a name="4784"><span class="stacstdec">mutex_vt <span class="keyword">=</span> pthread_mutex_view_viewt0ype</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: this one does initialization and locking
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="4903"><span class="dyncstdec">pthread_mutex_init_locked
+  <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="keyword">(</span>mut<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>mutex_vt? &gt;&gt; opt <span class="keyword">(</span>mutex_vt<span class="keyword">(</span>v<span class="keyword">)</span><span class="keyword">,</span> i==0<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>nat<span class="keyword">]</span> int i</span></span></a>
+  <span class="keyword">=</span> "atslib_pthread_mutex_init_locked"
+<span class="comment">// end of [pthread_mutex_init_locked]
+</span>
+<span class="keyword">fun</span> <a name="5083"><span class="dyncstdec">pthread_mutex_init_unlocked <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v &gt;&gt; option_v <span class="keyword">(</span>v<span class="keyword">,</span> i <span class="keyword">&gt;</span> 0<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> mut<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>mutex_vt? &gt;&gt; opt <span class="keyword">(</span>mutex_vt<span class="keyword">(</span>v<span class="keyword">)</span><span class="keyword">,</span> i==0<span class="keyword">)</span></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>nat<span class="keyword">]</span> int i</span></span></a> <span class="keyword">=</span> "atslib_pthread_mutex_init_unlocked"
+<span class="comment">// end of [pthread_mutex_init_unlocked]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="5329"><span class="dyncstdec">pthread_mutex_create_locked <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>option_v <span class="keyword">(</span><span class="keyword">(</span>free_gc_v l<span class="keyword">,</span> mutex_vt v @ l<span class="keyword">)</span><span class="keyword">,</span> l <span class="keyword">&gt;</span> null<span class="keyword">)</span> <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atslib_pthread_mutex_create_locked"
+<span class="comment">// end of [pthread_mutex_create_locked]
+</span>
+<span class="keyword">fun</span> <a name="5537"><span class="dyncstdec">pthread_mutex_create_unlocked <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v &gt;&gt; option_v <span class="keyword">(</span>v<span class="keyword">,</span> l==null<span class="keyword">)</span></span></span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>option_v <span class="keyword">(</span><span class="keyword">(</span>free_gc_v l<span class="keyword">,</span> mutex_vt v @ l<span class="keyword">)</span><span class="keyword">,</span> l <span class="keyword">&gt;</span> null<span class="keyword">)</span> <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atslib_pthread_mutex_create_unlocked"
+<span class="comment">// end of [pthread_mutex_create_unlocked]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">//
+</span><span class="comment">// HX-2010-03-14:
+</span><span class="comment">// it should be called 'uninitialize' or 'clear' in ATS
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="5897"><span class="dyncstdec">pthread_mutex_destroy
+  <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>p<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>mutex_vt<span class="keyword">(</span>v<span class="keyword">)</span> &gt;&gt; opt <span class="keyword">(</span>mutex_vt<span class="keyword">(</span>v<span class="keyword">)</span><span class="keyword">,</span> i <span class="keyword">&gt;</span> 0<span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>nat<span class="keyword">]</span> <span class="keyword">(</span>option_v <span class="keyword">(</span>v<span class="keyword">,</span> i==0<span class="keyword">)</span> <span class="keyword">|</span> int i<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atslib_pthread_mutex_destroy"
+<span class="comment">// end of [pthread_mutex_destroy]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="6120"><span class="dyncstdec">pthread_mutex_lock
+  <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="keyword">(</span>mutex<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>mutex_vt v</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>i<span class="keyword">:</span>nat<span class="keyword">]</span> <span class="keyword">(</span>option_v <span class="keyword">(</span>v<span class="keyword">,</span> i==0<span class="keyword">)</span> <span class="keyword">|</span> int i<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "#atslib_pthread_mutex_lock" <span class="comment">// macro!
+</span><span class="comment">// end of [pthread_mutex_lock]
+</span>
+<span class="keyword">fun</span> <a name="6290"><span class="dyncstdec">pthread_mutex_unlock <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">resource<span class="keyword">:</span> <span class="staexp">v</span></span> <span class="keyword">|</span> mutex<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>mutex_vt v</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>i<span class="keyword">:</span>nat<span class="keyword">]</span> <span class="keyword">(</span>option_v <span class="keyword">(</span>v<span class="keyword">,</span> i <span class="keyword">&gt;</span> 0<span class="keyword">)</span> <span class="keyword">|</span> int i<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "#atslib_pthread_mutex_unlock" <span class="comment">// macro!
+</span><span class="comment">// end of [pthread_mutex_unlock]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">absviewt@ype</span>
+<span class="staexp"><a name="6511"><span class="stacstdec">pthread_cond_viewt0ype <span class="keyword">=</span> <span class="keyword">$extype</span> "pthread_cond_t"</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="6568"><span class="stacstdec">cond_vt <span class="keyword">=</span> pthread_cond_viewt0ype</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="6627"><span class="dyncstdec">pthread_cond_create <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>option_v <span class="keyword">(</span><span class="keyword">(</span>free_gc_v l<span class="keyword">,</span> cond_vt @ l<span class="keyword">)</span><span class="keyword">,</span> l <span class="keyword">&gt;</span> null<span class="keyword">)</span> <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atslib_pthread_cond_create"
+
+<span class="keyword">fun</span> <a name="6759"><span class="dyncstdec">pthread_cond_wait <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">resource<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v</span></span> <span class="keyword">|</span> cond<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>cond_vt</span><span class="keyword">,</span> p<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>mutex_vt v</span><span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp">int</span></span></a>
+  <span class="keyword">=</span> "#atslib_pthread_cond_wait"
+<span class="comment">// end of [pthread_cond_wait]
+</span>
+<span class="keyword">fun</span> <a name="6911"><span class="dyncstdec">pthread_cond_signal
+  <span class="keyword">(</span>cond<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>cond_vt</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_pthread_cond_signal"
+<span class="comment">// end of [pthread_cond_signal]
+</span>
+<span class="keyword">fun</span> <a name="7026"><span class="dyncstdec">pthread_cond_broadcast
+  <span class="keyword">(</span>cond<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>cond_vt</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_pthread_cond_broadcast"
+<span class="comment">// end of [pthread_cond_broadcast]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">//
+</span><span class="comment">// HX-2010-10: refcounted mutex
+</span><span class="comment">//
+</span><span class="keyword">absviewtype</span>
+<span class="staexp"><a name="7217"><span class="stacstdec">mutexref_view_type</span></a></span> <span class="keyword">(</span>v<span class="keyword">:</span>view<span class="keyword">,</span> l<span class="keyword">:</span>addr<span class="keyword">)</span> <span class="comment">// a boxed type
+</span><span class="comment">// end of [absviewtype]
+</span><span class="keyword">stadef</span> <span class="staexp"><a name="7300"><span class="stacstdec">mutexref_t <span class="keyword">=</span> mutexref_view_type</span></a></span>
+
+<span class="keyword">castfn</span> <a name="7340"><span class="dyncstdec">mutexref_get_view_ptr
+  <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l1<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">mutexref_t <span class="keyword">(</span>v<span class="keyword">,</span> l1<span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l2<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>minus <span class="keyword">(</span>mutexref_t <span class="keyword">(</span>v<span class="keyword">,</span> l1<span class="keyword">)</span><span class="keyword">,</span> mutex_vt v @ l2<span class="keyword">)</span><span class="keyword">,</span> mutex_vt v @ l2 <span class="keyword">|</span> ptr l2<span class="keyword">)</span></span></span></a>
+<span class="comment">// end of [mutexref_get_view_ptr]
+</span>
+<span class="keyword">fun</span> <a name="7534"><span class="dyncstdec">mutexref_lock <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>mutexref_t <span class="keyword">(</span>v<span class="keyword">,</span> l<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>v <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atslib_pthread_mutexref_lock"
+<span class="comment">// end of [mutexref_lock]
+</span>
+<span class="keyword">fun</span> <a name="7668"><span class="dyncstdec">mutexref_unlock <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">v</span></span> <span class="keyword">|</span> x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>mutexref_t <span class="keyword">(</span>v<span class="keyword">,</span> l<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atslib_pthread_mutexref_unlock"
+<span class="comment">// end of [mutexref_unlock]
+</span>
+<span class="keyword">fun</span> <a name="7810"><span class="dyncstdec">mutexref_ref
+  <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>
+    x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>mutexref_t <span class="keyword">(</span>v<span class="keyword">,</span> l<span class="keyword">)</span></span>
+  <span class="keyword">)</span> <span class="keyword">:&lt;&gt;</span> <span class="staexp">mutexref_t <span class="keyword">(</span>v<span class="keyword">,</span> l<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atslib_pthread_mutexref_ref"
+<span class="comment">// end of [mutexref_ref]
+</span>
+<span class="keyword">fun</span> <a name="7959"><span class="dyncstdec">mutexref_unref
+  <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">mutexref_t <span class="keyword">(</span>v<span class="keyword">,</span> l<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atslib_pthread_mutexref_unref"
+<span class="comment">// end of [mutexref_unref]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [pthread.sats] *)</span>
+</pre>
+</body>
+</html>

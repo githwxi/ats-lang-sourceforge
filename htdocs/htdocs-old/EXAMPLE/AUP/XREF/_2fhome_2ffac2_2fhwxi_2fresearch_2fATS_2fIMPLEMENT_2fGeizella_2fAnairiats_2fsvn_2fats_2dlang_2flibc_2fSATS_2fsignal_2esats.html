@@ -1,0 +1,313 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2010 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the  terms of the  GNU General Public License as published by the Free
+** Software Foundation; either version 2.1, or (at your option) any later
+** version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+**
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* author: Hongwei Xi (hwxi AT cs DOT bu DOT edu) *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{#
+#include "libc/CATS/signal.cats"
+%}</span> <span class="comment">// end of [%{#]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">TYPES <span class="keyword">=</span> "libc/sys/SATS/types.sats"</span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1614"><span class="stacstdec">pid_t <span class="keyword">=</span> $TYPES<span class="keyword">.</span>pid_t</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1643"><span class="stacstdec">uid_t <span class="keyword">=</span> $TYPES<span class="keyword">.</span>uid_t</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1672"><span class="stacstdec">clock_t <span class="keyword">=</span> $TYPES<span class="keyword">.</span>clock_t</span></a></span>
+<span class="keyword">staload</span> <span class="staexp">PTHREAD <span class="keyword">=</span> "libc/SATS/pthread.sats"</span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1748"><span class="stacstdec">pthread_t <span class="keyword">=</span> $PTHREAD<span class="keyword">.</span>pthread_t</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: defined in [libc/CATS/signal.cats]
+</span><span class="comment">//
+</span><span class="keyword">abst@ype</span> <span class="staexp"><a name="1857"><span class="stacstdec">signum_t <span class="keyword">=</span> <span class="keyword">$extype</span> "signum_t"</span></a></span>
+<span class="comment">//
+</span><span class="keyword">macdef</span> <span class="neuexp">SIGHUP <span class="keyword">=</span>  <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGHUP"<span class="keyword">)</span></span> <span class="comment">// 1
+</span><span class="keyword">macdef</span> <span class="neuexp">SIGINT <span class="keyword">=</span>  <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGINT"<span class="keyword">)</span></span> <span class="comment">// 2
+</span><span class="keyword">macdef</span> <span class="neuexp">SIGQUIT <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGQUIT"<span class="keyword">)</span></span> <span class="comment">// 3
+</span><span class="keyword">macdef</span> <span class="neuexp">SIGILL <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGILL"<span class="keyword">)</span></span> <span class="comment">// 4
+</span><span class="keyword">macdef</span> <span class="neuexp">SIGABRT <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGABRT"<span class="keyword">)</span></span> <span class="comment">// 6
+</span><span class="keyword">macdef</span> <span class="neuexp">SIGFPE <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGFPE"<span class="keyword">)</span></span> <span class="comment">// 8
+</span><span class="keyword">macdef</span> <span class="neuexp">SIGKILL <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGKILL"<span class="keyword">)</span></span> <span class="comment">// 9
+</span><span class="keyword">macdef</span> <span class="neuexp">SIGSEGV <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGSEGV"<span class="keyword">)</span></span> <span class="comment">// 11
+</span><span class="keyword">macdef</span> <span class="neuexp">SIGPIPE <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGPIPE"<span class="keyword">)</span></span> <span class="comment">// 13
+</span><span class="keyword">macdef</span> <span class="neuexp">SIGALRM <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGALRM"<span class="keyword">)</span></span> <span class="comment">// 14
+</span><span class="keyword">macdef</span> <span class="neuexp">SIGTERM <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGTERM"<span class="keyword">)</span></span> <span class="comment">// 15
+</span><span class="keyword">macdef</span> <span class="neuexp">SIGUSR1 <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGUSR1"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SIGUSR2 <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGUSR2"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SIGCHLD <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGCHLD"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SIGCONT <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGCONT"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SIGSTOP <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGSTOP"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SIGTSTP <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGTSTP"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SIGTTIN <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGTTIN"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SIGTTOU <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGTTOU"<span class="keyword">)</span></span>
+<span class="comment">//
+</span><span class="keyword">macdef</span> <span class="neuexp">SIGBUS <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGBUS"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SIGTRAP <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGTRAP"<span class="keyword">)</span></span> <span class="comment">// 5
+</span><span class="comment">//
+</span><span class="keyword">macdef</span> <span class="neuexp">SIGIO <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>signum_t<span class="keyword">,</span> "SIGIO"<span class="keyword">)</span></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abstype</span> <span class="staexp"><a name="3012"><span class="stacstdec">sighandler_t</span></a></span> <span class="comment">// this is a boxed type
+</span><span class="comment">//
+</span><span class="keyword">macdef</span> <span class="neuexp">SIG_DFL <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>sighandler_t<span class="keyword">,</span> "SIG_DFL"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SIG_IGN <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>sighandler_t<span class="keyword">,</span> "SIG_IGN"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SIG_HOLD <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>sighandler_t<span class="keyword">,</span> "SIG_HOLD"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SIG_ERR <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>sighandler_t<span class="keyword">,</span> "SIG_ERR"<span class="keyword">)</span></span>
+<span class="comment">//
+</span><span class="neuexp"><span class="keyword">symintr</span></span> sighandler
+<span class="keyword">castfn</span> <a name="3287"><span class="dyncstdec">sighandler_of_fun <span class="keyword">(</span>f<span class="keyword">:</span> <span class="staexp">signum_t <span class="keyword">-&lt;</span>fun1<span class="keyword">&gt;</span> void</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">sighandler_t</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> sighandler <span class="keyword">with</span> sighandler_of_fun</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="3420"><span class="stacstdec">sigset_t <span class="keyword">=</span> <span class="keyword">$extype</span> "sigset_t"</span></a></span>
+<span class="keyword">fun</span> <a name="3454"><span class="dyncstdec">sigemptyset <span class="comment">// 0/-1 : fail/succ // errno set: EINVAL
+</span>  <span class="keyword">(</span>set<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sigset_t? &gt;&gt; opt <span class="keyword">(</span>sigset_t<span class="keyword">,</span> i==0<span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &lt;= 0<span class="keyword">]</span> int <span class="keyword">(</span>i<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_sigemptyset"
+<span class="comment">// end of [sigemptyset]
+</span><span class="keyword">fun</span> <a name="3633"><span class="dyncstdec">sigfillset  <span class="comment">// 0/-1 : fail/succ // errno set: EINVAL
+</span>  <span class="keyword">(</span>set<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sigset_t? &gt;&gt; opt <span class="keyword">(</span>sigset_t<span class="keyword">,</span> i==0<span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &lt;= 0<span class="keyword">]</span> int <span class="keyword">(</span>i<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_sigfillset"
+<span class="comment">// end of [sigfillset]
+</span><span class="keyword">fun</span> <a name="3810"><span class="dyncstdec">sigaddset   <span class="comment">// 0/-1 : fail/succ // errno set: EINVAL
+</span>  <span class="keyword">(</span>set<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sigset_t</span><span class="keyword">,</span> sgn<span class="keyword">:</span> <span class="staexp">signum_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_sigaddset"
+<span class="comment">// end of [sigaddset]
+</span><span class="keyword">fun</span> <a name="3950"><span class="dyncstdec">sigdelset   <span class="comment">// 0/-1 : fail/succ // errno set: EINVAL
+</span>  <span class="keyword">(</span>set<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sigset_t</span><span class="keyword">,</span> sgn<span class="keyword">:</span> <span class="staexp">signum_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_sigdelset"
+<span class="comment">// end of [sigdelset]
+</span>
+<span class="keyword">fun</span> <a name="4091"><span class="dyncstdec">sigismember <span class="comment">// 0/1/-1 : false/true/error // errno set: EINVAL
+</span>  <span class="keyword">(</span>set<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sigset_t</span><span class="keyword">,</span> sgn<span class="keyword">:</span> <span class="staexp">signum_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_sigismember"
+<span class="comment">// end of [sigismember]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="4271"><span class="stacstdec">sigmaskhow_t <span class="keyword">=</span> int</span></a></span>
+
+<span class="keyword">macdef</span> <span class="neuexp">SIG_BLOCK <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>sigmaskhow_t<span class="keyword">,</span> "SIG_BLOCK"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SIG_SETMASK <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>sigmaskhow_t<span class="keyword">,</span> "SIG_SETMASK"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SIG_NONBLOCK <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>sigmaskhow_t<span class="keyword">,</span> "SIG_NONBLOCK"<span class="keyword">)</span></span>
+
+<span class="comment">/* ****** ****** */</span>
+
+<span class="keyword">fun</span> <a name="4492"><span class="dyncstdec">pthread_sigmask <span class="keyword">(</span>
+  how<span class="keyword">:</span> <span class="staexp">sigmaskhow_t</span>
+<span class="keyword">,</span> newset<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sigset_t</span><span class="keyword">,</span> oldset<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sigset_t? &gt;&gt; opt <span class="keyword">(</span>sigset_t<span class="keyword">,</span> i==0<span class="keyword">)</span></span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &lt;= 0<span class="keyword">]</span> int <span class="keyword">(</span>i<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_pthread_sigmask"
+<span class="keyword">fun</span> <a name="4656"><span class="dyncstdec">pthread_sigmask_null
+  <span class="keyword">(</span>how<span class="keyword">:</span> <span class="staexp">sigmaskhow_t</span><span class="keyword">,</span> newset<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sigset_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_pthread_sigmask"
+<span class="comment">// end of [pthread_sigmask_null]
+</span>
+<span class="keyword">fun</span> <a name="4789"><span class="dyncstdec">sigprocmask <span class="keyword">(</span>
+  how<span class="keyword">:</span> <span class="staexp">sigmaskhow_t</span>
+<span class="keyword">,</span> newset<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sigset_t</span><span class="keyword">,</span> oldset<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sigset_t? &gt;&gt; opt <span class="keyword">(</span>sigset_t<span class="keyword">,</span> i==0<span class="keyword">)</span></span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &lt;= 0<span class="keyword">]</span> int <span class="keyword">(</span>i<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_sigprocmask"
+<span class="keyword">fun</span> <a name="4945"><span class="dyncstdec">sigprocmask_null
+  <span class="keyword">(</span>how<span class="keyword">:</span> <span class="staexp">sigmaskhow_t</span><span class="keyword">,</span> newset<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sigset_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_sigprocmask_null"
+<span class="comment">// end of [sigprocmask_null]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="5097"><span class="stacstdec">sigval_t <span class="keyword">=</span> <span class="keyword">$extype</span> "sigval_t"</span></a></span>
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="5136"><span class="stacstdec">saflag_t <span class="keyword">=</span> uint</span></a></span>
+<span class="keyword">macdef</span> <span class="neuexp">SA_NOCLDSTOP <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>saflag_t<span class="keyword">,</span> "SA_NOCLDSTOP"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SA_NOCLDWAIT <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>saflag_t<span class="keyword">,</span> "SA_NOCLDWAIT"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SA_NODEFER <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>saflag_t<span class="keyword">,</span> "SA_NODEFER"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SA_ONSTACK <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>saflag_t<span class="keyword">,</span> "SA_ONSTACK"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SA_RESETHAND <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>saflag_t<span class="keyword">,</span> "SA_RESETHAND"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SA_RESTART <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>saflag_t<span class="keyword">,</span> "SA_RESTART"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SA_SIGINFO <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>saflag_t<span class="keyword">,</span> "SA_SIGINFO"<span class="keyword">)</span></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="5565"><span class="stacstdec">siginfo_t <span class="keyword">=</span>
+<span class="keyword">$extype_struct</span> "siginfo_t" <span class="keyword">of</span> <span class="keyword">{</span>
+  si_signo<span class="keyword">=</span> int <span class="comment">// signal number
+</span><span class="keyword">,</span> si_sigerror<span class="keyword">=</span> int <span class="comment">// error value
+</span><span class="keyword">,</span> si_code<span class="keyword">=</span> int <span class="comment">// signal code
+</span><span class="keyword">,</span> si_trapno<span class="keyword">=</span> int <span class="comment">// trap number that caused HW signal
+</span><span class="keyword">,</span> si_pid<span class="keyword">=</span> pid_t <span class="comment">// proc ID of the sending process
+</span><span class="keyword">,</span> si_uid<span class="keyword">=</span> uid_t <span class="comment">// real user ID of the sending process
+</span><span class="keyword">,</span> si_status<span class="keyword">=</span> int <span class="comment">// exit value or signal
+</span><span class="keyword">,</span> si_utime<span class="keyword">=</span> clock_t <span class="comment">// user time consumed
+</span><span class="keyword">,</span> si_stime<span class="keyword">=</span> clock_t <span class="comment">// system time consumed
+</span><span class="keyword">,</span> si_value<span class="keyword">=</span> sigval_t <span class="comment">// signal value
+</span><span class="keyword">,</span> si_int<span class="keyword">=</span> int <span class="comment">// signal (POSIX.1b)
+</span><span class="keyword">,</span> si_ptr<span class="keyword">=</span> ptr <span class="comment">// signal (POSIX.1b)
+</span><span class="keyword">,</span> si_overrun<span class="keyword">=</span> int <span class="comment">// timer overrun count (POSIX.1b)
+</span><span class="keyword">,</span> si_timerid<span class="keyword">=</span> int <span class="comment">// timer ID (POSIX.1b)
+</span><span class="keyword">,</span> si_addr<span class="keyword">=</span> ptr <span class="comment">// memory location that caused fault
+</span><span class="keyword">,</span> si_band<span class="keyword">=</span> int <span class="comment">// band event
+</span><span class="keyword">,</span> si_fd<span class="keyword">=</span> int <span class="comment">// file descriptor
+</span><span class="keyword">}</span></span></a></span> <span class="comment">// end of [siginfo_t]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: this one is deprecated; please use [sigaction]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="6414"><span class="dyncstdec">signal
+  <span class="keyword">(</span>sgn<span class="keyword">:</span> <span class="staexp">signum_t</span><span class="keyword">,</span> act<span class="keyword">:</span> <span class="staexp">sighandler_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">sighandler_t</span></span></a> <span class="keyword">=</span> "#atslib_signal"
+<span class="comment">// end of [signal]
+</span>
+<span class="keyword">fun</span> <a name="6515"><span class="dyncstdec">sigset
+  <span class="keyword">(</span>sgn<span class="keyword">:</span> <span class="staexp">signum_t</span><span class="keyword">,</span> act<span class="keyword">:</span> <span class="staexp">sighandler_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">sighandler_t</span></span></a> <span class="keyword">=</span> "#atslib_sigset"
+<span class="comment">// end of [sigset]
+</span>
+<span class="comment">// HX: for unblocking a signal
+</span><span class="keyword">fun</span> <a name="6647"><span class="dyncstdec">sigrelse <span class="keyword">(</span>sgn<span class="keyword">:</span> <span class="staexp">signum_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_sigrelse" <span class="comment">// 0/-1 : succ/fail
+</span>
+<span class="comment">// HX: sighold(sgn) = sigset (sgn, SIG_HOLD)
+</span><span class="keyword">fun</span> <a name="6768"><span class="dyncstdec">sighold <span class="keyword">(</span>sgn<span class="keyword">:</span> <span class="staexp">signum_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_sighold" <span class="comment">// 0/-1 : succ/fail
+</span>
+<span class="comment">// HX: sigignore(sgn) = sigset (sgn, SIG_IGN)
+</span><span class="keyword">fun</span> <a name="6888"><span class="dyncstdec">sigignore <span class="keyword">(</span>sgn<span class="keyword">:</span> <span class="staexp">signum_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_sigignore" <span class="comment">// 0/-1 : succ/fail
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="6991"><span class="stacstdec">sigaction_struct <span class="keyword">=</span>
+<span class="keyword">$extype_struct</span> "ats_sigaction_type" <span class="keyword">of</span> <span class="keyword">{</span>
+  sa_handler<span class="keyword">=</span> sighandler_t
+<span class="keyword">,</span> sa_sigaction<span class="keyword">=</span> <span class="keyword">(</span>int<span class="keyword">,</span> <span class="keyword">&amp;</span>siginfo_t<span class="keyword">,</span> ptr<span class="keyword">)</span> <span class="keyword">-&lt;</span>fun1<span class="keyword">&gt;</span> void
+<span class="keyword">,</span> sa_mask<span class="keyword">=</span> sigset_t
+<span class="keyword">,</span> sa_flags<span class="keyword">=</span> saflag_t
+<span class="keyword">,</span> sa_restorer<span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">-&lt;</span>fun1<span class="keyword">&gt;</span> void
+<span class="keyword">}</span></span></a></span> <span class="comment">// end of [sigaction_struct]
+</span><span class="keyword">typedef</span> <span class="staexp"><a name="7241"><span class="stacstdec">sigaction <span class="keyword">=</span> sigaction_struct</span></a></span>
+
+<span class="keyword">fun</span> <a name="7275"><span class="dyncstdec">sigaction <span class="keyword">(</span>
+  sgn<span class="keyword">:</span> <span class="staexp">signum_t</span>
+<span class="keyword">,</span> newact<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sigaction</span><span class="keyword">,</span> oldact<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sigaction? &gt;&gt; opt <span class="keyword">(</span>sigaction<span class="keyword">,</span> i==0<span class="keyword">)</span></span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &lt;= 0<span class="keyword">]</span> int i</span></span></a> <span class="keyword">=</span> "#atslib_sigaction" <span class="comment">// 0/-1 : succ/fail
+</span><span class="keyword">fun</span> <a name="7444"><span class="dyncstdec">sigaction_null
+  <span class="keyword">(</span>sgn<span class="keyword">:</span> <span class="staexp">signum_t</span><span class="keyword">,</span> newact<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sigaction</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_sigaction_null"
+<span class="comment">// end of [sigaction_null]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="7582"><span class="dyncstdec">kill <span class="comment">// 0/-1 : succ/fail // errno set
+</span>  <span class="keyword">(</span>proc<span class="keyword">:</span> <span class="staexp">pid_t</span><span class="keyword">,</span> sgn<span class="keyword">:</span> <span class="staexp">signum_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_kill"
+<span class="comment">// end of [kill]
+</span><span class="comment">//
+</span><span class="comment">// HX: killpg (pgrp, sgn) = kill (-pgrp, sgn)
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="7746"><span class="dyncstdec">killpg <span class="comment">// 0/-1 : succ/fail // errno set
+</span>  <span class="keyword">(</span>pgrp<span class="keyword">:</span> <span class="staexp">pid_t</span><span class="keyword">,</span> sgn<span class="keyword">:</span> <span class="staexp">signum_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_killpg"
+<span class="comment">// end of [killpg]
+</span><span class="keyword">fun</span> <a name="7864"><span class="dyncstdec">pthread_kill <span class="comment">// 0/errno : succ/fail
+</span>  <span class="keyword">(</span>tid<span class="keyword">:</span> <span class="staexp">pthread_t</span><span class="keyword">,</span> sgn<span class="keyword">:</span> <span class="staexp">signum_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_pthread_kill"
+<span class="comment">// end of [pthread_kill]
+</span><span class="comment">//
+</span><span class="comment">// HX: raise(sgn) = pthread_kill (pthread_self, sgn)
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="8052"><span class="dyncstdec">raise <span class="comment">// 0/errno : succ/fail
+</span>  <span class="keyword">(</span>sgn<span class="keyword">:</span> <span class="staexp">signum_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_raise" <span class="comment">// 0/nz : succ/fail
+</span><span class="comment">// end of [raise]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="8186"><span class="dyncstdec">sigwait <span class="keyword">(</span> <span class="comment">// 0/errno : succ/fail
+</span>    set<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sigset_t</span><span class="keyword">,</span> sgn<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>signum_t? &gt;&gt; opt <span class="keyword">(</span>signum_t<span class="keyword">,</span> i==0<span class="keyword">)</span></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &gt;= 0<span class="keyword">]</span> int<span class="keyword">(</span>i<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_sigwait"
+<span class="comment">// end of [sigwait]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">//
+</span><span class="comment">// HX: deprecated; please use [sigsuspend]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="8425"><span class="dyncstdec">sigpause <span class="comment">// -1: fail // errno set
+</span>  <span class="keyword">(</span>sgn<span class="keyword">:</span> <span class="staexp">signum_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_pause"
+<span class="comment">// end of [sigpause]
+</span>
+<span class="comment">//
+</span><span class="comment">// HX: -1: fail // errno set // normally, EINTR is set
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="8587"><span class="dyncstdec">sigsuspend <span class="keyword">(</span>mask<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sigset_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_sigsuspend"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="8670"><span class="dyncstdec">sigpending <span class="keyword">(</span> <span class="comment">// 0/-1: succ/fail // errno set
+</span>  set<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sigset_t? &gt;&gt; opt <span class="keyword">(</span>sigset_t<span class="keyword">,</span> i==0<span class="keyword">)</span></span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &lt;= 0<span class="keyword">]</span> int i</span></span></a> <span class="keyword">=</span> "#atslib_sigpending"
+<span class="comment">// end of [sigpending]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="8857"><span class="dyncstdec">siginterrupt <span class="comment">// 0/-1 : succ/fail // errno set
+</span>  <span class="keyword">(</span>sgn<span class="keyword">:</span> <span class="staexp">signum_t</span><span class="keyword">,</span> flag<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_siginterrupt"
+<span class="comment">// end of [siginterrupt]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// HX: print onto stderr
+</span><span class="keyword">fun</span> <a name="9038"><span class="dyncstdec">psignal <span class="keyword">(</span>sgn<span class="keyword">:</span> <span class="staexp">signum_t</span><span class="keyword">,</span> msg<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>READ<span class="keyword">(</span>string<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "#atslib_psignal"
+
+<span class="keyword">fun</span> <a name="9113"><span class="dyncstdec">strsignal <span class="keyword">(</span>sgn<span class="keyword">:</span> <span class="staexp">signum_t</span><span class="keyword">)</span> <span class="comment">// HX: errno set?
+</span>  <span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>strptr<span class="keyword">(</span>l<span class="keyword">)</span> <span class="keyword">-&lt;</span>lin<span class="keyword">,</span>prf<span class="keyword">&gt;</span> void <span class="keyword">|</span> strptr<span class="keyword">(</span>l<span class="keyword">)</span><span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_strsignal"
+<span class="comment">// end of [strsignal]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [signal.sats] *)</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,643 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: December 2007
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* Mainly for testing exhaustiveness of pattern mattching  *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+#include "ats_intinf.cats"
+%}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Err <span class="keyword">=</span> "ats_error.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">IntInf <span class="keyword">=</span> "ats_intinf.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Lst <span class="keyword">=</span> "ats_list.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">SDC <span class="keyword">=</span> "ats_stadyncst2.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp2.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_patcst2.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">nil list_nil</span>
+<span class="keyword">#define</span> <span class="neuexp">:: list_cons</span>
+<span class="keyword">#define</span> <span class="neuexp">cons list_cons</span>
+
+<span class="keyword">macdef</span> <span class="neuexp">singleton <span class="keyword">(</span>x<span class="keyword">)</span> <span class="keyword">=</span> cons <span class="keyword">(</span><span class="keyword">,(</span>x<span class="keyword">)</span><span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">&lt;</span> <span class="keyword">with</span> $IntInf<span class="keyword">.</span>lt_intinf_intinf</span>
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">=</span> <span class="keyword">with</span> $IntInf<span class="keyword">.</span>eq_intinf_intinf</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">macdef</span> <span class="neuexp">fprint_label <span class="keyword">=</span> $Lab<span class="keyword">.</span>fprint_label</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> prerr_interror <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> prerr "INTERNAL ERROR (ats_patcst2)"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">assume</span> <span class="staexp">intinfset_t <span class="keyword">=</span> List intinf_t</span> <span class="comment">// of increasing order
+</span>
+<span class="keyword">implement</span> intinflst_of_intinfset <span class="keyword">(</span>xs<span class="keyword">)</span> <span class="keyword">=</span> xs
+
+<span class="keyword">fun</span> intinfset_add
+  <span class="keyword">(</span>xs0<span class="keyword">:</span> <span class="staexp">intinfset_t</span><span class="keyword">,</span> x0<span class="keyword">:</span> <span class="staexp">intinf_t</span><span class="keyword">,</span> err<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">intinfset_t</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> xs0 <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>x<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">if</span> x <span class="keyword">&lt;</span> x0 <span class="keyword">then</span> x :: intinfset_add <span class="keyword">(</span>xs<span class="keyword">,</span> x0<span class="keyword">,</span> err<span class="keyword">)</span>
+      <span class="keyword">else</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> x0 <span class="keyword">&lt;</span> x <span class="keyword">then</span> x0 :: xs0 <span class="keyword">else</span> <span class="keyword">(</span>err := 1<span class="keyword">;</span> xs0<span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> cons <span class="keyword">(</span>x0<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+
+<span class="keyword">fun</span> intinfset_sing <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">intinf_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">intinfset_t</span> <span class="keyword">=</span> cons <span class="keyword">(</span>x<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> p2atcst_lst <span class="keyword">(</span>p2tcs0<span class="keyword">:</span> <span class="staexp">p2atcstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">p2atcst</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "p2atcst_lst: p2tcs0 = "; print p2tcs0; print_newline ()
+  end // end of [val]
+*)</span>
+  <span class="keyword">fun</span> aux
+    <span class="keyword">(</span>d2c_cons<span class="keyword">:</span> <span class="staexp">d2con_t</span><span class="keyword">,</span> d2c_nil<span class="keyword">:</span> <span class="staexp">d2con_t</span><span class="keyword">,</span> p2tcs<span class="keyword">:</span> <span class="staexp">p2atcstlst</span><span class="keyword">)</span>
+    <span class="keyword">:</span> <span class="staexp">p2atcst</span> <span class="keyword">=</span> <span class="keyword">case+</span> p2tcs <span class="keyword">of</span>
+    <span class="keyword">|</span> p2tc_elt :: p2tcs <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> p2tc_lst <span class="keyword">=</span> aux <span class="keyword">(</span>d2c_cons<span class="keyword">,</span> d2c_nil<span class="keyword">,</span> p2tcs<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        P2TCcon <span class="keyword">(</span>d2c_cons<span class="keyword">,</span> <span class="keyword">'[</span>p2tc_elt<span class="keyword">,</span> p2tc_lst<span class="keyword">]</span><span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> P2TCcon <span class="keyword">(</span>d2c_nil<span class="keyword">,</span> <span class="keyword">'[</span><span class="keyword">]</span><span class="keyword">)</span>
+  <span class="keyword">val</span> d2c_nil <span class="keyword">=</span> $SDC<span class="keyword">.</span>d2conref_con_get <span class="keyword">(</span>$SDC<span class="keyword">.</span>List_nil<span class="keyword">)</span>
+  <span class="keyword">val</span> d2c_cons <span class="keyword">=</span> $SDC<span class="keyword">.</span>d2conref_con_get <span class="keyword">(</span>$SDC<span class="keyword">.</span>List_cons<span class="keyword">)</span>
+  <span class="keyword">val</span> p2tcs1 <span class="keyword">=</span> aux <span class="keyword">(</span>d2c_cons<span class="keyword">,</span> d2c_nil<span class="keyword">,</span> p2tcs0<span class="keyword">)</span>
+<span class="comment">(*
+  val () = begin
+    print "p2atcst_lst: p2tcs1 = "; print p2tcs1; print_newline ()
+  end
+*)</span>
+<span class="keyword">in</span>
+  p2tcs1
+<span class="keyword">end</span> <span class="comment">// end of [p2atcst_lst]
+</span>
+<span class="keyword">fun</span> labp2atcstlst_of_labp2atlst <span class="keyword">(</span>lp2ts<span class="keyword">:</span> <span class="staexp">labp2atlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">labp2atcstlst</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> lp2ts <span class="keyword">of</span>
+  <span class="keyword">|</span> LABP2ATLSTcons <span class="keyword">(</span>l<span class="keyword">,</span> p2t<span class="keyword">,</span> lp2ts<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> p2tc <span class="keyword">=</span> p2atcst_of_p2at p2t
+      <span class="keyword">val</span> lp2tcs <span class="keyword">=</span> labp2atcstlst_of_labp2atlst lp2ts
+    <span class="keyword">in</span>
+      LABP2ATCSTLSTcons <span class="keyword">(</span>l<span class="keyword">,</span> p2tc<span class="keyword">,</span> lp2tcs<span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> LABP2ATCSTLSTnil <span class="keyword">(</span><span class="keyword">)</span>
+
+<span class="keyword">implement</span> p2atcst_of_p2at p2t0 <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> p2t0<span class="keyword">.</span>p2at_node <span class="keyword">of</span>
+  <span class="keyword">|</span> P2Tann <span class="keyword">(</span>p2t<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> p2atcst_of_p2at p2t
+  <span class="keyword">|</span> P2Tany <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> P2TCany <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> P2Tas <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">,</span> p2t<span class="keyword">)</span> <span class="keyword">=&gt;</span> p2atcst_of_p2at p2t
+  <span class="keyword">|</span> P2Tbool b <span class="keyword">=&gt;</span> P2TCbool b
+  <span class="keyword">|</span> P2Tchar c <span class="keyword">=&gt;</span> P2TCchar c
+  <span class="keyword">|</span> P2Tcon <span class="keyword">(</span>_<span class="keyword">,</span> d2c<span class="keyword">,</span> _<span class="keyword">,</span> _<span class="keyword">,</span> _<span class="keyword">,</span> p2ts<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      P2TCcon <span class="keyword">(</span>d2c<span class="keyword">,</span> p2atcstlst_of_p2atlst p2ts<span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> P2Tempty <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> P2TCempty <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> P2Texist <span class="keyword">(</span>_<span class="keyword">,</span> p2t<span class="keyword">)</span> <span class="keyword">=&gt;</span> p2atcst_of_p2at p2t
+  <span class="keyword">|</span> P2Tfloat f<span class="comment">(*string*)</span> <span class="keyword">=&gt;</span> P2TCfloat f
+  <span class="keyword">|</span> P2Tint <span class="keyword">(</span>s<span class="comment">(*string*)</span><span class="keyword">,</span> i<span class="comment">(*intinf*)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> P2TCint i
+  <span class="keyword">|</span> P2Tlist _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      prerr ": p2atcst_of_p2at: p2t0 = "<span class="keyword">;</span> prerr p2t0<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>p2atcst<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [P2Tlist]
+</span>  <span class="keyword">|</span> P2Tlst p2ts <span class="keyword">=&gt;</span> p2atcst_lst <span class="keyword">(</span>p2atcstlst_of_p2atlst p2ts<span class="keyword">)</span>
+  <span class="keyword">|</span> P2Trec <span class="keyword">(</span>recknd<span class="keyword">,</span> _<span class="comment">(*npf*)</span><span class="keyword">,</span> lp2ts<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      P2TCrec <span class="keyword">(</span>recknd<span class="keyword">,</span> labp2atcstlst_of_labp2atlst lp2ts<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [P2Trec]
+</span>  <span class="keyword">|</span> P2Tstring s <span class="keyword">=&gt;</span> P2TCstring s
+  <span class="keyword">|</span> P2Tvar _ <span class="keyword">=&gt;</span> P2TCany <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> P2Tvbox _ <span class="keyword">=&gt;</span> P2TCany <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [p2atcst_of_p2at]
+</span>
+<span class="keyword">implement</span> p2atcstlst_of_p2atlst <span class="keyword">(</span>p2ts<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> p2ts <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>p2t<span class="keyword">,</span> p2ts<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      cons <span class="keyword">(</span>p2atcst_of_p2at p2t<span class="keyword">,</span> p2atcstlst_of_p2atlst p2ts<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// end of [nil]
+</span><span class="comment">// end of [p2atcstlst_of_p2atlst]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> fprint_intinfset <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> xs<span class="keyword">:</span> <span class="staexp">intinfset_t</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> xs<span class="keyword">:</span> <span class="staexp">intinfset_t</span><span class="keyword">)</span>
+    <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> xs <span class="keyword">of</span>
+    <span class="keyword">|</span> x :: xs <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ", "<span class="keyword">)</span><span class="keyword">;</span>
+        $IntInf<span class="keyword">.</span>fprint_intinf <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> x<span class="keyword">)</span><span class="keyword">;</span> aux <span class="keyword">(</span>out<span class="keyword">,</span> i+1<span class="keyword">,</span> xs<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [::]
+</span>    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// end of [nil]
+</span>  <span class="keyword">end</span> <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> 0<span class="keyword">,</span> xs<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [fprint_intinfset]
+</span>
+<span class="keyword">implement</span> fprint_p2atcst <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> p2tc<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">macdef</span> <span class="neuexp">prstr <span class="keyword">(</span>s<span class="keyword">)</span> <span class="keyword">=</span> fprint1_string <span class="keyword">(</span>pf <span class="keyword">|</span> out<span class="keyword">,</span> <span class="keyword">,(</span>s<span class="keyword">)</span><span class="keyword">)</span></span>  
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> p2tc <span class="keyword">of</span>
+  <span class="keyword">|</span> P2TCany <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> fprint1_char <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> '_'<span class="keyword">)</span>
+  <span class="keyword">|</span> P2TCbool b <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> name <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">if</span> b <span class="keyword">then</span> "true" <span class="keyword">else</span> "false"<span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">string</span>
+    <span class="keyword">in</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> name<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [P2TCbool]
+</span>  <span class="keyword">|</span> P2TCchar c <span class="keyword">=&gt;</span> fprintf1_exn <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "'%c'"<span class="keyword">,</span> <span class="keyword">@(</span>c<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">|</span> P2TCcon <span class="keyword">(</span>d2c<span class="keyword">,</span> p2tcs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      fprint_d2con <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> d2c<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "("<span class="keyword">;</span>
+      fprint_p2atcstlst <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> p2tcs<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [P2TCcon]
+</span>  <span class="keyword">|</span> P2TCempty <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "()"<span class="keyword">)</span>
+  <span class="keyword">|</span> P2TCfloat f<span class="comment">(*string*)</span> <span class="keyword">=&gt;</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> f<span class="keyword">)</span>
+  <span class="keyword">|</span> P2TCint int <span class="keyword">=&gt;</span> $IntInf<span class="keyword">.</span>fprint_intinf <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> int<span class="keyword">)</span>
+  <span class="keyword">|</span> P2TCintc ints <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "[^"<span class="keyword">;</span>
+      fprint_intinfset <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ints<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "]"
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> P2TCrec <span class="keyword">(</span>recknd<span class="keyword">,</span> lp2tcs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">if</span> recknd <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+        fprint1_char <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> '\''<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+        fprint1_char <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> '@'<span class="keyword">)</span>
+      <span class="keyword">end</span><span class="keyword">;</span>
+      prstr "{"<span class="keyword">;</span>
+      fprint_labp2atcstlst <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> lp2tcs<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "}"
+    <span class="keyword">end</span> <span class="comment">// end of [P2TCrec]
+</span>  <span class="keyword">|</span> P2TCstring s <span class="keyword">=&gt;</span> fprintf1_exn <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "\"%s\""<span class="keyword">,</span> <span class="keyword">@(</span>s<span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [fprint_p2atcst]
+</span>
+<span class="keyword">implement</span> fprint_p2atcstlst <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> p2tcs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> p2tcs<span class="keyword">:</span> <span class="staexp">p2atcstlst</span><span class="keyword">)</span>
+    <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> p2tcs <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>p2tc<span class="keyword">,</span> p2tcs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ", "<span class="keyword">)</span><span class="keyword">;</span>
+        fprint_p2atcst <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> p2tc<span class="keyword">)</span><span class="keyword">;</span> aux <span class="keyword">(</span>out<span class="keyword">,</span> i+1<span class="keyword">,</span> p2tcs<span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> 0<span class="keyword">,</span> p2tcs<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [fprint_p2atcstlst]
+</span>
+<span class="keyword">implement</span> fprint_labp2atcstlst <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> lp2tcs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> lp2tcs<span class="keyword">:</span> <span class="staexp">labp2atcstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> lp2tcs <span class="keyword">of</span>
+    <span class="keyword">|</span> LABP2ATCSTLSTcons <span class="keyword">(</span>l<span class="keyword">,</span> p2tc<span class="keyword">,</span> lp2tcs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ", "<span class="keyword">)</span><span class="keyword">;</span>
+        fprint_label <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> l<span class="keyword">)</span><span class="keyword">;</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "= "<span class="keyword">)</span><span class="keyword">;</span>
+        fprint_p2atcst <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> p2tc<span class="keyword">)</span><span class="keyword">;</span>
+        aux <span class="keyword">(</span>out<span class="keyword">,</span> i + 1<span class="keyword">,</span> lp2tcs<span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> LABP2ATCSTLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> 0<span class="keyword">,</span> lp2tcs<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [fprint_labp2atcstlst]
+</span>
+<span class="keyword">implement</span> fprint_p2atcstlstlst <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> p2tcss<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> p2tcss<span class="keyword">:</span> <span class="staexp">p2atcstlstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> p2tcss <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>p2tcs<span class="keyword">,</span> p2tcss<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        fprint_p2atcstlst <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> p2tcs<span class="keyword">)</span><span class="keyword">;</span> fprint_newline <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">)</span><span class="keyword">;</span>
+        aux <span class="keyword">(</span>out<span class="keyword">,</span> p2tcss<span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> p2tcss<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [fprint_p2atcstlstlst]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> print_p2atcst <span class="keyword">(</span>p2tc<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span>fprint_p2atcst<span class="keyword">,</span> p2tc<span class="keyword">)</span>
+<span class="keyword">implement</span> prerr_p2atcst <span class="keyword">(</span>p2tc<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span>fprint_p2atcst<span class="keyword">,</span> p2tc<span class="keyword">)</span>
+
+<span class="keyword">implement</span> print_p2atcstlst <span class="keyword">(</span>p2tcs<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span>fprint_p2atcstlst<span class="keyword">,</span> p2tcs<span class="keyword">)</span>
+<span class="keyword">implement</span> prerr_p2atcstlst <span class="keyword">(</span>p2tcs<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span>fprint_p2atcstlst<span class="keyword">,</span> p2tcs<span class="keyword">)</span>
+
+<span class="keyword">implement</span> print_p2atcstlstlst <span class="keyword">(</span>p2tcss<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span>fprint_p2atcstlstlst<span class="keyword">,</span> p2tcss<span class="keyword">)</span>
+<span class="keyword">implement</span> prerr_p2atcstlstlst <span class="keyword">(</span>p2tcss<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span>fprint_p2atcstlstlst<span class="keyword">,</span> p2tcss<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> p2atcst_con_complement
+  <span class="keyword">(</span>d2c0<span class="keyword">:</span> <span class="staexp">d2con_t</span><span class="keyword">,</span> d2cs<span class="keyword">:</span> <span class="staexp">d2conlst</span><span class="keyword">,</span> p2tcs<span class="keyword">:</span> <span class="staexp">p2atcstlst</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">p2atcstlst</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>d2cs<span class="keyword">:</span> <span class="staexp">d2conlst</span><span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp">p2atcstlst_vt</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">p2atcstlst</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> d2cs <span class="keyword">of</span>
+    <span class="keyword">|</span> D2CONLSTcons <span class="keyword">(</span>d2c<span class="keyword">,</span> d2cs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> d2c0 <span class="keyword">=</span> d2c <span class="keyword">then</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> res <span class="keyword">=</span>
+            aux1 <span class="keyword">(</span>d2c<span class="keyword">,</span> p2atcstlst_complement p2tcs<span class="keyword">,</span> res<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+            <span class="keyword">fun</span> aux1
+              <span class="keyword">(</span>d2c<span class="keyword">:</span> <span class="staexp">d2con_t</span><span class="keyword">,</span> p2tcss<span class="keyword">:</span> <span class="staexp">p2atcstlstlst</span><span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp">p2atcstlst_vt</span><span class="keyword">)</span>
+              <span class="keyword">:</span> <span class="staexp">p2atcstlst_vt</span> <span class="keyword">=</span> <span class="keyword">case+</span> p2tcss <span class="keyword">of</span>
+              <span class="keyword">|</span> p2tcs :: p2tcss <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+                  aux1 <span class="keyword">(</span>d2c<span class="keyword">,</span> p2tcss<span class="keyword">,</span> list_vt_cons <span class="keyword">(</span>P2TCcon <span class="keyword">(</span>d2c<span class="keyword">,</span> p2tcs<span class="keyword">)</span><span class="keyword">,</span> res<span class="keyword">)</span><span class="keyword">)</span>
+                <span class="keyword">end</span>
+              <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> res
+          <span class="keyword">}</span> <span class="comment">// end [where]
+</span>        <span class="keyword">in</span>
+          aux <span class="keyword">(</span>d2cs<span class="keyword">,</span> res<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> p2tcs_any <span class="keyword">=</span>
+            aux2 <span class="keyword">(</span>d2con_arity_full_get d2c<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+            <span class="keyword">fun</span> aux2 <span class="keyword">(</span>n<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp">p2atcstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">p2atcstlst</span> <span class="keyword">=</span>
+              <span class="keyword">if</span> n <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> aux2 <span class="keyword">(</span>n-1<span class="keyword">,</span> cons <span class="keyword">(</span>P2TCany <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> res<span class="keyword">)</span><span class="keyword">)</span>
+              <span class="keyword">else</span> res
+          <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>          <span class="keyword">val</span> res <span class="keyword">=</span> list_vt_cons <span class="keyword">(</span>P2TCcon <span class="keyword">(</span>d2c<span class="keyword">,</span> p2tcs_any<span class="keyword">)</span><span class="keyword">,</span> res<span class="keyword">)</span>
+        <span class="keyword">in</span>
+          aux <span class="keyword">(</span>d2cs<span class="keyword">,</span> res<span class="keyword">)</span>
+        <span class="keyword">end</span>
+      <span class="keyword">end</span> <span class="comment">// end of [D2CONLSTcons]
+</span>    <span class="keyword">|</span> D2CONLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> $Lst<span class="keyword">.</span>list_vt_reverse_list <span class="keyword">(</span>res<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>d2cs<span class="keyword">,</span> list_vt_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [p2atcst_con_complement]
+</span>
+<span class="keyword">implement</span> p2atcst_complement <span class="keyword">(</span>p2tc0<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> p2tc0 <span class="keyword">of</span>
+  <span class="keyword">|</span> P2TCany <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> nil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> P2TCbool b <span class="keyword">=&gt;</span> cons <span class="keyword">(</span>P2TCbool <span class="keyword">~</span>b<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">|</span> P2TCchar _ <span class="keyword">=&gt;</span> singleton <span class="keyword">(</span>P2TCany <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="comment">// conservative estimation
+</span>  <span class="keyword">|</span> P2TCcon <span class="keyword">(</span>d2c0<span class="keyword">,</span> p2tcs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> tag <span class="keyword">=</span> d2con_tag_get d2c0
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> tag &gt;= 0 <span class="keyword">then</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> s2c0 <span class="keyword">=</span> d2con_scst_get d2c0
+        <span class="keyword">val</span> d2cs <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> s2cst_conlst_get s2c0 <span class="keyword">of</span>
+          <span class="keyword">|</span> Some d2cs <span class="keyword">=&gt;</span> d2cs <span class="keyword">|</span> None _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+              prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+              prerr ": p2atcst_complement: s2c0 = "<span class="keyword">;</span> prerr s2c0<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+              $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>d2conlst<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+            <span class="keyword">end</span> <span class="comment">// end of [None]
+</span>        <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">d2conlst</span> <span class="comment">// end of [val]
+</span>      <span class="keyword">in</span>
+        p2atcst_con_complement <span class="keyword">(</span>d2c0<span class="keyword">,</span> d2cs<span class="keyword">,</span> p2tcs<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span> <span class="comment">// associated with a extensible sum
+</span>        singleton <span class="keyword">(</span>P2TCany <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [P2TCcon]
+</span>  <span class="keyword">|</span> P2TCempty <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> nil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> P2TCfloat _ <span class="keyword">=&gt;</span> singleton <span class="keyword">(</span>P2TCany <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="comment">// conservative estimation
+</span>  <span class="keyword">|</span> P2TCint x <span class="keyword">=&gt;</span> singleton <span class="keyword">(</span>P2TCintc <span class="keyword">(</span>intinfset_sing x<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">|</span> P2TCintc xs <span class="keyword">=&gt;</span> aux xs <span class="keyword">where</span> <span class="keyword">{</span>
+      <span class="keyword">fun</span> aux <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">List intinf_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">p2atcstlst</span> <span class="keyword">=</span> <span class="keyword">case+</span> xs <span class="keyword">of</span>
+        cons <span class="keyword">(</span>x<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=&gt;</span> P2TCint x :: aux <span class="keyword">(</span>xs<span class="keyword">)</span> <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> nil <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>  <span class="keyword">|</span> P2TCrec <span class="keyword">(</span>knd<span class="keyword">,</span> lp2tcs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> lp2tcss <span class="keyword">=</span> labp2atcstlst_complement lp2tcs
+    <span class="keyword">in</span>
+      $Lst<span class="keyword">.</span>list_map_cloptr <span class="keyword">(</span>lp2tcss<span class="keyword">,</span> <span class="keyword">lam</span> lp2tcs <span class="keyword">=&lt;</span><span class="staexp">cloptr</span><span class="keyword">&gt;</span> P2TCrec <span class="keyword">(</span>knd<span class="keyword">,</span> lp2tcs<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> P2TCstring _ <span class="keyword">=&gt;</span> singleton <span class="keyword">(</span>P2TCany <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>  <span class="comment">// conservative estimation
+</span><span class="comment">(*
+  | _ =&gt; begin
+      prerr_interror ();
+      prerr ": p2atcst_complement: p2tc0 = "; prerr p2tc0; prerr_newline ();
+      $Err.abort {p2atcstlst} ()
+    end // end of [_]
+*)</span>
+<span class="keyword">end</span> <span class="comment">// end of [p2atcst_complement]
+</span>
+<span class="keyword">implement</span> p2atcstlst_complement <span class="staexp"><span class="keyword">{</span>n<span class="keyword">}</span></span> <span class="keyword">(</span>p2tcs0<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> p2tcs0 <span class="keyword">of</span>
+  <span class="keyword">|</span> p2tc1 :: p2tcs1 <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> p2tcs1_any <span class="keyword">=</span> aux p2tcs1 <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">fun</span> aux <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>p2tcs<span class="keyword">:</span> <span class="staexp">p2atcstlst n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">p2atcstlst n</span> <span class="keyword">=</span>
+          <span class="keyword">case+</span> p2tcs <span class="keyword">of</span>
+          <span class="keyword">|</span> _ :: p2tcs <span class="keyword">=&gt;</span> cons <span class="keyword">(</span>P2TCany <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> aux p2tcs<span class="keyword">)</span> <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> nil <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>      <span class="keyword">val</span> p2tcss <span class="keyword">=</span> aux <span class="keyword">(</span>p2atcstlst_complement p2tcs1<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">fun</span> aux <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+          <span class="keyword">(</span>p2tcss<span class="keyword">:</span> <span class="staexp">p2atcstlstlst n</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">p2atcstlstlst <span class="keyword">(</span>n+1<span class="keyword">)</span></span> <span class="keyword">=</span>
+          <span class="keyword">case+</span> p2tcss <span class="keyword">of</span>
+          <span class="keyword">|</span> p2tcs :: p2tcss <span class="keyword">=&gt;</span> cons <span class="keyword">(</span>p2tc1 :: p2tcs<span class="keyword">,</span> aux p2tcss<span class="keyword">)</span>
+          <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> nil <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>      <span class="keyword">val</span> p2tcss <span class="keyword">=</span> aux <span class="keyword">(</span>p2atcst_complement p2tc1<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">fun</span> aux <span class="keyword">(</span>p2tcs<span class="keyword">:</span> <span class="staexp">p2atcstlst</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">p2atcstlstlst <span class="keyword">(</span>n<span class="keyword">)</span></span> <span class="keyword">=</span>
+        <span class="keyword">case+</span> p2tcs <span class="keyword">of</span>
+        <span class="keyword">|</span> p2tc :: p2tcs <span class="keyword">=&gt;</span> cons <span class="keyword">(</span>p2tc :: p2tcs1_any<span class="keyword">,</span> aux p2tcs<span class="keyword">)</span>
+        <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> p2tcss
+      <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>    <span class="keyword">in</span>
+      p2tcss
+    <span class="keyword">end</span> <span class="comment">// end of [::]
+</span>  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// end of [nil]
+</span><span class="keyword">end</span> <span class="comment">// end of [p2atcstlst_commplement]
+</span>
+<span class="keyword">implement</span> labp2atcstlst_complement <span class="keyword">(</span>lp2tcs0<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> lp2tcs0 <span class="keyword">of</span>
+  <span class="keyword">|</span> LABP2ATCSTLSTcons <span class="keyword">(</span>l1<span class="keyword">,</span> p2tc1<span class="keyword">,</span> lp2tcs1<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> lp2tcs1_any <span class="keyword">=</span> aux lp2tcs1 <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">fun</span> aux <span class="keyword">(</span>lp2tcs<span class="keyword">:</span> <span class="staexp">labp2atcstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">labp2atcstlst</span> <span class="keyword">=</span>
+          <span class="keyword">case+</span> lp2tcs <span class="keyword">of</span>
+          <span class="keyword">|</span> LABP2ATCSTLSTcons <span class="keyword">(</span>l<span class="keyword">,</span> _<span class="keyword">,</span> lp2tcs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+              LABP2ATCSTLSTcons <span class="keyword">(</span>l<span class="keyword">,</span> P2TCany <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> aux lp2tcs<span class="keyword">)</span>
+            <span class="keyword">end</span>
+          <span class="keyword">|</span> LABP2ATCSTLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> LABP2ATCSTLSTnil <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="comment">// end of [aux]
+</span>      <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>      <span class="keyword">val</span> lp2tcss <span class="keyword">=</span> aux <span class="keyword">(</span>labp2atcstlst_complement lp2tcs1<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">fun</span> aux <span class="keyword">(</span>lp2tcss<span class="keyword">:</span> <span class="staexp">labp2atcstlstlst</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">labp2atcstlstlst</span> <span class="keyword">=</span>
+          <span class="keyword">case+</span> lp2tcss <span class="keyword">of</span>
+          <span class="keyword">|</span> lp2tcs :: lp2tcss <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+              cons <span class="keyword">(</span>LABP2ATCSTLSTcons <span class="keyword">(</span>l1<span class="keyword">,</span> p2tc1<span class="keyword">,</span> lp2tcs<span class="keyword">)</span><span class="keyword">,</span> aux lp2tcss<span class="keyword">)</span>
+            <span class="keyword">end</span>
+          <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> nil <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="comment">// end of [aux]
+</span>      <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>      <span class="keyword">val</span> lp2tcss <span class="keyword">=</span> aux <span class="keyword">(</span>p2atcst_complement p2tc1<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">fun</span> aux <span class="keyword">(</span>p2tcs<span class="keyword">:</span> <span class="staexp">p2atcstlst</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">labp2atcstlstlst</span> <span class="keyword">=</span>
+        <span class="keyword">case+</span> p2tcs <span class="keyword">of</span>
+        <span class="keyword">|</span> cons <span class="keyword">(</span>p2tc<span class="keyword">,</span> p2tcs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+            cons <span class="keyword">(</span>LABP2ATCSTLSTcons <span class="keyword">(</span>l1<span class="keyword">,</span> p2tc<span class="keyword">,</span> lp2tcs1_any<span class="keyword">)</span><span class="keyword">,</span> aux p2tcs<span class="keyword">)</span>
+          <span class="keyword">end</span>
+        <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> lp2tcss
+      <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>    <span class="keyword">in</span>
+      lp2tcss
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> LABP2ATCSTLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> nil <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [labp2atcstlst_commplement]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> c2lau_pat_complement <span class="keyword">(</span>c2l<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> c2l<span class="keyword">.</span>c2lau_gua <span class="keyword">of</span>
+  <span class="keyword">|</span> list_cons _ <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="comment">// the most conservative estimation
+</span>      <span class="keyword">fun</span> aux <span class="staexp"><span class="keyword">{</span>i<span class="keyword">,</span>j<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>i<span class="keyword">&gt;.</span></span>
+        <span class="keyword">(</span>p2ts<span class="keyword">:</span> <span class="staexp">p2atlst i</span><span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp">p2atcstlst j</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">p2atcstlst <span class="keyword">(</span>i+j<span class="keyword">)</span></span> <span class="keyword">=</span>
+        <span class="keyword">case+</span> p2ts <span class="keyword">of</span>
+        <span class="keyword">|</span> cons <span class="keyword">(</span>_<span class="keyword">,</span> p2ts<span class="keyword">)</span> <span class="keyword">=&gt;</span> aux <span class="keyword">(</span>p2ts<span class="keyword">,</span> cons <span class="keyword">(</span>P2TCany <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> res<span class="keyword">)</span><span class="keyword">)</span>
+        <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> res
+      <span class="keyword">val</span> p2tcs <span class="keyword">=</span> aux <span class="keyword">(</span>c2l<span class="keyword">.</span>c2lau_pat<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      cons <span class="keyword">(</span>p2tcs<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> list_nil _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      p2atcstlst_complement <span class="keyword">(</span>p2atcstlst_of_p2atlst c2l<span class="keyword">.</span>c2lau_pat<span class="keyword">)</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [c2lau_pat_complement]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> p2atcst_intersect_test <span class="keyword">(</span>p2tc1<span class="keyword">,</span> p2tc2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>p2tc1<span class="keyword">,</span> p2tc2<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>P2TCany <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> P2TCany <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+  <span class="keyword">|</span> <span class="keyword">(</span>P2TCbool b1<span class="keyword">,</span> P2TCbool b2<span class="keyword">)</span> <span class="keyword">=&gt;</span> b1 <span class="keyword">=</span> b2
+  <span class="keyword">|</span> <span class="keyword">(</span>P2TCchar c1<span class="keyword">,</span> P2TCchar c2<span class="keyword">)</span> <span class="keyword">=&gt;</span> c1 <span class="keyword">=</span> c2
+  <span class="keyword">|</span> <span class="keyword">(</span>P2TCcon <span class="keyword">(</span>d2c1<span class="keyword">,</span> p2tcs1<span class="keyword">)</span><span class="keyword">,</span> P2TCcon <span class="keyword">(</span>d2c2<span class="keyword">,</span> p2tcs2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">if</span> d2c1 <span class="keyword">=</span> d2c2 <span class="keyword">then</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> sgn <span class="keyword">=</span> $Lst<span class="keyword">.</span>list_length_compare <span class="keyword">(</span>p2tcs1<span class="keyword">,</span> p2tcs2<span class="keyword">)</span>
+        <span class="comment">// run-time check needed for type-checking
+</span>        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert_errmsg_bool1 <span class="keyword">(</span>sgn <span class="keyword">=</span> 0<span class="keyword">,</span> "p2atcst_intersect_test"<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        p2atcstlst_intersect_test <span class="keyword">(</span>p2tcs1<span class="keyword">,</span> p2tcs2<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="keyword">else</span> false
+    <span class="keyword">end</span> <span class="comment">// end of [P2TCcon, P2TCcon]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>P2TCempty <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> P2TCempty <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+  <span class="keyword">|</span> <span class="keyword">(</span>P2TCint i1<span class="keyword">,</span> P2TCint i2<span class="keyword">)</span> <span class="keyword">=&gt;</span> i1 <span class="keyword">=</span> i2
+  <span class="keyword">|</span> <span class="keyword">(</span>P2TCint i<span class="keyword">,</span> P2TCintc xs<span class="keyword">)</span> <span class="keyword">=&gt;</span> aux <span class="keyword">(</span>i<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+      <span class="keyword">fun</span> aux <span class="keyword">(</span>i<span class="keyword">:</span> <span class="staexp">intinf_t</span><span class="keyword">,</span> xs<span class="keyword">:</span> <span class="staexp">intinfset_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">case+</span> xs <span class="keyword">of</span>
+        <span class="keyword">|</span> list_cons <span class="keyword">(</span>x<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+            <span class="keyword">if</span> i <span class="keyword">&lt;</span> x <span class="keyword">then</span> true <span class="keyword">else</span> <span class="keyword">(</span><span class="keyword">if</span> x <span class="keyword">&lt;</span> i <span class="keyword">then</span> aux <span class="keyword">(</span>i<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">else</span> false<span class="keyword">)</span>
+          <span class="keyword">end</span>
+        <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+    <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>P2TCintc xs<span class="keyword">,</span> P2TCint i<span class="keyword">)</span> <span class="keyword">=&gt;</span> aux <span class="keyword">(</span>xs<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+      <span class="keyword">fun</span> aux <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">intinfset_t</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">intinf_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">case+</span> xs <span class="keyword">of</span>
+        <span class="keyword">|</span> list_cons <span class="keyword">(</span>x<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+            <span class="keyword">if</span> i <span class="keyword">&lt;</span> x <span class="keyword">then</span> true <span class="keyword">else</span> <span class="keyword">(</span><span class="keyword">if</span> x <span class="keyword">&lt;</span> i <span class="keyword">then</span> aux <span class="keyword">(</span>xs<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">else</span> false<span class="keyword">)</span>
+          <span class="keyword">end</span>
+        <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+    <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>P2TCintc _<span class="keyword">,</span> P2TCintc _<span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+  <span class="keyword">|</span> <span class="keyword">(</span>P2TCrec <span class="keyword">(</span>_<span class="keyword">,</span> lp2atcs1<span class="keyword">)</span><span class="keyword">,</span> P2TCrec <span class="keyword">(</span>_<span class="keyword">,</span> lp2atcs2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      labp2atcstlst_intersect_test <span class="keyword">(</span>lp2atcs1<span class="keyword">,</span> lp2atcs2<span class="keyword">)</span>
+    <span class="comment">// end of [P2TCrec, P2TCrec]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> false
+<span class="keyword">end</span> <span class="comment">(* end of [p2atcst_intersect_test] *)</span>
+
+<span class="keyword">implement</span> p2atcstlst_intersect_test <span class="keyword">(</span>p2tcs1<span class="keyword">,</span> p2tcs2<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> p2tcs1 <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>p2tc1<span class="keyword">,</span> p2tcs1<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val+</span> cons <span class="keyword">(</span>p2tc2<span class="keyword">,</span> p2tcs2<span class="keyword">)</span> <span class="keyword">=</span> p2tcs2
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> p2atcst_intersect_test <span class="keyword">(</span>p2tc1<span class="keyword">,</span> p2tc2<span class="keyword">)</span> <span class="keyword">then</span>
+        p2atcstlst_intersect_test <span class="keyword">(</span>p2tcs1<span class="keyword">,</span> p2tcs2<span class="keyword">)</span>
+      <span class="keyword">else</span> false
+    <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+<span class="comment">(* end of [p2atcstlst_intersect_test] *)</span>
+
+<span class="keyword">implement</span> labp2atcstlst_intersect_test <span class="keyword">(</span>lp2tcs1<span class="keyword">,</span> lp2tcs2<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>lp2tcs1<span class="keyword">,</span> lp2tcs2<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>LABP2ATCSTLSTcons <span class="keyword">(</span>l1<span class="keyword">,</span> p2tc1<span class="keyword">,</span> lp2tcs1<span class="keyword">)</span><span class="keyword">,</span>
+     LABP2ATCSTLSTcons <span class="keyword">(</span>l2<span class="keyword">,</span> p2tc2<span class="keyword">,</span> lp2tcs2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">if</span> p2atcst_intersect_test <span class="keyword">(</span>p2tc1<span class="keyword">,</span> p2tc2<span class="keyword">)</span> <span class="keyword">then</span>
+        labp2atcstlst_intersect_test <span class="keyword">(</span>lp2tcs1<span class="keyword">,</span> lp2tcs2<span class="keyword">)</span>
+      <span class="keyword">else</span> false
+    <span class="comment">// end of [LABP2ATCSTLSTcons, LABP2ATCSTLSTcons]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+<span class="comment">(* end of [labp2atcstlst_intersect_test] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> p2atcst_difference <span class="keyword">(</span>p2tc1<span class="keyword">,</span> p2tc2<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>p2tc1<span class="keyword">,</span> p2tc2<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> P2TCany <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> nil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>P2TCany <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> p2atcst_complement p2tc2
+  <span class="keyword">|</span> <span class="keyword">(</span>P2TCbool b1<span class="keyword">,</span> P2TCbool b2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">if</span> b1 <span class="keyword">=</span> b2 <span class="keyword">then</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> cons <span class="keyword">(</span>p2tc1<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [P2TCbool, P2TCbool]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>P2TCchar c1<span class="keyword">,</span> P2TCchar c2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">if</span> c1 <span class="keyword">=</span> c2 <span class="keyword">then</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> cons <span class="keyword">(</span>p2tc1<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [P2TCchar, P2TCchar]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>P2TCcon <span class="keyword">(</span>d2c1<span class="keyword">,</span> p2tcs1<span class="keyword">)</span><span class="keyword">,</span> P2TCcon <span class="keyword">(</span>d2c2<span class="keyword">,</span> p2tcs2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span>
+    <span class="keyword">if</span> d2c1 <span class="keyword">=</span> d2c2 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">fun</span> aux <span class="keyword">(</span>d2c<span class="keyword">:</span> <span class="staexp">d2con_t</span><span class="keyword">,</span> p2tcss<span class="keyword">:</span> <span class="staexp">p2atcstlstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">p2atcstlst</span> <span class="keyword">=</span>
+        <span class="keyword">case+</span> p2tcss <span class="keyword">of</span>
+        <span class="keyword">|</span> p2tcs :: p2tcss <span class="keyword">=&gt;</span> cons <span class="keyword">(</span>P2TCcon <span class="keyword">(</span>d2c<span class="keyword">,</span> p2tcs<span class="keyword">)</span><span class="keyword">,</span> aux <span class="keyword">(</span>d2c<span class="keyword">,</span> p2tcss<span class="keyword">)</span><span class="keyword">)</span>
+        <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> nil <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">val</span> sgn <span class="keyword">=</span> $Lst<span class="keyword">.</span>list_length_compare <span class="keyword">(</span>p2tcs1<span class="keyword">,</span> p2tcs2<span class="keyword">)</span>
+      <span class="comment">// run-time check needed for type-checking
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert_errmsg_bool1 <span class="keyword">(</span>sgn <span class="keyword">=</span> 0<span class="keyword">,</span> "p2atcst_difference: P2TCcon"<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      aux <span class="keyword">(</span>d2c1<span class="keyword">,</span> p2atcstlst_difference <span class="keyword">(</span>p2tcs1<span class="keyword">,</span> p2tcs2<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      cons <span class="keyword">(</span>p2tc1<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [P2TCcon, P2TCcon]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>P2TCempty <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> P2TCempty <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> nil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>P2TCint i1<span class="keyword">,</span> P2TCint i2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">if</span> i1 <span class="keyword">=</span> i2 <span class="keyword">then</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> cons <span class="keyword">(</span>p2tc1<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [P2TCint, P2TCint]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>P2TCstring s1<span class="keyword">,</span> P2TCstring s2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">if</span> s1 <span class="keyword">=</span> s2 <span class="keyword">then</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> cons <span class="keyword">(</span>p2tc1<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [P2TCstring, P2TCstring]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>P2TCintc xs<span class="keyword">,</span> P2TCint x<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">var</span> err<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> 0
+      <span class="keyword">val</span> xs <span class="keyword">=</span> intinfset_add <span class="keyword">(</span>xs<span class="keyword">,</span> x<span class="keyword">,</span> err<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> err <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> cons <span class="keyword">(</span>p2tc1<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">else</span> cons <span class="keyword">(</span>P2TCintc xs<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [P2TCintc, P2TCint]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>P2TCrec <span class="keyword">(</span>knd1<span class="keyword">,</span> lp2tcs1<span class="keyword">)</span><span class="keyword">,</span>
+     P2TCrec <span class="keyword">(</span>knd2<span class="keyword">,</span> lp2tcs2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> lp2tcss <span class="keyword">=</span> labp2atcstlst_difference <span class="keyword">(</span>lp2tcs1<span class="keyword">,</span> lp2tcs2<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      $Lst<span class="keyword">.</span>list_map_cloptr <span class="staexp"><span class="keyword">{</span>labp2atcstlst<span class="keyword">,</span>p2atcst<span class="keyword">}</span></span>
+        <span class="keyword">(</span>lp2tcss<span class="keyword">,</span> <span class="keyword">lam</span> <span class="keyword">(</span>lp2tcs<span class="keyword">)</span> <span class="keyword">=&lt;</span><span class="staexp">cloptr</span><span class="keyword">&gt;</span> P2TCrec <span class="keyword">(</span>knd1<span class="keyword">,</span> lp2tcs<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [P2TCrec, P2TCrec]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      prerr ": p2atcst_difference: failed"<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>p2atcstlst<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_, _]
+</span><span class="comment">(* end of [p2atcst_difference] *)</span>
+
+<span class="keyword">implement</span> p2atcstlst_difference <span class="staexp"><span class="keyword">{</span>n<span class="keyword">}</span></span> <span class="keyword">(</span>p2tcs1<span class="keyword">,</span> p2tcs2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> p2tcs1 <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>p2tc1<span class="keyword">,</span> p2tcs1<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val+</span> cons <span class="keyword">(</span>p2tc2<span class="keyword">,</span> p2tcs2<span class="keyword">)</span> <span class="keyword">=</span> p2tcs2
+      <span class="keyword">val</span> p2tcss<span class="keyword">:</span> <span class="staexp">List <span class="keyword">(</span>list <span class="keyword">(</span>p2atcst<span class="keyword">,</span> n<span class="keyword">)</span><span class="keyword">)</span></span> <span class="keyword">=</span>
+        aux <span class="keyword">(</span>p2atcstlst_difference <span class="keyword">(</span>p2tcs1<span class="keyword">,</span> p2tcs2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">fun</span> aux <span class="keyword">(</span>p2tcss<span class="keyword">:</span> <span class="staexp">List <span class="keyword">(</span>list <span class="keyword">(</span>p2atcst<span class="keyword">,</span> n-1<span class="keyword">)</span><span class="keyword">)</span></span><span class="keyword">)</span>
+          <span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">List <span class="keyword">(</span>list <span class="keyword">(</span>p2atcst<span class="keyword">,</span> n<span class="keyword">)</span><span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">case+</span> p2tcss <span class="keyword">of</span>
+          <span class="keyword">|</span> cons <span class="keyword">(</span>p2tcs<span class="keyword">,</span> p2tcss<span class="keyword">)</span> <span class="keyword">=&gt;</span> cons <span class="keyword">(</span>p2tc1 :: p2tcs<span class="keyword">,</span> aux p2tcss<span class="keyword">)</span>
+          <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> nil <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>      <span class="keyword">val</span> p2tcss<span class="keyword">:</span> <span class="staexp">List <span class="keyword">(</span>list <span class="keyword">(</span>p2atcst<span class="keyword">,</span> n<span class="keyword">)</span><span class="keyword">)</span></span> <span class="keyword">=</span>
+        aux <span class="keyword">(</span>p2atcst_difference <span class="keyword">(</span>p2tc1<span class="keyword">,</span> p2tc2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">fun</span> aux <span class="keyword">(</span>p2tcs<span class="keyword">:</span> <span class="staexp">p2atcstlst</span><span class="keyword">)</span>
+          <span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">List <span class="keyword">(</span>list <span class="keyword">(</span>p2atcst<span class="keyword">,</span> n<span class="keyword">)</span><span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">case+</span> p2tcs <span class="keyword">of</span>
+          <span class="keyword">|</span> cons <span class="keyword">(</span>p2tc<span class="keyword">,</span> p2tcs<span class="keyword">)</span> <span class="keyword">=&gt;</span> cons <span class="keyword">(</span>p2tc :: p2tcs1<span class="keyword">,</span> aux p2tcs<span class="keyword">)</span>
+          <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> p2tcss
+      <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>    <span class="keyword">in</span>
+      p2tcss
+    <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> nil <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">(* end of [p2atcstlst_difference] *)</span>
+
+<span class="keyword">implement</span> labp2atcstlst_difference <span class="keyword">(</span>lp2tcs1<span class="keyword">,</span> lp2tcs2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>lp2tcs1<span class="keyword">,</span> lp2tcs2<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>LABP2ATCSTLSTcons <span class="keyword">(</span>l1<span class="keyword">,</span> p2tc1<span class="keyword">,</span> lp2tcs1<span class="keyword">)</span><span class="keyword">,</span>
+     LABP2ATCSTLSTcons <span class="keyword">(</span>l2<span class="keyword">,</span> p2tc2<span class="keyword">,</span> lp2tcs2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> lp2tcss<span class="keyword">:</span> <span class="staexp">List <span class="keyword">(</span>labp2atcstlst<span class="keyword">)</span></span> <span class="keyword">=</span>
+        aux <span class="keyword">(</span>labp2atcstlst_difference <span class="keyword">(</span>lp2tcs1<span class="keyword">,</span> lp2tcs2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">fun</span> aux <span class="keyword">(</span>lp2tcss<span class="keyword">:</span> <span class="staexp">List <span class="keyword">(</span>labp2atcstlst<span class="keyword">)</span></span><span class="keyword">)</span>
+          <span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">List <span class="keyword">(</span>labp2atcstlst<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">case+</span> lp2tcss <span class="keyword">of</span>
+          <span class="keyword">|</span> cons <span class="keyword">(</span>lp2tcs<span class="keyword">,</span> lp2tcss<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+              cons <span class="keyword">(</span>LABP2ATCSTLSTcons <span class="keyword">(</span>l1<span class="keyword">,</span> p2tc1<span class="keyword">,</span> lp2tcs<span class="keyword">)</span><span class="keyword">,</span> aux lp2tcss<span class="keyword">)</span>
+            <span class="keyword">end</span> <span class="comment">// end of [cons]  
+</span>          <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> nil <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>      <span class="keyword">val</span> lp2tcss<span class="keyword">:</span> <span class="staexp">List <span class="keyword">(</span>labp2atcstlst<span class="keyword">)</span></span> <span class="keyword">=</span>
+        aux <span class="keyword">(</span>p2atcst_difference <span class="keyword">(</span>p2tc1<span class="keyword">,</span> p2tc2<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">fun</span> aux <span class="keyword">(</span>p2tcs<span class="keyword">:</span> <span class="staexp">p2atcstlst</span><span class="keyword">)</span>
+          <span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">List <span class="keyword">(</span>labp2atcstlst<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">case+</span> p2tcs <span class="keyword">of</span>
+          <span class="keyword">|</span> cons <span class="keyword">(</span>p2tc<span class="keyword">,</span> p2tcs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+              cons <span class="keyword">(</span>LABP2ATCSTLSTcons <span class="keyword">(</span>l1<span class="keyword">,</span> p2tc<span class="keyword">,</span> lp2tcs1<span class="keyword">)</span><span class="keyword">,</span> aux p2tcs<span class="keyword">)</span>
+            <span class="keyword">end</span> <span class="comment">// end of [cons]  
+</span>          <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> lp2tcss
+      <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>    <span class="keyword">in</span>
+      lp2tcss
+    <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> nil <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">(* end of [labp2atcstlst_difference] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_patcst2.dats] *)</span>
+</pre>
+</body>
+</html>

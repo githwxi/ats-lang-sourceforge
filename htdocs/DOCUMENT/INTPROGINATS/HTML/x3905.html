@@ -1,0 +1,509 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>Transition from Datatypes to Dataviewtypes</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+TITLE="Introduction to Programming in ATS"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Dataviewtypes as Linear Datatypes"
+HREF="c3639.html"><LINK
+REL="PREVIOUS"
+TITLE="Linear Binary Search Trees"
+HREF="x3848.html"><LINK
+REL="NEXT"
+TITLE="Abstract Views and Viewtypes"
+HREF="c3938.html"></HEAD
+><BODY
+CLASS="sect1"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>Introduction to Programming in ATS: </TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="x3848.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+>Dataviewtypes as Linear Datatypes</TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="c3938.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="sect1"
+><H1
+CLASS="sect1"
+><A
+NAME="transition_from_datatypes_to_dataviewtypes"
+>Transition from Datatypes to Dataviewtypes</A
+></H1
+><P
+>&#13;Many programmers are likely to find it a rather involved task to write code
+manipulating values of dataviewtypes. When handling a complex data
+structure, I myself often try to first use a datatype to model the data
+structure and implement some functionalities of the data structure based
+the datatype. I then change the datatype into a corresponding dataviewtype
+and modify the implementation accordingly to make it work with the
+dataviewtype. I now present as follows an implementation of linear
+red-black trees that is directly based on a previous
+<A
+HREF="x2787.html"
+>implementation of functional red-black trees</A
+>,
+illustrating concretely a kind of gradual transition from datatypes to
+dataviewtypes that can greatly reduce the level of difficulty one may
+otherwise encounter in an attempt to program with dataviewtypes directly.
+
+</P
+><P
+>&#13;The following declaration of dataviewtype <FONT
+COLOR="RED"
+>rbtree</FONT
+> is identical to
+the previous declaration of datatype <FONT
+COLOR="RED"
+>rbtree</FONT
+> except the keyword
+<FONT
+COLOR="RED"
+>dataviewtype</FONT
+> being now used instead of the keyword <FONT
+COLOR="RED"
+>datatype</FONT
+>:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3914"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>#define BLK 0; #define RED 1
+sortdef clr = {c:int | 0 &#60;= c; c &#60;= 1}
+
+dataviewtype
+rbtree (
+  a: t@ype, int(*c*), int(*bh*), int(*v*)
+) = // element type, color, black height, violations
+  | rbtree_nil (a, BLK, 0, 0) of ()
+  | {c,cl,cr:clr} {bh:nat} {v:int}
+      {c==BLK &#38;&#38; v==0 || c == RED &#38;&#38; v==cl+cr}
+    rbtree_cons (a, c, bh+1-c, v) of (
+      int c, rbtree0 (a, cl, bh), a, rbtree0 (a, cr, bh)
+    ) // end of [rbtree_cons]
+// end of [rbtree]
+
+where rbtree0 (a:t@ype, c:int, bh:int) = rbtree (a, c, bh, 0)
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;At the first sight, the following function template <FONT
+COLOR="RED"
+>insfix_l</FONT
+> is
+greatly more involved that a previous version of the same name (for
+manipulating functional red-black trees):
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3918"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fn{a:t@ype}
+insfix_l // right rotation
+  {cl,cr:clr}
+  {bh:nat}
+  {v:nat}
+  {l_c,l_tl,l_x,l_tr:addr} (
+  pf_c: int(BLK) @ l_c
+, pf_tl: rbtree (a, cl, bh, v) @ l_tl
+, pf_x: a @ l_x
+, pf_tr: rbtree (a, cr, bh, 0) @ l_tr
+| t: rbtree_cons_unfold (l_c, l_tl, l_x, l_tr)
+, p_tl: ptr (l_tl)
+) : [c:clr] rbtree0 (a, c, bh+1) = let
+  #define B BLK
+  #define R RED
+  #define cons rbtree_cons
+in
+  case+ !p_tl of
+  | cons (!p_cl as R, !p_tll as cons (!p_cll as R, _, _, _), _, !p_tlr) =&#62; let
+//
+      val () = !p_cll := B
+      val () = fold@ (!p_tll)
+//
+      val tl = !p_tl
+      val () = !p_tl := !p_tlr
+      val () = fold@ (t)
+//
+      val () = !p_tlr := t
+    in
+      fold@ (tl); tl
+    end // end of [cons (R, cons (R, ...), ...)]
+  | cons (!p_cl as R, !p_tll, _, !p_tlr as cons (!p_clr as R, !p_tlrl, _, !p_tlrr)) =&#62; let
+//
+      val tl = !p_tl
+      val () = !p_tl := !p_tlrr
+      val () = fold@ (t)
+      val () = !p_tlrr := t
+//
+      val tlr = !p_tlr
+      val () = !p_tlr := !p_tlrl
+      val () = !p_cl := B
+      val () = fold@ (tl)
+      val () = !p_tlrl := tl
+//
+    in
+      fold@ (tlr); tlr
+    end // end of [cons (R, ..., cons (R, ...))]
+  | _ =&#62;&#62; (fold@ (t); t)
+end // end of [insfix_l]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;However, I would like to point out that the interface for the above
+<FONT
+COLOR="RED"
+>insfix_l</FONT
+> is a <I
+CLASS="emphasis"
+>direct</I
+> translation of the interface for the
+previous <FONT
+COLOR="RED"
+>infix_l</FONT
+>. In other words, the previously captured relation
+between a tree being rotated and the one obtained from applying
+<FONT
+COLOR="RED"
+>infix_l</FONT
+> to it also holds in the setting of linear red-black trees.
+The very same can be said about the following function template
+<FONT
+COLOR="RED"
+>insfix_r</FONT
+>, which is just a mirror image of <FONT
+COLOR="RED"
+>insfix_l</FONT
+>:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3927"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fn{a:t@ype}
+insfix_r // left rotation
+  {cl,cr:clr}
+  {bh:nat}
+  {v:nat}
+  {l_c,l_tl,l_x,l_tr:addr} (
+  pf_c: int(BLK) @ l_c
+, pf_tl: rbtree (a, cl, bh, 0) @ l_tl
+, pf_x: a @ l_x
+, pf_tr: rbtree (a, cr, bh, v) @ l_tr
+| t: rbtree_cons_unfold (l_c, l_tl, l_x, l_tr)
+, p_tr: ptr (l_tr)
+) : [c:clr] rbtree0 (a, c, bh+1) = let
+  #define B BLK
+  #define R RED
+  #define cons rbtree_cons
+in
+  case+ !p_tr of
+  | cons (!p_cr as R, !p_trl, _, !p_trr as cons (!p_crr as R, _, _, _)) =&#62; let
+//
+      val () = !p_crr := B
+      val () = fold@ (!p_trr)
+//
+      val tr = !p_tr
+      val () = !p_tr := !p_trl
+      val () = fold@ (t)
+//
+      val () = !p_trl := t
+    in
+      fold@ (tr); tr
+    end // end of [cons (R, ..., cons (R, ...))]
+  | cons (!p_cr as R, !p_trl as cons (!p_crr as R, !p_trll, _, !p_trlr), _, !p_trr) =&#62; let
+//
+      val tr = !p_tr
+      val () = !p_tr := !p_trll
+      val () = fold@ (t)
+      val () = !p_trll := t
+//
+      val trl = !p_trl
+      val () = !p_trl := !p_trlr
+      val () = !p_cr := B
+      val () = fold@ (tr)
+      val () = !p_trlr := tr
+//
+    in
+      fold@ (trl); trl
+    end // end of [cons (R, cons (R, ...), ...)]
+  | _ =&#62;&#62; (fold@ (t); t)
+end // end of [insfix_r]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;As can be expected,
+the following function template <FONT
+COLOR="RED"
+>rbtree_insert</FONT
+> is essentially a
+direct translation of the one of the same name for inserting an element
+into a functional red-black tree:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3931"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>extern
+fun{a:t@ype}
+rbtree_insert
+  {c:clr} {bh:nat} (
+  t: rbtree0 (a, c, bh), x0: &#38;a, cmp: cmp a
+) : [bh1:nat] rbtree0 (a, BLK, bh1)
+
+implement{a}
+rbtree_insert
+  (t, x0, cmp) = let
+//
+#define B BLK; #define R RED
+#define nil rbtree_nil; #define cons rbtree_cons
+//
+fun ins
+  {c:clr} {bh:nat} .&#60;bh,c&#62;. (
+  t: rbtree0 (a, c, bh), x0: &#38;a
+) :&#60;cloref1&#62; [cl:clr; v:nat | v &#60;= c] rbtree (a, cl, bh, v) =
+  case+ t of
+  | cons (
+      !p_c, !p_tl, !p_x, !p_tr
+    ) =&#62; let
+      val sgn = compare (x0, !p_x, cmp)
+    in
+      if sgn &#60; 0 then let
+        val [cl,v:int] tl = ins (!p_tl, x0)
+        val () = !p_tl := tl
+      in
+        if !p_c = B then
+          insfix_l (view@(!p_c), view@(!p_tl), view@(!p_x), view@(!p_tr) | t, p_tl)
+        else let
+          val () = !p_c := R in fold@ {a}{..}{..}{cl} (t); t
+        end // end of [if]
+      end else if sgn &#62; 0 then let
+        val [cr,v:int] tr = ins (!p_tr, x0)
+        val () = !p_tr := tr
+      in
+        if !p_c = B then
+          insfix_r (view@(!p_c), view@(!p_tl), view@(!p_x), view@(!p_tr) | t, p_tr)
+        else let
+          val () = !p_c := R in fold@ {a}{..}{..}{cr} (t); t
+        end // end of [if]
+      end else (fold@ {a}{..}{..}{0} (t); t) // end of [if]
+    end // end of [cons]
+  | ~nil () =&#62; cons {..}{..}{..}{0} (R, nil, x0, nil)
+// end of [ins]
+val t = ins (t, x0)
+//
+in
+//
+case+ t of cons (!p_c as R, _, _, _) =&#62; (!p_c := B; fold@ (t); t) | _ =&#62;&#62; t
+//
+end // end of [rbtree_insert]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;I literally implemented the above <FONT
+COLOR="RED"
+>rbtree_insert</FONT
+> by making a copy
+of the previous implementation of <FONT
+COLOR="RED"
+>rbtree_insert</FONT
+> for functional
+red-black trees and then properly modifying it to make it pass
+typechecking. Although this process of copying-and-modifying is difficult
+to be described formally, it is fairly straightforward to follow in
+practice as it is almost entirely guided by the error messages received
+during typechecking.
+
+</P
+><P
+>&#13;Please find the entire code in this section plus some additional
+code for testing <A
+HREF="http://www.ats-lang.org/DOCUMENT/INTPROGINATS/CODE/CHAPTER_DATAVTYPES/rbtree.dats"
+TARGET="_top"
+>on-line</A
+>.
+A challenging as well as rewarding exercise is for the reader to implement
+an operation to delete an element from a given linear red-black tree.
+
+</P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="x3848.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="c3938.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Linear Binary Search Trees</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="c3639.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Abstract Views and Viewtypes</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

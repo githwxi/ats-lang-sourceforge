@@ -1,0 +1,531 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of the GNU LESSER GENERAL PUBLIC LICENSE as published by the
+** Free Software Foundation; either version 2.1, or (at your option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// author of the file: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#include</span> <span class="neuexp">"prelude/params.hats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#if</span> <span class="neuexp">VERBOSE_PRELUDE</span> <span class="keyword">#then</span>
+<span class="keyword">#print</span> <span class="neuexp">"Loading [basics_dyn.sats] starts!\n"</span>
+<span class="keyword">#endif</span> <span class="comment">// end of [VERBOSE_PRELUDE]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// some overloaded symbols
+</span>
+<span class="neuexp"><span class="keyword">symintr</span></span> <span class="keyword">~</span> not
+<span class="neuexp"><span class="keyword">symintr</span></span> &amp;&amp; || &lt;&lt; &gt;&gt; land lor lxor
+<span class="neuexp"><span class="keyword">symintr</span></span> + - * / mod gcd
+<span class="neuexp"><span class="keyword">symintr</span></span> <span class="keyword">&lt;</span> &lt;= <span class="keyword">&gt;</span> &gt;= <span class="keyword">=</span> &lt;&gt;
+<span class="neuexp"><span class="keyword">symintr</span></span> succ pred
+<span class="neuexp"><span class="keyword">symintr</span></span> abs square sqrt cube cbrt
+<span class="neuexp"><span class="keyword">symintr</span></span> compare max min pow
+<span class="neuexp"><span class="keyword">symintr</span></span> foreach <span class="comment">// foreach without index
+</span><span class="neuexp"><span class="keyword">symintr</span></span> iforeach <span class="comment">(* foreach with index *)</span>
+<span class="neuexp"><span class="keyword">symintr</span></span> fprint print prerr
+<span class="neuexp"><span class="keyword">symintr</span></span> length <span class="comment">(* array_length, list_length, string_length, etc. *)</span>
+<span class="neuexp"><span class="keyword">symintr</span></span> ofstring ofstrptr
+<span class="neuexp"><span class="keyword">symintr</span></span> tostring tostrptr
+
+<span class="neuexp"><span class="keyword">symintr</span></span> liftmac evalmac
+
+<span class="neuexp"><span class="keyword">symintr</span></span> assert assert_errmsg
+
+<span class="neuexp"><span class="keyword">symintr</span></span> bool_of <span class="comment">// booleans
+</span><span class="neuexp"><span class="keyword">symintr</span></span> char_of uchar_of <span class="comment">// signed/unsigned chars
+</span><span class="neuexp"><span class="keyword">symintr</span></span> int_of uint_of <span class="comment">// signed/unsigned integers
+</span><span class="neuexp"><span class="keyword">symintr</span></span> int1_of uint1_of <span class="comment">// signed/unsigned indexed integers
+</span><span class="neuexp"><span class="keyword">symintr</span></span> lint_of ulint_of <span class="comment">// signed/unsigned long integers
+</span><span class="neuexp"><span class="keyword">symintr</span></span> llint_of ullint_of <span class="comment">// signed/unsigned long long integers
+</span><span class="neuexp"><span class="keyword">symintr</span></span> sint_of usint_of <span class="comment">// signed/unsigned short integers
+</span><span class="neuexp"><span class="keyword">symintr</span></span> ssint_of ussint_of <span class="comment">// signed/unsigned short short integers
+</span><span class="neuexp"><span class="keyword">symintr</span></span> float_of double_of ldouble_of <span class="comment">// single/double/long double
+</span><span class="neuexp"><span class="keyword">symintr</span></span> ptr_of <span class="comment">// many, many, many, ...
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">praxi</span> <a name="2741"><span class="dyncstdec"><span class="prfexp">cleanup_top <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">a?</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">//
+</span><span class="comment">// HX: should this be assumed?
+</span><span class="comment">// HX-2010-10-12: of course, it should
+</span><span class="comment">//
+</span><span class="keyword">praxi</span> <a name="2887"><span class="dyncstdec"><span class="prfexp">eqsize_byte_one <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>sizeof byte == 1<span class="keyword">]</span> void</span></span></span></a>
+<span class="comment">//
+</span><span class="keyword">praxi</span> <a name="2940"><span class="dyncstdec"><span class="prfexp">eqsize_byte_char <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>sizeof byte == sizeof char<span class="keyword">]</span> void</span></span></span></a>
+<span class="keyword">praxi</span> <a name="3001"><span class="dyncstdec"><span class="prfexp">eqsize_int_uint <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>sizeof int == sizeof uint<span class="keyword">]</span> void</span></span></span></a>
+<span class="keyword">praxi</span> <a name="3060"><span class="dyncstdec"><span class="prfexp">eqsize_char_schar <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>sizeof char == sizeof schar<span class="keyword">]</span> void</span></span></span></a>
+<span class="keyword">praxi</span> <a name="3123"><span class="dyncstdec"><span class="prfexp">eqsize_char_uchar <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>sizeof char == sizeof uchar<span class="keyword">]</span> void</span></span></span></a>
+
+<span class="comment">//
+</span><span class="comment">// HX-2010-04-18: there are no negative addresses
+</span><span class="comment">//
+</span><span class="keyword">praxi</span> <a name="3243"><span class="dyncstdec"><span class="prfexp">addr_is_gtez <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l &gt;= null<span class="keyword">]</span> void</span></span></span></a>
+<span class="keyword">prfun</span> <a name="3294"><span class="dyncstdec"><span class="prfexp">ptr_is_gtez <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l &gt;= null<span class="keyword">]</span> void</span></span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+**
+** The proof function [verify_constraint] is mostly used for
+** debugging proofs, and it is equivalent to the follow line:
+**
+** prval _ = (): [p] void
+**
+** Note that the followine line puts [p] into the assumption
+** store after verification is done:
+**
+** prval () = (): [p] void 
+**
+*)</span>
+
+<span class="keyword">prfun</span> <a name="3671"><span class="dyncstdec"><span class="prfexp">verify_constraint <span class="staexp"><span class="keyword">{</span>p<span class="keyword">:</span>bool <span class="keyword">|</span> p<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></span></a> 
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+val AssertionException : exn = "AssertionException"
+val DivisionByZeroException : exn = "DivisionByZeroException"
+val OverflowException : exn = "OverflowException"
+val SubscriptException : exn = "SubscriptException"
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">val</span><span class="keyword">{</span><span class="staexp">elt<span class="keyword">:</span>viewt@ype</span><span class="keyword">}</span> <a name="3997"><span class="dyncstdec">sizeof <span class="keyword">:</span> <span class="staexp">size_t <span class="keyword">(</span>sizeof elt<span class="keyword">)</span></span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: note that sizeof(empty) = 0 and sizeof(void) = 1
+</span><span class="comment">//
+</span><span class="keyword">val</span> <a name="4113"><span class="dyncstdec">empval <span class="keyword">:</span> <span class="staexp">empty</span></span></a> <span class="keyword">=</span> "ats_empty_value" <span class="comment">// the empty value in ATS
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: In $ATSHOME/ccomp/runtime:
+</span><span class="comment">// ats_true_bool/ats_true_false are mapped to 1/0, respectively
+</span><span class="comment">//
+</span><span class="keyword">val</span> <a name="4303"><span class="dyncstdec">true  <span class="keyword">:</span> <span class="staexp">bool <span class="keyword">(</span>true<span class="keyword">)</span></span></span></a>  <span class="keyword">=</span> "#ats_true_bool"
+<span class="keyword">and</span> <a name="4347"><span class="dyncstdec">false <span class="keyword">:</span> <span class="staexp">bool <span class="keyword">(</span>false<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#ats_false_bool"
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: this function results in a FATAL irrecoverable error
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="4479"><span class="dyncstdec">crash <span class="comment">// crash() = (void)*(int*)0
+</span>  <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "ats_crash" <span class="comment">// implemented in [prelude/DATS/basics.dats]
+</span><span class="comment">// end of [crash]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="4627"><span class="dyncstdec">exit <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="keyword">(</span>status<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exn</span><span class="keyword">&gt;</span> <span class="staexp">a</span></span></a> <span class="keyword">=</span> "#ats_exit"
+
+<span class="keyword">fun</span> <a name="4688"><span class="dyncstdec">exit_main
+  <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>v_in<span class="keyword">:</span>view<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>v_out<span class="keyword">:</span>view<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>v_in &gt;&gt; v_out</span></span> <span class="keyword">|</span> status<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exn</span><span class="keyword">&gt;</span> <span class="staexp">a</span></span></a> <span class="keyword">=</span> "#ats_exit"
+<span class="comment">// end of [exit_main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="4847"><span class="dyncstdec">exit_errmsg
+  <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="keyword">(</span>status<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> msg<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">a</span></span></a> <span class="keyword">=</span> "#ats_exit_errmsg"
+<span class="comment">// end of [exit_errmsg]
+</span>
+<span class="keyword">fun</span> <a name="4955"><span class="dyncstdec">exit_prerrf <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>ts<span class="keyword">:</span>types<span class="keyword">}</span></span>
+  <span class="keyword">(</span>status<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> fmt<span class="keyword">:</span> <span class="staexp">printf_c ts</span><span class="keyword">,</span> args<span class="keyword">:</span> <span class="staexp">ts</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">a</span></span></a> <span class="keyword">=</span> "#atspre_exit_prerrf"
+<span class="comment">// end of [exit_prerrf]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX-2010-10-02: 
+</span><span class="comment">// the function should be used in a position
+</span><span class="comment">// where it is deadcode!
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="5207"><span class="dyncstdec">assertfalse <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>false<span class="keyword">]</span> void</span></span></a> <span class="keyword">=</span> "atspre_assertfalse"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="5287"><span class="dyncstdec">assert_bool
+  <span class="keyword">(</span>assertion<span class="keyword">:</span> <span class="staexp">bool</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exn</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atspre_assert"
+<span class="neuexp"><span class="keyword">overload</span> assert <span class="keyword">with</span> assert_bool</span>
+
+<span class="keyword">fun</span> <a name="5387"><span class="dyncstdec">assert_bool1 <span class="staexp"><span class="keyword">{</span>b<span class="keyword">:</span>bool<span class="keyword">}</span></span>
+  <span class="keyword">(</span>assertion<span class="keyword">:</span> <span class="staexp">bool b</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exn</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">[</span>b<span class="keyword">]</span> void</span></span></a> <span class="keyword">=</span> "atspre_assert"
+<span class="neuexp"><span class="keyword">overload</span> assert <span class="keyword">with</span> assert_bool1</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="5525"><span class="dyncstdec">assert_errmsg_bool
+  <span class="keyword">(</span>assertion<span class="keyword">:</span> <span class="staexp">bool</span><span class="keyword">,</span> msg<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exn</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atspre_assert_errmsg"
+<span class="neuexp"><span class="keyword">overload</span> assert_errmsg <span class="keyword">with</span> assert_errmsg_bool</span>
+
+<span class="keyword">fun</span> <a name="5668"><span class="dyncstdec">assert_errmsg_bool1 <span class="staexp"><span class="keyword">{</span>b<span class="keyword">:</span>bool<span class="keyword">}</span></span>
+  <span class="keyword">(</span>assertion<span class="keyword">:</span> <span class="staexp">bool b</span><span class="keyword">,</span> msg<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exn</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">[</span>b<span class="keyword">]</span> void</span></span></a>
+  <span class="keyword">=</span> "atspre_assert_errmsg"
+<span class="neuexp"><span class="keyword">overload</span> assert_errmsg <span class="keyword">with</span> assert_errmsg_bool1</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="5849"><span class="dyncstdec">assert_errmsg_bool_string1
+  <span class="keyword">(</span>assertion<span class="keyword">:</span> <span class="staexp">bool</span><span class="keyword">,</span> msg<span class="keyword">:</span> <span class="staexp">String</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exn</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atspre_assert_errmsg"
+<span class="neuexp"><span class="keyword">overload</span> assert_errmsg <span class="keyword">with</span> assert_errmsg_bool_string1</span>
+
+<span class="keyword">fun</span> <a name="6006"><span class="dyncstdec">assert_errmsg_bool1_string1 <span class="staexp"><span class="keyword">{</span>b<span class="keyword">:</span>bool<span class="keyword">}</span></span>
+  <span class="keyword">(</span>assertion<span class="keyword">:</span> <span class="staexp">bool b</span><span class="keyword">,</span> msg<span class="keyword">:</span> <span class="staexp">String</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exn</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">[</span>b<span class="keyword">]</span> void</span></span></a> <span class="keyword">=</span> "atspre_assert_errmsg"
+<span class="neuexp"><span class="keyword">overload</span> assert_errmsg <span class="keyword">with</span> assert_errmsg_bool1_string1</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">//
+</span><span class="comment">// If [main_dummy] is implemented, then it indicates that [mainats]
+</span><span class="comment">// is implemented in C
+</span><span class="comment">//
+</span>
+<span class="keyword">prval</span> <a name="6301"><span class="dyncstdec"><span class="prfexp">main_dummy <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: for internal use:
+</span><span class="comment">// [main_prelude] is called before [main]
+</span><span class="comment">// it is implemented in "$ATSHOME/ats_main_prelude.dats"
+</span><span class="comment">//
+</span><span class="comment">// HX: please note that the difference in names
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="6527"><span class="dyncstdec">main_prelude <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "mainats_prelude"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+fun main {n:int | n &gt;= 1}
+  (argc: int n, argv: &amp;(@[string][n])): void = "mainats"
+// end of [main]
+*)</span>
+
+<span class="neuexp"><span class="keyword">symintr</span></span> main
+
+<span class="keyword">fun</span> <a name="6716"><span class="dyncstdec">main_void <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "mainats"
+<span class="neuexp"><span class="keyword">overload</span> main <span class="keyword">with</span> main_void</span>
+<span class="keyword">fun</span> <a name="6780"><span class="dyncstdec">main_argc_argv <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>int <span class="keyword">|</span> n &gt;= 1<span class="keyword">}</span></span>
+  <span class="keyword">(</span>argc<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">,</span> argv<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><span class="keyword">(</span><span class="keyword">@[</span>string<span class="keyword">]</span><span class="keyword">[</span>n<span class="keyword">]</span><span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "mainats"
+<span class="neuexp"><span class="keyword">overload</span> main <span class="keyword">with</span> main_argc_argv</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="neuexp"><span class="keyword">symintr</span></span> free_gc_elim
+
+<span class="keyword">praxi</span> <a name="6953"><span class="dyncstdec"><span class="prfexp">free_gc_addr_elim <span class="comment">// return the certificate to the GC
+</span>  <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>pf<span class="keyword">:</span> <span class="staexp">free_gc_v l</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> free_gc_elim <span class="keyword">with</span> free_gc_addr_elim</span>
+<span class="keyword">praxi</span> <a name="7095"><span class="dyncstdec"><span class="prfexp">free_gc_t0ype_addr_elim <span class="comment">// return the certificate to the GC
+</span>  <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>pf<span class="keyword">:</span> <span class="staexp">free_gc_v <span class="keyword">(</span>a<span class="keyword">,</span> l<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> free_gc_elim <span class="keyword">with</span> free_gc_t0ype_addr_elim</span>
+<span class="keyword">praxi</span> <a name="7268"><span class="dyncstdec"><span class="prfexp">free_gc_t0ype_int_addr_elim <span class="comment">// return the certificate to the GC
+</span>  <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>pf<span class="keyword">:</span> <span class="staexp">free_gc_v <span class="keyword">(</span>a<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> free_gc_elim <span class="keyword">with</span> free_gc_t0ype_int_addr_elim</span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: implemented in [basics.cats]
+</span><span class="comment">//
+</span><span class="keyword">castfn</span> <a name="7524"><span class="dyncstdec">cloptr_get_view_ptr <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span>
+  <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">cloptr a</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>free_gc_v l<span class="keyword">,</span> clo a @ l <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atspre_cloptr_get_view_ptr"
+<span class="comment">// end of [cloptr_get_view_ptr]
+</span><span class="keyword">castfn</span> <a name="7691"><span class="dyncstdec">cloptr_make_view_ptr <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf_gc<span class="keyword">:</span> <span class="staexp">free_gc_v l</span></span><span class="keyword">,</span> <span class="prfexp">pf_at<span class="keyword">:</span> <span class="staexp">clo a @ l</span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">cloptr a</span></span></a>
+  <span class="keyword">=</span> "atspre_cloptr_make_view_ptr"
+<span class="comment">// end of [cloptr_make_view_ptr]
+</span>
+<span class="keyword">castfn</span> <a name="7874"><span class="dyncstdec">cloref_get_view_ptr <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>t@ype<span class="keyword">}</span></span>
+  <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">cloref a</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>vbox <span class="keyword">(</span>clo a @ l<span class="keyword">)</span> <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atspre_cloref_get_view_ptr"
+<span class="comment">// end of [cloref_get_view_ptr]
+</span><span class="keyword">castfn</span> <a name="8031"><span class="dyncstdec">cloref_make_view_ptr <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>t@ype<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">vbox <span class="keyword">(</span>clo a @ l<span class="keyword">)</span></span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">cloref a</span></span></a>
+  <span class="keyword">=</span> "atspre_cloref_make_view_ptr"
+<span class="comment">// end of [cloref_make_view_ptr]
+</span>
+<span class="keyword">fun</span> <a name="8191"><span class="dyncstdec">cloptr_free <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>t@ype<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">cloptr a</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atspre_cloptr_free"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">praxi</span> <a name="8286"><span class="dyncstdec"><span class="prfexp">clstrans
+  <span class="staexp"><span class="keyword">{</span>c1<span class="keyword">,</span>c2<span class="keyword">,</span>c3<span class="keyword">:</span>cls <span class="keyword">|</span> c1 &lt;= c2<span class="keyword">;</span> c2 &lt;= c3<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>c1 &lt;= c3<span class="keyword">]</span> void</span></span></span></a>
+<span class="comment">// end of [clstrans]
+</span>
+<span class="keyword">dataprop</span> <span class="prfexp"><span class="staexp"><a name="8384"><span class="stacstdec">SUBCLS <span class="keyword">(</span>c1<span class="keyword">:</span>cls<span class="keyword">,</span> c2<span class="keyword">:</span>cls<span class="keyword">,</span> bool<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">c1 &lt;= c2</span><span class="keyword">}</span> SUBCLS <span class="staexp"><span class="keyword">(</span>c1<span class="keyword">,</span> c2<span class="keyword">,</span> true<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">)</span></span> <span class="keyword">|</span> SUBCLSfalse <span class="staexp"><span class="keyword">(</span>c1<span class="keyword">,</span> c2<span class="keyword">,</span> false<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">)</span></span></span>
+<span class="comment">// end of [SUBCLS]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// fun void ():&lt;&gt; void = "ats_void"
+</span><span class="comment">//
+</span><span class="comment">// [vbox_make_view_ptr] implemented in [basics.cats]
+</span><span class="keyword">fun</span> <a name="8634"><span class="dyncstdec">vbox_make_view_ptr
+  <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="comment">// for statically allocated
+</span>  <span class="keyword">(</span><span class="prfexp">_<span class="keyword">:</span> <span class="staexp">a @ l</span></span> <span class="keyword">|</span> _<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">(</span>vbox <span class="keyword">(</span>a @ l<span class="keyword">)</span> <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atspre_vbox_make_view_ptr"
+<span class="comment">// end of [vbox_make_view_ptr]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">praxi</span> <a name="8846"><span class="dyncstdec"><span class="prfexp">opt_some <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span><span class="keyword">(</span>a<span class="keyword">)</span> &gt;&gt; opt <span class="keyword">(</span>a<span class="keyword">,</span> true<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">prf</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></span></a>
+<span class="keyword">praxi</span> <a name="8913"><span class="dyncstdec"><span class="prfexp">opt_unsome <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>opt <span class="keyword">(</span>a<span class="keyword">,</span> true<span class="keyword">)</span> &gt;&gt; a</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">prf</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></span></a>
+<span class="keyword">praxi</span> <a name="8980"><span class="dyncstdec"><span class="prfexp">opt_none <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span><span class="keyword">(</span>a?<span class="keyword">)</span> &gt;&gt; opt <span class="keyword">(</span>a<span class="keyword">,</span> false<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">prf</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></span></a>
+<span class="keyword">praxi</span> <a name="9049"><span class="dyncstdec"><span class="prfexp">opt_unnone <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>opt <span class="keyword">(</span>a<span class="keyword">,</span> false<span class="keyword">)</span> &gt;&gt; a?</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">prf</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></span></a>
+<span class="keyword">praxi</span> <a name="9118"><span class="dyncstdec"><span class="prfexp">opt_clear <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>t@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>b<span class="keyword">:</span>bool<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>opt <span class="keyword">(</span>a<span class="keyword">,</span> b<span class="keyword">)</span> &gt;&gt; a?</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">prf</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+
+// fractional views are yet to be supported
+
+sta zero : rat and one : rat
+
+prval vfrac_make : {v:view} v -&lt;&gt; [s:stamp] vfrac (s, v, one)
+  and vfrac_free : {v:view} {s:stamp} vfrac (s, v, one) -&lt;&gt; v
+  and vfrac_split : {v:view} {r:rat} {s:stamp}
+    vfrac (s, v, r) -&lt;&gt; (vfrac (s, v, r/2), vfrac (s, v, r/2))
+  and vfrac_unsplit : {v:view} {r1,r2: rat} {s:stamp}
+    (vfrac (s, v, r1), vfrac (s, v, r2)) -&lt;&gt; vfrac (s, v, r1+r2)
+
+fun vtfrac_make {vt:viewtype} (_: vt):&lt;&gt; [s:stamp] vtfrac (s, vt, one)
+and vtfrac_free {vt:viewtype} {s:stamp} (_: vtfrac (s, vt, one)):&lt;&gt; vt
+and vtfrac_split {vt:viewtype} {r:rat} {s:stamp}
+  (_: vtfrac (s, vt, r)):&lt;&gt; (vtfrac (s, vt, r/2), vtfrac (s, vt, r/2))
+and vtfrac_unsplit {vt:viewtype} {r1,r2:rat} {s:stamp}
+  (_: vtfrac (s, vt, r1), vtfrac (s, vt, r2)):&lt;&gt; vtfrac (s, vt, r1+r2)
+
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abstype</span> <span class="staexp"><a name="10058"><span class="stacstdec">file_mode</span></a></span> <span class="keyword">(</span>file_mode<span class="keyword">)</span> <span class="comment">// string type
+</span>
+<span class="keyword">dataprop</span> <span class="prfexp"><span class="staexp"><a name="10105"><span class="stacstdec">file_mode_lte
+  <span class="keyword">(</span>file_mode<span class="keyword">,</span> file_mode<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">m<span class="keyword">:</span>file_mode</span><span class="keyword">}</span> file_mode_lte_refl <span class="staexp"><span class="keyword">(</span>m<span class="keyword">,</span> m<span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">m1<span class="keyword">,</span>m2<span class="keyword">,</span>m3<span class="keyword">:</span>file_mode</span><span class="keyword">}</span>
+      file_mode_lte_tran <span class="staexp"><span class="keyword">(</span>m1<span class="keyword">,</span> m3<span class="keyword">)</span></span> <span class="keyword">of</span>
+        <span class="staexp"><span class="keyword">(</span>file_mode_lte <span class="keyword">(</span>m1<span class="keyword">,</span> m2<span class="keyword">)</span><span class="keyword">,</span> file_mode_lte <span class="keyword">(</span>m2<span class="keyword">,</span> m3<span class="keyword">)</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">m<span class="keyword">:</span>file_mode</span><span class="keyword">}</span> file_mode_lte_rw_r <span class="staexp"><span class="keyword">(</span>rw<span class="keyword">,</span> r<span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">m<span class="keyword">:</span>file_mode</span><span class="keyword">}</span> file_mode_lte_rw_w <span class="staexp"><span class="keyword">(</span>rw<span class="keyword">,</span> w<span class="keyword">)</span></span></span>
+<span class="comment">// end of [file_mode_lte]
+</span>
+<span class="keyword">prval</span> <a name="10432"><span class="dyncstdec"><span class="prfexp">file_mode_lte_r_r<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>r<span class="keyword">,</span> r<span class="keyword">)</span></span></span></span></a> <span class="comment">// implemented in [file.dats]
+</span><span class="keyword">prval</span> <a name="10508"><span class="dyncstdec"><span class="prfexp">file_mode_lte_w_w<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>w<span class="keyword">,</span> w<span class="keyword">)</span></span></span></span></a> <span class="comment">// implemented in [file.dats]
+</span><span class="keyword">prval</span> <a name="10584"><span class="dyncstdec"><span class="prfexp">file_mode_lte_rw_rw<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>rw<span class="keyword">,</span> rw<span class="keyword">)</span></span></span></span></a> <span class="comment">// implemented in [file.dats]
+</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="10666"><span class="stacstdec">&lt;= <span class="keyword">=</span> file_mode_lte</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* standard I/O channels *)</span>
+
+<span class="comment">// standard input/output/error
+</span>
+<span class="keyword">sta</span> <span class="staexp">stdin_addr <span class="keyword">:</span> addr</span>
+<span class="keyword">macdef</span> <span class="neuexp">stdin <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>ptr stdin_addr<span class="keyword">,</span> "stdin"<span class="keyword">)</span></span>
+
+<span class="keyword">fun</span> <a name="10844"><span class="dyncstdec">stdin_get <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exnref</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">(</span>FILE r @ stdin_addr <span class="keyword">|</span> ptr stdin_addr<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atspre_stdin_get"
+<span class="comment">// end of [stdin_get]
+</span><span class="keyword">fun</span> <a name="10955"><span class="dyncstdec">stdin_view_get <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exnref</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">(</span>FILE r @ stdin_addr <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atspre_stdin_view_get"
+<span class="comment">// end of [stdin_view_get]
+</span><span class="keyword">and</span> <a name="11072"><span class="dyncstdec">stdin_view_set <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">FILE r @ stdin_addr</span></span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exnref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atspre_stdin_view_set"
+<span class="comment">// end of [stdin_view_set]
+</span>
+<span class="keyword">sta</span> <span class="staexp">stdout_addr <span class="keyword">:</span> addr</span>
+<span class="keyword">macdef</span> <span class="neuexp">stdout <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>ptr stdout_addr<span class="keyword">,</span> "stdout"<span class="keyword">)</span></span>
+
+<span class="keyword">fun</span> <a name="11275"><span class="dyncstdec">stdout_get <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exnref</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">(</span>FILE w @ stdout_addr <span class="keyword">|</span> ptr stdout_addr<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atspre_stdout_get"
+<span class="comment">// end of [stdout_get]
+</span>
+<span class="keyword">fun</span> <a name="11395"><span class="dyncstdec">stdout_view_get <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exnref</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">(</span>FILE w @ stdout_addr <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atspre_stdout_view_get"
+<span class="comment">// end of [stdout_view_get]
+</span><span class="keyword">and</span> <a name="11516"><span class="dyncstdec">stdout_view_set <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">FILE w @ stdout_addr</span></span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exnref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atspre_stdout_view_set"
+<span class="comment">// end of [stdout_view_set]
+</span>
+<span class="keyword">sta</span> <span class="staexp">stderr_addr <span class="keyword">:</span> addr</span>
+<span class="keyword">macdef</span> <span class="neuexp">stderr <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>ptr stderr_addr<span class="keyword">,</span> "stderr"<span class="keyword">)</span></span>
+
+<span class="keyword">fun</span> <a name="11723"><span class="dyncstdec">stderr_get <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exnref</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">(</span>FILE w @ stderr_addr <span class="keyword">|</span> ptr stderr_addr<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atspre_stderr_get"
+<span class="comment">// end of [stderr_get]
+</span>
+<span class="keyword">fun</span> <a name="11843"><span class="dyncstdec">stderr_view_get <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exnref</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">(</span>FILE w @ stderr_addr <span class="keyword">|</span> void<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "atspre_stderr_view_get"
+<span class="comment">// end of [stderr_view_get]
+</span><span class="keyword">and</span> <a name="11964"><span class="dyncstdec">stderr_view_set <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">FILE w @ stderr_addr</span></span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exnref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atspre_stderr_view_set"
+<span class="comment">// end of [stderr_view_set]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// print functions for various type of data
+</span><span class="comment">//
+</span><span class="keyword">typedef</span>
+<span class="staexp"><a name="12169"><span class="stacstdec">fprint_t0ype_type <span class="keyword">(</span>a<span class="keyword">:</span>t@ype<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span>
+  <span class="keyword">(</span>file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span> <span class="keyword">|</span> <span class="keyword">&amp;</span>FILE m<span class="keyword">,</span> a<span class="keyword">)</span> <span class="keyword">-&lt;</span><span class="keyword">fun</span><span class="keyword">,</span><span class="keyword">!</span>exnref<span class="keyword">&gt;</span> void</span></a></span>
+<span class="keyword">typedef</span>
+<span class="staexp"><a name="12279"><span class="stacstdec">fprint_viewt0ype_type <span class="keyword">(</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span>
+  <span class="keyword">(</span>file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span> <span class="keyword">|</span> <span class="keyword">&amp;</span>FILE m<span class="keyword">,</span> <span class="keyword">!</span>a<span class="keyword">)</span> <span class="keyword">-&lt;</span><span class="keyword">fun</span><span class="keyword">,</span><span class="keyword">!</span>exnref<span class="keyword">&gt;</span> void</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// print functions for newlines
+</span><span class="comment">//
+</span><span class="neuexp"><span class="keyword">symintr</span></span> fprint_newline
+<span class="keyword">fun</span> <a name="12476"><span class="dyncstdec">fprint0_newline
+  <span class="keyword">(</span>out<span class="keyword">:</span> <span class="staexp">FILEref</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atspre_fprint_newline"
+<span class="keyword">fun</span> <a name="12551"><span class="dyncstdec">fprint1_newline <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atspre_fprint_newline"
+<span class="neuexp"><span class="keyword">overload</span> fprint_newline <span class="keyword">with</span> fprint0_newline</span>
+<span class="neuexp"><span class="keyword">overload</span> fprint_newline <span class="keyword">with</span> fprint1_newline</span>
+
+<span class="keyword">fun</span> <a name="12760"><span class="dyncstdec">print_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atspre_print_newline"
+<span class="keyword">and</span> <a name="12818"><span class="dyncstdec">prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atspre_prerr_newline"
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX-2010-08-10:
+</span><span class="comment">// the mode information is simply asserted and can be incorrect!
+</span><span class="comment">//
+</span><span class="keyword">castfn</span> <a name="12989"><span class="dyncstdec">FILEref_get_ref
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">FILEref</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">ref <span class="keyword">(</span>FILE m<span class="keyword">)</span></span></span></a>
+<span class="keyword">castfn</span> <a name="13057"><span class="dyncstdec">FILEref_get_view_ptr <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span> <span class="comment">// non-reentrant!
+</span>  <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">FILEref</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>FILE m @ l<span class="keyword">,</span> FILE m @ l <span class="keyword">-&lt;</span>lin<span class="keyword">,</span>prf<span class="keyword">&gt;</span> void <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></span></a>
+<span class="comment">// end of [FILEref_get_view_ptr]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: implemented in prelude/DATS/basics.dats
+</span><span class="comment">//
+</span><span class="keyword">prval</span> <a name="13299"><span class="dyncstdec"><span class="prfexp">option_v_unsome <span class="keyword">:</span> <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span> option_v <span class="keyword">(</span>v<span class="keyword">,</span> true<span class="keyword">)</span> <span class="keyword">-&lt;</span>prf<span class="keyword">&gt;</span> v</span></span></span></a>
+<span class="keyword">prval</span> <a name="13360"><span class="dyncstdec"><span class="prfexp">option_v_unnone <span class="keyword">:</span> <span class="staexp"><span class="keyword">{</span>v<span class="keyword">:</span>view<span class="keyword">}</span> option_v <span class="keyword">(</span>v<span class="keyword">,</span> false<span class="keyword">)</span> <span class="keyword">-&lt;</span>prf<span class="keyword">&gt;</span> void</span></span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: implemented in prelude/DATS/basics.dats
+</span><span class="comment">//
+</span><span class="keyword">prfun</span> <a name="13499"><span class="dyncstdec"><span class="prfexp">unit_v_elim <span class="keyword">(</span>pf<span class="keyword">:</span> <span class="staexp">unit_v</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(*
+//
+// HX: DEPRECATED!!!
+// it is now supported internally; see [lazy.cats] and [lazy_vt.cats]
+//
+
+//
+// for lazy (i.e., call-by-need) evaluation
+//
+
+// nonlinear version
+dataviewtype thunkvalue (a:t@ype+) =
+  | thunkvalue_thunk (a) of (() -&lt;cloref1,~ref&gt; a)
+  | thunkvalue_value (a) of a
+// end of [thunkvalue]
+
+// linear version
+dataviewtype thunkvalue_vt (a:viewt@ype+) =
+  | thunkvalue_vt_thunk (a) of (() -&lt;lin,cloptr1,~ref&gt; a)
+  | thunkvalue_vt_value (a) of a
+// end of [thunkvalue_vt]
+
+// implemented in [prelude/DATS/lazy.dats]
+fun{a:t@ype} lazy_force_crypt (x: crypt (lazy a)):&lt;1,~ref&gt; a
+macdef lazy_force (x) = lazy_force_crypt ($encrypt ,(x))
+
+// implemented in [prelude/DATS/lazy.dats]
+fun{a:viewt@ype} lazy_vt_force_crypt (x: crypt (lazy_vt a)):&lt;1,~ref&gt; a
+macdef lazy_vt_force (x) = lazy_vt_force_crypt ($encrypt ,(x))
+
+*)</span>
+
+<span class="keyword">fun</span> <a name="14395"><span class="dyncstdec">lazy_vt_free
+  <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">lazy_vt a</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">1</span><span class="keyword">,</span><span class="keyword">~</span><span class="staexp">ref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "ats_lazy_vt_free"
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">~</span> <span class="keyword">with</span> lazy_vt_free</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#if</span> <span class="neuexp">VERBOSE_PRELUDE</span> <span class="keyword">#then</span>
+<span class="keyword">#print</span> <span class="neuexp">"Loading [basics_dyn.ats] finishes!\n"</span>
+<span class="keyword">#endif</span> <span class="comment">// end of [VERBOSE_PRELUDE]
+</span>
+<span class="comment">(* end of [basics_dyn.sats] *)</span>
+</pre>
+</body>
+</html>

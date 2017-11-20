@@ -1,0 +1,454 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: August 2007
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Err <span class="keyword">=</span> "ats_error.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Loc <span class="keyword">=</span> "ats_location.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Lst <span class="keyword">=</span> "ats_list.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Sym <span class="keyword">=</span> "ats_symbol.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Syn <span class="keyword">=</span> "ats_syntax.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp1.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">nil list_nil</span>
+<span class="keyword">#define</span> <span class="neuexp">:: list_cons</span>
+<span class="keyword">#define</span> <span class="neuexp">cons list_cons</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">=</span> <span class="keyword">with</span> $Sym<span class="keyword">.</span>eq_symbol_symbol</span>
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> $Loc<span class="keyword">.</span>prerr_location</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="1941"><span class="stacstdec">sym_t <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#1609"><span class="stacstuse">$Sym<span class="keyword">.</span>symbol_t</span></a></span></a></span>
+
+<span class="keyword">val</span> MINUSGT <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#2263"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_MINUSGT</span></a>
+<span class="keyword">val</span> s0rtq_none <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsyntax_2esats.html#12757"><span class="dyncstuse">$Syn<span class="keyword">.</span>s0rtq_none</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">val</span> s0taq_none <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsyntax_2esats.html#17331"><span class="dyncstuse">$Syn<span class="keyword">.</span>s0taq_none</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+
+<span class="keyword">fn</span> s0rtq_is_none <span class="keyword">(</span>q<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsyntax_2esats.html#12503"><span class="stacstuse">$Syn<span class="keyword">.</span>s0rtq</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#14977"><span class="stacstuse">bool</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> q<span class="keyword">.</span>s0rtq_node <span class="keyword">of</span> $Syn<span class="keyword">.</span>S0RTQnone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#4327"><span class="dyncstuse">true</span></a> <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#4371"><span class="dyncstuse">false</span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#2949"><span class="dyncstimp">e1xp_app</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> e_fun<span class="keyword">,</span> loc_arg<span class="keyword">,</span> es_arg<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">'{</span> e1xp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> e1xp_node<span class="keyword">=</span> E1XPapp <span class="keyword">(</span>e_fun<span class="keyword">,</span> loc_arg<span class="keyword">,</span> es_arg<span class="keyword">)</span> <span class="keyword">}</span> 
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#3048"><span class="dyncstimp">e1xp_char</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> c<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">'{</span> e1xp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> e1xp_node<span class="keyword">=</span> E1XPchar c <span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#3087"><span class="dyncstimp">e1xp_float</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> f<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  e1xp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> e1xp_node<span class="keyword">=</span> E1XPfloat <span class="keyword">(</span>f<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15989"><span class="stacstuse">string</span></a></span><span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#3129"><span class="dyncstimp">e1xp_ide</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  e1xp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> e1xp_node<span class="keyword">=</span> E1XPide <span class="keyword">(</span>id<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2edats.html#1941"><span class="stacstuse">sym_t</span></a></span><span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#3169"><span class="dyncstimp">e1xp_int</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  e1xp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> e1xp_node<span class="keyword">=</span> E1XPint <span class="keyword">(</span>int<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15989"><span class="stacstuse">string</span></a></span><span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#3210"><span class="dyncstimp">e1xp_list</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  e1xp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> e1xp_node<span class="keyword">=</span> E1XPlist <span class="keyword">(</span>es<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#2374"><span class="stacstuse">e1xplst</span></a></span><span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#3253"><span class="dyncstimp">e1xp_none</span></a> <span class="keyword">(</span>loc<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  e1xp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> e1xp_node<span class="keyword">=</span> E1XPnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [e1xp_none]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#3284"><span class="dyncstimp">e1xp_string</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> str<span class="keyword">,</span> len<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  e1xp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> e1xp_node<span class="keyword">=</span> E1XPstring <span class="keyword">(</span>str<span class="keyword">,</span> len<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#3336"><span class="dyncstimp">e1xp_undef</span></a> <span class="keyword">(</span>loc<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  e1xp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> e1xp_node<span class="keyword">=</span> E1XPundef <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [e1xp_undef]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#3371"><span class="dyncstimp">e1xp_true</span></a>  <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#2312"><span class="stacstuse">e1xp</span></a></span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#3169"><span class="dyncstuse">e1xp_int</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5flocation_2esats.html#1761"><span class="dyncstuse">$Loc<span class="keyword">.</span>location_none</span></a><span class="keyword">,</span> "1"<span class="keyword">)</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#3394"><span class="dyncstimp">e1xp_false</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#2312"><span class="stacstuse">e1xp</span></a></span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#3169"><span class="dyncstuse">e1xp_int</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5flocation_2esats.html#1761"><span class="dyncstuse">$Loc<span class="keyword">.</span>location_none</span></a><span class="keyword">,</span> "0"<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#3563"><span class="dyncstimp">v1al_true</span></a> <span class="keyword">=</span> V1ALint 1
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#3584"><span class="dyncstimp">v1al_false</span></a> <span class="keyword">=</span> V1ALint 0
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* functions for constructing sorts *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#4823"><span class="dyncstimp">s1rt_arrow</span></a> <span class="keyword">(</span>loc<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1rt_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1rt_node<span class="keyword">=</span> S1RTqid <span class="keyword">(</span>s0rtq_none<span class="keyword">,</span> MINUSGT<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="comment">(* '-&gt;' is a special sort constructor *)</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#4897"><span class="dyncstimp">s1rt_is_arrow</span></a> <span class="keyword">(</span>s1t<span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#14977"><span class="stacstuse">bool</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> s1t<span class="keyword">.</span>s1rt_node <span class="keyword">of</span>
+  <span class="keyword">|</span> S1RTqid <span class="keyword">(</span>q<span class="keyword">,</span> id<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">if</span> s0rtq_is_none q <span class="keyword">then</span> id <span class="keyword">=</span> MINUSGT <span class="keyword">else</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#4371"><span class="dyncstuse">false</span></a>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#4371"><span class="dyncstuse">false</span></a>
+<span class="comment">// end of [s1rt_is_arrow]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#4934"><span class="dyncstimp">s1rt_app</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> s1t_fun<span class="keyword">,</span> s1ts_arg<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">'{</span> s1rt_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1rt_node<span class="keyword">=</span> S1RTapp <span class="keyword">(</span>s1t_fun<span class="keyword">,</span> s1ts_arg<span class="keyword">)</span> <span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#4991"><span class="dyncstimp">s1rt_fun</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> s1t1<span class="keyword">,</span> s1t2<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> s1ts <span class="keyword">=</span> cons <span class="keyword">(</span>s1t1<span class="keyword">,</span> cons <span class="keyword">(</span>s1t2<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">in</span>
+    <span class="keyword">'{</span> s1rt_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1rt_node <span class="keyword">=</span> S1RTapp <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#4823"><span class="dyncstuse">s1rt_arrow</span></a> <span class="keyword">(</span>loc<span class="keyword">)</span><span class="keyword">,</span> s1ts<span class="keyword">)</span> <span class="keyword">}</span>
+  <span class="keyword">end</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#5043"><span class="dyncstimp">s1rt_ide</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1rt_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1rt_node<span class="keyword">=</span> S1RTqid <span class="keyword">(</span>s0rtq_none<span class="keyword">,</span> id<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#5083"><span class="dyncstimp">s1rt_list</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> s1ts<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> s1ts <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>s1t<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s1t <span class="comment">(* singleton elimination *)</span>
+  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">'{</span> s1rt_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1rt_node<span class="keyword">=</span> S1RTlist s1ts <span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#5126"><span class="dyncstimp">s1rt_qid</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> q<span class="keyword">,</span> id<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">'{</span> s1rt_loc<span class="keyword">=</span> loc<span class="keyword">,</span>  s1rt_node <span class="keyword">=</span> S1RTqid <span class="keyword">(</span>q<span class="keyword">,</span> id<span class="keyword">)</span> <span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#5177"><span class="dyncstimp">s1rt_tup</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> s1ts<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">'{</span> s1rt_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1rt_node <span class="keyword">=</span> S1RTtup s1ts <span class="keyword">}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#5241"><span class="dyncstimp">s1rtpol_make</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> s1t<span class="keyword">,</span> pol<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1rtpol_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1rtpol_srt<span class="keyword">=</span> s1t<span class="keyword">,</span> s1rtpol_pol<span class="keyword">=</span> pol
+<span class="keyword">}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#5555"><span class="dyncstimp">d1atarg_srt</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> s1tp<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d1atarg_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d1atarg_node<span class="keyword">=</span> D1ATARGsrt s1tp
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#5603"><span class="dyncstimp">d1atarg_idsrt</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">,</span> s1tp<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  d1atarg_loc<span class="keyword">=</span> loc<span class="keyword">,</span> d1atarg_node<span class="keyword">=</span> D1ATARGidsrt <span class="keyword">(</span>id<span class="keyword">,</span> s1tp<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#11058"><span class="dyncstimp">s1arg_make</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">,</span> os1t<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1arg_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1arg_sym<span class="keyword">=</span>id<span class="keyword">,</span> s1arg_srt<span class="keyword">=</span> os1t
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#11158"><span class="dyncstimp">sp1at_con</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> q<span class="keyword">,</span> id<span class="keyword">,</span> args<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  sp1at_loc<span class="keyword">=</span> loc<span class="keyword">,</span> sp1at_node<span class="keyword">=</span> SP1Tcon <span class="keyword">(</span>q<span class="keyword">,</span> id<span class="keyword">,</span> args<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+ 
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#11249"><span class="dyncstimp">s1exp_ann</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> s1e<span class="keyword">,</span> s1t<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Eann <span class="keyword">(</span>s1e<span class="keyword">,</span> s1t<span class="keyword">)</span>
+<span class="keyword">}</span> 
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#11300"><span class="dyncstimp">s1exp_any</span></a> <span class="keyword">(</span>loc<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">'{</span> s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Eany <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">}</span> 
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#11333"><span class="dyncstimp">s1exp_app</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> s1e<span class="keyword">,</span> loc_arg<span class="keyword">,</span> s1es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Eapp <span class="keyword">(</span>s1e<span class="keyword">,</span> loc_arg<span class="keyword">,</span> s1es<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#11437"><span class="dyncstimp">s1exp_char</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> c<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">'{</span> s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Echar c <span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#11479"><span class="dyncstimp">s1exp_exi</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> knd<span class="comment">(*funres*)</span><span class="keyword">,</span> s1qs<span class="keyword">,</span> s1e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Eexi <span class="keyword">(</span>knd<span class="keyword">,</span> s1qs<span class="keyword">,</span> s1e<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#11550"><span class="dyncstimp">s1exp_extype</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> name<span class="keyword">,</span> arglst<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Eextype <span class="keyword">(</span>name<span class="keyword">,</span> arglst<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s1exp_extype]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#11618"><span class="dyncstimp">s1exp_ide</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2edats.html#1941"><span class="stacstuse">sym_t</span></a></span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Eqid <span class="keyword">(</span>s0taq_none<span class="keyword">,</span> id<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#11660"><span class="dyncstimp">s1exp_imp</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> ft<span class="keyword">,</span> is_lin<span class="keyword">,</span> is_prf<span class="keyword">,</span> oefc<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Eimp <span class="keyword">(</span>ft<span class="keyword">,</span> is_lin<span class="keyword">,</span> is_prf<span class="keyword">,</span> oefc<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#11737"><span class="dyncstimp">s1exp_int</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> int<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15989"><span class="stacstuse">string</span></a></span><span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">'{</span> s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Eint int <span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#11782"><span class="dyncstimp">s1exp_invar</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> refval<span class="keyword">,</span> s1e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Einvar <span class="keyword">(</span>refval<span class="keyword">,</span> s1e<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#11842"><span class="dyncstimp">s1exp_lam</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> arg<span class="keyword">,</span> res<span class="keyword">,</span> body<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Elam <span class="keyword">(</span>arg<span class="keyword">,</span> res<span class="keyword">,</span> body<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#11941"><span class="dyncstimp">s1exp_list</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> s1es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> s1es <span class="keyword">of</span>
+<span class="comment">(*
+  // HX: this one affects postion marking
+  | cons (s1e, nil ()) =&gt; '{ // singleton elimination
+      s1exp_loc= loc, s1exp_node= s1e.s1exp_node
+    }
+*)</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>s1e<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s1e <span class="comment">// singleton elimination
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">'{</span>
+      s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Elist <span class="keyword">(</span>0<span class="keyword">,</span> s1es<span class="keyword">)</span>
+    <span class="keyword">}</span> <span class="comment">// end of [_]
+</span><span class="comment">// end of [s1exp_list]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#11987"><span class="dyncstimp">s1exp_list2</span></a>
+  <span class="keyword">(</span>loc<span class="keyword">,</span> s1es1<span class="keyword">,</span> s1es2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> npf <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5flist_2esats.html#2308"><span class="dyncstuse">$Lst<span class="keyword">.</span>list_length</span></a> s1es1
+  <span class="keyword">val</span> s1es <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5flist_2esats.html#1736"><span class="dyncstuse">$Lst<span class="keyword">.</span>list_append</span></a> <span class="keyword">(</span>s1es1<span class="keyword">,</span> s1es2<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Elist <span class="keyword">(</span>npf<span class="keyword">,</span> s1es<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [s1exp_list2]
+</span>
+<span class="comment">(*
+// HX-2010-12-04: simplification
+implement s1exp_mod (loc, q, id, ls1es) = '{
+  s1exp_loc= loc, s1exp_node= S1Emod (q, id, ls1es)
+}
+*)</span>
+
+<span class="comment">(*
+// HX-2010-12-04: inadequate design
+implement s1exp_named (loc, name, s1e) = '{
+  s1exp_loc= loc, s1exp_node= S1Enamed (name, s1e)
+}
+*)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#12261"><span class="dyncstimp">s1exp_qid</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> q<span class="keyword">,</span> id<span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#8868"><span class="stacstuse">s1exp</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">'{</span> s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Eqid <span class="keyword">(</span>q<span class="keyword">,</span> id<span class="keyword">)</span> <span class="keyword">}</span> 
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#12314"><span class="dyncstimp">s1exp_read</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> s1e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fn</span> err <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5flocation_2esats.html#1710"><span class="stacstuse">$Loc<span class="keyword">.</span>location_t</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#8868"><span class="stacstuse">s1exp</span></a></span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5flocation_2esats.html#2738"><span class="dyncstuse">$Loc<span class="keyword">.</span>prerr_location</span></a> loc<span class="keyword">;</span> prerr ": error(1)"<span class="keyword">;</span>
+    prerr ": [read@] requires exactly two arguments."<span class="keyword">;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+    <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [err]
+</span><span class="keyword">in</span>
+  <span class="keyword">case+</span> s1e<span class="keyword">.</span>s1exp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> S1Elist <span class="keyword">(</span>_<span class="comment">(*npf*)</span><span class="keyword">,</span> s1es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s1es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>s1e1<span class="keyword">,</span> cons <span class="keyword">(</span>s1e2<span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">'{</span>
+        s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Eread <span class="keyword">(</span>s1e1<span class="keyword">,</span> s1e2<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [cons]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> err <span class="keyword">(</span>loc<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S1Elist]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> err <span class="keyword">(</span>loc<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s1exp_read]
+</span>
+<span class="comment">(*
+// HX-2010-11-01: simplification
+implement
+s1exp_struct (loc, ls1es) = '{
+  s1exp_loc= loc, s1exp_node= S1Estruct (ls1es)
+} // end of [s1exp_struct]
+*)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#12459"><span class="dyncstimp">s1exp_top</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> knd<span class="keyword">,</span> s1e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Etop <span class="keyword">(</span>knd<span class="keyword">,</span> s1e<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#12513"><span class="dyncstimp">s1exp_trans</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> s1e1<span class="keyword">,</span> s1e2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Etrans <span class="keyword">(</span>s1e1<span class="keyword">,</span> s1e2<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#12573"><span class="dyncstimp">s1exp_tyarr</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> s1e_elt<span class="keyword">,</span> s1ess_dim<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Etyarr <span class="keyword">(</span>s1e_elt<span class="keyword">,</span> s1ess_dim<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#12637"><span class="dyncstimp">s1exp_tyrec</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> flat<span class="keyword">,</span> ls1es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Etyrec <span class="keyword">(</span>flat<span class="keyword">,</span> ls1es<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#12698"><span class="dyncstimp">s1exp_tyrec_ext</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> name<span class="keyword">,</span> ls1es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Etyrec_ext <span class="keyword">(</span>name<span class="keyword">,</span> ls1es<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#12766"><span class="dyncstimp">s1exp_tytup</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> flat<span class="keyword">,</span> s1es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Etytup <span class="keyword">(</span>flat<span class="keyword">,</span> s1es<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#12824"><span class="dyncstimp">s1exp_tytup2</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> flat<span class="keyword">,</span> s1es1<span class="keyword">,</span> s1es2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Etytup2 <span class="keyword">(</span>flat<span class="keyword">,</span> s1es1<span class="keyword">,</span> s1es2<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#12900"><span class="dyncstimp">s1exp_uni</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> s1qs<span class="keyword">,</span> s1e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Euni <span class="keyword">(</span>s1qs<span class="keyword">,</span> s1e<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#12960"><span class="dyncstimp">s1exp_union</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> ind<span class="keyword">,</span> ls1es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exp_node<span class="keyword">=</span> S1Eunion <span class="keyword">(</span>ind<span class="keyword">,</span> ls1es<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#13027"><span class="dyncstimp">s1exparg_one</span></a> <span class="keyword">(</span>loc<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exparg_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exparg_node<span class="keyword">=</span> S1EXPARGone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#13065"><span class="dyncstimp">s1exparg_all</span></a> <span class="keyword">(</span>loc<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exparg_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exparg_node<span class="keyword">=</span> S1EXPARGall <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#13103"><span class="dyncstimp">s1exparg_seq</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> s1es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1exparg_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1exparg_node<span class="keyword">=</span> S1EXPARGseq s1es
+<span class="keyword">}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#13178"><span class="dyncstimp">s1rtext_srt</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> s1t<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1rtext_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1rtext_node<span class="keyword">=</span> S1TEsrt s1t
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#13223"><span class="dyncstimp">s1rtext_sub</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">,</span> s1te<span class="keyword">,</span> s1ps<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s1rtext_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1rtext_node<span class="keyword">=</span> S1TEsub <span class="keyword">(</span>id<span class="keyword">,</span> s1te<span class="keyword">,</span> s1ps<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="comment">(*
+
+// should [S1TElam] and [S1TEapp] be added?
+
+implement s1rtext_lam (loc, s1as, s1te) = '{
+  s1rtext_loc= loc, s1rtext_node= S1TElam (s1as, s1te)
+}
+
+implement s1rtext_app (loc, s1te, s1es) = '{
+  s1rtext_loc= loc, s1rtext_node= S1TEapp (s1te, s1es)
+}
+
+*)</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#13324"><span class="dyncstimp">s1qua_prop</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> s1e<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">'{</span> s1qua_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1qua_node<span class="keyword">=</span> S1Qprop s1e <span class="keyword">}</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#13367"><span class="dyncstimp">s1qua_vars</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> ids<span class="keyword">,</span> s1te<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">'{</span> s1qua_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s1qua_node<span class="keyword">=</span> S1Qvars <span class="keyword">(</span>ids<span class="keyword">,</span> s1te<span class="keyword">)</span> <span class="keyword">}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#13429"><span class="dyncstimp">s1exp_make_e1xp</span></a> <span class="keyword">(</span>loc0<span class="keyword">,</span> e0<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+
+<span class="keyword">fun</span> aux <span class="keyword">(</span>e0<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#2312"><span class="stacstuse">e1xp</span></a></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#8868"><span class="stacstuse">s1exp</span></a></span> <span class="keyword">=</span> <span class="keyword">case+</span> e0<span class="keyword">.</span>e1xp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> E1XPapp <span class="keyword">(</span>e1<span class="keyword">,</span> loc_arg<span class="keyword">,</span> es2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#11333"><span class="dyncstuse">s1exp_app</span></a> <span class="keyword">(</span>loc0<span class="keyword">,</span> aux e1<span class="keyword">,</span> loc_arg<span class="keyword">,</span> aux_list es2<span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> E1XPide ide <span class="keyword">=&gt;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#11618"><span class="dyncstuse">s1exp_ide</span></a> <span class="keyword">(</span>loc0<span class="keyword">,</span> ide<span class="keyword">)</span>
+  <span class="keyword">|</span> E1XPchar chr <span class="keyword">=&gt;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#11437"><span class="dyncstuse">s1exp_char</span></a> <span class="keyword">(</span>loc0<span class="keyword">,</span> chr<span class="keyword">)</span>
+  <span class="keyword">|</span> E1XPint int <span class="keyword">=&gt;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#11737"><span class="dyncstuse">s1exp_int</span></a> <span class="keyword">(</span>loc0<span class="keyword">,</span> int<span class="keyword">)</span>
+  <span class="keyword">|</span> E1XPlist es <span class="keyword">=&gt;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#11941"><span class="dyncstuse">s1exp_list</span></a> <span class="keyword">(</span>loc0<span class="keyword">,</span> aux_list es<span class="keyword">)</span>
+  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prerr loc0<span class="keyword">;</span>
+      prerr "INTERNAL ERROR (ats_staexp1)"<span class="keyword">;</span>
+      prerr ": illegal static expression."<span class="keyword">;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_]
+</span><span class="comment">// end of [aux]
+</span>
+<span class="keyword">and</span> aux_list <span class="keyword">(</span>es0<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#2374"><span class="stacstuse">e1xplst</span></a></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#8954"><span class="stacstuse">s1explst</span></a></span> <span class="keyword">=</span> <span class="keyword">case+</span> es0 <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>e<span class="keyword">,</span> es<span class="keyword">)</span> <span class="keyword">=&gt;</span> cons <span class="keyword">(</span>aux e<span class="keyword">,</span> aux_list es<span class="keyword">)</span> <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> nil <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [aux_list]
+</span>
+<span class="keyword">in</span>
+  aux e0
+<span class="keyword">end</span> <span class="comment">// end of [s1exp_make_e1xp]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#13481"><span class="dyncstimp">wths1explst_is_none</span></a> <span class="keyword">(</span>wths1es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> wths1es <span class="keyword">of</span>
+  <span class="keyword">|</span> WTHS1EXPLSTcons_some _ <span class="keyword">=&gt;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#4371"><span class="dyncstuse">false</span></a>
+  <span class="keyword">|</span> WTHS1EXPLSTcons_none <span class="keyword">(</span>wths1es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#13481"><span class="dyncstuse">wths1explst_is_none</span></a> <span class="keyword">(</span>wths1es<span class="keyword">)</span>
+  <span class="keyword">|</span> WTHS1EXPLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#4327"><span class="dyncstuse">true</span></a>
+<span class="keyword">end</span> <span class="comment">// end of [wths1explst_is_none]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#13528"><span class="dyncstimp">wths1explst_reverse</span></a> <span class="keyword">(</span>wths1es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>
+      wths1es<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#8388"><span class="stacstuse">wths1explst</span></a></span>
+    <span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#8388"><span class="stacstuse">wths1explst</span></a></span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#8388"><span class="stacstuse">wths1explst</span></a></span> <span class="keyword">=</span> <span class="keyword">case+</span> wths1es <span class="keyword">of</span>
+    <span class="keyword">|</span> WTHS1EXPLSTcons_some <span class="keyword">(</span>refval<span class="keyword">,</span> s1e<span class="keyword">,</span> wths1es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        aux <span class="keyword">(</span>wths1es<span class="keyword">,</span> WTHS1EXPLSTcons_some <span class="keyword">(</span>refval<span class="keyword">,</span> s1e<span class="keyword">,</span> res<span class="keyword">)</span><span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> WTHS1EXPLSTcons_none <span class="keyword">(</span>wths1es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        aux <span class="keyword">(</span>wths1es<span class="keyword">,</span> WTHS1EXPLSTcons_none res<span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> WTHS1EXPLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> res <span class="comment">// end of [WTHS1EXPLSTnil]
+</span>  <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>wths1es<span class="keyword">,</span> WTHS1EXPLSTnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [wths1explst_reverse]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_staexp1.dats] *)</span>
+</pre>
+</body>
+</html>

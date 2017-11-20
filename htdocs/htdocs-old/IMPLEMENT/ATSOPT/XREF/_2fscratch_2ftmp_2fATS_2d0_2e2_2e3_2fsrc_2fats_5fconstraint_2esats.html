@@ -1,0 +1,255 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: February 2008
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* for representing and handling constraints *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_trans3_env.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="1676"><span class="stacstdec">s3aexp</span></a></span> <span class="keyword">=</span> <span class="comment">(* static address expression *)</span>
+  <span class="keyword">|</span> S3AEcst <span class="keyword">of</span> <span class="comment">(* abstract constant *)</span>
+      <span class="staexp">s2cst_t</span>
+  <span class="keyword">|</span> S3AEexp <span class="keyword">of</span>
+      <span class="staexp">s2exp</span>
+  <span class="keyword">|</span> S3AEvar <span class="keyword">of</span>
+      <span class="staexp">s2var_t</span>
+  <span class="keyword">|</span> S3AEnull <span class="comment">(* the null address *)</span>
+  <span class="keyword">|</span> S3AEpadd <span class="keyword">of</span> <span class="comment">(* pointer arithmetic *)</span>
+      <span class="staexp"><span class="keyword">(</span>s3aexp<span class="keyword">,</span> s3iexp<span class="keyword">)</span></span>
+<span class="comment">// end of [s3aexp]
+</span>
+<span class="keyword">and</span> <span class="staexp"><a name="1950"><span class="stacstdec">s3bexp</span></a></span> <span class="keyword">=</span> <span class="comment">(* static boolean expression *)</span>
+  <span class="keyword">|</span> S3BEcst <span class="keyword">of</span> <span class="staexp">s2cst_t</span> <span class="comment">(* abstract constant *)</span>
+  <span class="keyword">|</span> S3BEexp <span class="keyword">of</span> <span class="staexp">s2exp</span>
+  <span class="keyword">|</span> S3BEvar <span class="keyword">of</span> <span class="staexp">s2var_t</span>
+  <span class="keyword">|</span> S3BEbool <span class="keyword">of</span> <span class="staexp">bool</span> <span class="comment">(* boolean constant *)</span>
+  <span class="keyword">|</span> S3BEbadd <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>s3bexp<span class="keyword">,</span> s3bexp<span class="keyword">)</span></span>
+  <span class="keyword">|</span> S3BEbmul <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>s3bexp<span class="keyword">,</span> s3bexp<span class="keyword">)</span></span>
+  <span class="keyword">|</span> S3BEbneg <span class="keyword">of</span> <span class="staexp">s3bexp</span>
+  <span class="comment">// gte/lt : 2/~2; eq/neq: 1/~1
+</span>  <span class="keyword">|</span> S3BEiexp <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>int<span class="comment">(*knd*)</span><span class="keyword">,</span> s3iexp<span class="keyword">)</span></span>
+<span class="comment">// end of [s3bexp]
+</span>
+<span class="keyword">and</span> <span class="staexp"><a name="2309"><span class="stacstdec">s3iexp</span></a></span> <span class="keyword">=</span> <span class="comment">(* static integer expression *)</span>
+  <span class="keyword">|</span> S3IEcst <span class="keyword">of</span> <span class="staexp">s2cst_t</span> <span class="comment">(* abstract constant *)</span>
+  <span class="keyword">|</span> S3IEexp <span class="keyword">of</span> <span class="staexp">s2exp</span>
+  <span class="keyword">|</span> S3IEint <span class="keyword">of</span> <span class="staexp">int</span>
+  <span class="keyword">|</span> S3IEintinf <span class="keyword">of</span> <span class="staexp">intinf_t</span>
+  <span class="keyword">|</span> S3IEvar <span class="keyword">of</span> <span class="staexp">s2var_t</span>
+  <span class="keyword">|</span> S3IEineg <span class="keyword">of</span> <span class="staexp">s3iexp</span>
+  <span class="keyword">|</span> S3IEiadd <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>s3iexp<span class="keyword">,</span> s3iexp<span class="keyword">)</span></span>
+  <span class="keyword">|</span> S3IEisub <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>s3iexp<span class="keyword">,</span> s3iexp<span class="keyword">)</span></span>
+  <span class="keyword">|</span> S3IEimul <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>s3iexp<span class="keyword">,</span> s3iexp<span class="keyword">)</span></span>
+  <span class="keyword">|</span> S3IEpdiff <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>s3aexp<span class="keyword">,</span> s3aexp<span class="keyword">)</span></span>
+<span class="comment">// end of [s3iexp]
+</span>
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="2675"><span class="stacstdec">s3aexpopt_vt <span class="keyword">=</span> Option_vt s3aexp</span></a></span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="2716"><span class="stacstdec">s3bexplst <span class="keyword">=</span> List s3bexp</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="2748"><span class="stacstdec">s3bexpopt <span class="keyword">=</span> Option s3bexp</span></a></span>
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="2786"><span class="stacstdec">s3bexpopt_vt <span class="keyword">=</span> Option_vt s3bexp</span></a></span>
+
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="2831"><span class="stacstdec">s3iexpopt_vt <span class="keyword">=</span> Option_vt s3iexp</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="2889"><span class="dyncstdec">fprint_s3aexp <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> s3ae<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_s3aexp</span>
+
+<span class="keyword">fun</span> <a name="3021"><span class="dyncstdec">fprint_s3bexp <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> s3be<span class="keyword">:</span> <span class="staexp">s3bexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_s3bexp</span>
+
+<span class="keyword">fun</span> <a name="3153"><span class="dyncstdec">fprint_s3bexplst <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> s3bes<span class="keyword">:</span> <span class="staexp">s3bexplst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_s3bexplst</span>
+
+<span class="keyword">fun</span> <a name="3295"><span class="dyncstdec">fprint_s3iexp <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> s3ie<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="neuexp"><span class="keyword">overload</span> fprint <span class="keyword">with</span> fprint_s3iexp</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="3448"><span class="dyncstdec">print_s3aexp <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="3483"><span class="dyncstdec">print_s3bexp <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">s3bexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="3518"><span class="dyncstdec">print_s3bexplst <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">s3bexplst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="3559"><span class="dyncstdec">print_s3iexp <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="neuexp"><span class="keyword">overload</span> print <span class="keyword">with</span> print_s3aexp</span>
+<span class="neuexp"><span class="keyword">overload</span> print <span class="keyword">with</span> print_s3bexp</span>
+<span class="neuexp"><span class="keyword">overload</span> print <span class="keyword">with</span> print_s3bexplst</span>
+<span class="neuexp"><span class="keyword">overload</span> print <span class="keyword">with</span> print_s3iexp</span>
+
+<span class="keyword">fun</span> <a name="3731"><span class="dyncstdec">prerr_s3aexp <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="3766"><span class="dyncstdec">prerr_s3bexp <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">s3bexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="3801"><span class="dyncstdec">prerr_s3bexplst <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">s3bexplst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="keyword">fun</span> <a name="3842"><span class="dyncstdec">prerr_s3iexp <span class="keyword">(</span>_<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> prerr_s3aexp</span>
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> prerr_s3bexp</span>
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> prerr_s3bexplst</span>
+<span class="neuexp"><span class="keyword">overload</span> prerr <span class="keyword">with</span> prerr_s3iexp</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">val</span> <a name="4035"><span class="dyncstdec">s3aexp_null <span class="keyword">:</span> <span class="staexp">s3aexp</span></span></a>
+
+<span class="keyword">fun</span> <a name="4061"><span class="dyncstdec">s3aexp_cst <span class="keyword">(</span>s2c<span class="keyword">:</span> <span class="staexp">s2cst_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3aexp</span></span></a>
+<span class="keyword">fun</span> <a name="4099"><span class="dyncstdec">s3aexp_var <span class="keyword">(</span>s2v<span class="keyword">:</span> <span class="staexp">s2var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3aexp</span></span></a>
+
+<span class="keyword">fun</span> <a name="4138"><span class="dyncstdec">s3aexp_padd <span class="keyword">(</span>s3ae1<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">,</span> s3ie2<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3aexp</span></span></a>
+<span class="keyword">fun</span> <a name="4193"><span class="dyncstdec">s3aexp_psub <span class="keyword">(</span>s3ae1<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">,</span> s3ie2<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3aexp</span></span></a>
+
+<span class="keyword">fun</span> <a name="4249"><span class="dyncstdec">s3aexp_psucc <span class="keyword">(</span>s3ae<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3aexp</span></span></a>
+<span class="keyword">fun</span> <a name="4289"><span class="dyncstdec">s3aexp_ppred <span class="keyword">(</span>s3ae<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3aexp</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">val</span> <a name="4351"><span class="dyncstdec">s3bexp_true<span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+<span class="keyword">val</span> <a name="4375"><span class="dyncstdec">s3bexp_false<span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+
+<span class="keyword">fun</span> <a name="4401"><span class="dyncstdec">s3bexp_cst <span class="keyword">(</span>s2c<span class="keyword">:</span> <span class="staexp">s2cst_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+<span class="keyword">fun</span> <a name="4439"><span class="dyncstdec">s3bexp_var <span class="keyword">(</span>s2v<span class="keyword">:</span> <span class="staexp">s2var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+
+<span class="keyword">fun</span> <a name="4478"><span class="dyncstdec">s3bexp_bneg <span class="keyword">(</span>s3be<span class="keyword">:</span> <span class="staexp">s3bexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+
+<span class="keyword">fun</span> <a name="4518"><span class="dyncstdec">s3bexp_beq <span class="keyword">(</span>s3be1<span class="keyword">:</span> <span class="staexp">s3bexp</span><span class="keyword">,</span> s3be2<span class="keyword">:</span> <span class="staexp">s3bexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+<span class="keyword">fun</span> <a name="4572"><span class="dyncstdec">s3bexp_bneq <span class="keyword">(</span>s3be1<span class="keyword">:</span> <span class="staexp">s3bexp</span><span class="keyword">,</span> s3be2<span class="keyword">:</span> <span class="staexp">s3bexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+
+<span class="keyword">fun</span> <a name="4628"><span class="dyncstdec">s3bexp_badd <span class="keyword">(</span>s3be1<span class="keyword">:</span> <span class="staexp">s3bexp</span><span class="keyword">,</span> s3be2<span class="keyword">:</span> <span class="staexp">s3bexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+<span class="keyword">fun</span> <a name="4683"><span class="dyncstdec">s3bexp_bmul <span class="keyword">(</span>s3be1<span class="keyword">:</span> <span class="staexp">s3bexp</span><span class="keyword">,</span> s3be2<span class="keyword">:</span> <span class="staexp">s3bexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+
+<span class="keyword">fun</span> <a name="4739"><span class="dyncstdec">s3bexp_iexp <span class="keyword">(</span>knd<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> s3ie<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+
+<span class="keyword">fun</span> <a name="4789"><span class="dyncstdec">s3bexp_igt <span class="keyword">(</span>s3ie1<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">,</span> s3ie2<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+<span class="keyword">fun</span> <a name="4843"><span class="dyncstdec">s3bexp_igte <span class="keyword">(</span>s3ie1<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">,</span> s3ie2<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+<span class="keyword">fun</span> <a name="4898"><span class="dyncstdec">s3bexp_ilt <span class="keyword">(</span>s3ie1<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">,</span> s3ie2<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+<span class="keyword">fun</span> <a name="4952"><span class="dyncstdec">s3bexp_ilte <span class="keyword">(</span>s3ie1<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">,</span> s3ie2<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+
+<span class="keyword">fun</span> <a name="5008"><span class="dyncstdec">s3bexp_ieq <span class="keyword">(</span>s3ie1<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">,</span> s3ie2<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+<span class="keyword">fun</span> <a name="5062"><span class="dyncstdec">s3bexp_ineq <span class="keyword">(</span>s3ie1<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">,</span> s3ie2<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+
+<span class="keyword">fun</span> <a name="5118"><span class="dyncstdec">s3bexp_pgt <span class="keyword">(</span>s3ae1<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">,</span> s3ae2<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+<span class="keyword">fun</span> <a name="5172"><span class="dyncstdec">s3bexp_pgte <span class="keyword">(</span>s3ae1<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">,</span> s3ae2<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+<span class="keyword">fun</span> <a name="5227"><span class="dyncstdec">s3bexp_plt <span class="keyword">(</span>s3ae1<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">,</span> s3ae2<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+<span class="keyword">fun</span> <a name="5281"><span class="dyncstdec">s3bexp_plte <span class="keyword">(</span>s3ae1<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">,</span> s3ae2<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+
+<span class="keyword">fun</span> <a name="5337"><span class="dyncstdec">s3bexp_peq <span class="keyword">(</span>s3ae1<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">,</span> s3ae2<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+<span class="keyword">fun</span> <a name="5391"><span class="dyncstdec">s3bexp_pneq <span class="keyword">(</span>s3ae1<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">,</span> s3ae2<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexp</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">val</span> <a name="5468"><span class="dyncstdec">s3iexp_0 <span class="keyword">:</span> <span class="staexp">s3iexp</span></span></a>
+<span class="keyword">val</span> <a name="5490"><span class="dyncstdec">s3iexp_1 <span class="keyword">:</span> <span class="staexp">s3iexp</span></span></a>
+<span class="keyword">val</span> <a name="5512"><span class="dyncstdec">s3iexp_neg_1 <span class="keyword">:</span> <span class="staexp">s3iexp</span></span></a>
+
+<span class="keyword">fun</span> <a name="5539"><span class="dyncstdec">s3iexp_cst <span class="keyword">(</span>s2c<span class="keyword">:</span> <span class="staexp">s2cst_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3iexp</span></span></a>
+<span class="keyword">fun</span> <a name="5577"><span class="dyncstdec">s3iexp_int <span class="keyword">(</span>i<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3iexp</span></span></a>
+<span class="keyword">fun</span> <a name="5609"><span class="dyncstdec">s3iexp_intinf <span class="keyword">(</span>i<span class="keyword">:</span> <span class="staexp">intinf_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3iexp</span></span></a>
+<span class="keyword">fun</span> <a name="5649"><span class="dyncstdec">s3iexp_var <span class="keyword">(</span>s2v<span class="keyword">:</span> <span class="staexp">s2var_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3iexp</span></span></a>
+
+<span class="keyword">fun</span> <a name="5688"><span class="dyncstdec">s3iexp_ineg <span class="keyword">(</span>s3ie<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3iexp</span></span></a>
+<span class="keyword">fun</span> <a name="5727"><span class="dyncstdec">s3iexp_iadd <span class="keyword">(</span>s3ie1<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">,</span> s3ie2<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3iexp</span></span></a>
+<span class="keyword">fun</span> <a name="5782"><span class="dyncstdec">s3iexp_isub <span class="keyword">(</span>s3ie1<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">,</span> s3ie2<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3iexp</span></span></a>
+<span class="keyword">fun</span> <a name="5837"><span class="dyncstdec">s3iexp_imul <span class="keyword">(</span>s3ie1<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">,</span> s3ie2<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3iexp</span></span></a>
+
+<span class="keyword">fun</span> <a name="5893"><span class="dyncstdec">s3iexp_isucc <span class="keyword">(</span>s3ie<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3iexp</span></span></a>
+<span class="keyword">fun</span> <a name="5933"><span class="dyncstdec">s3iexp_ipred <span class="keyword">(</span>s3ie<span class="keyword">:</span> <span class="staexp">s3iexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3iexp</span></span></a>
+
+<span class="keyword">fun</span> <a name="5974"><span class="dyncstdec">s3iexp_pdiff <span class="keyword">(</span>s3ae1<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">,</span> s3ae2<span class="keyword">:</span> <span class="staexp">s3aexp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3iexp</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">dataviewtype</span> <span class="staexp"><a name="6061"><span class="stacstdec">s2cfdeflst_vt</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> S2CFDEFLSTcons <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>
+      s2cst_t<span class="comment">(*scf*)</span><span class="keyword">,</span> s2explst<span class="comment">(*arg*)</span><span class="keyword">,</span> s2var_t<span class="comment">(*res*)</span><span class="keyword">,</span> s3bexpopt_vt<span class="comment">(*rel*)</span><span class="keyword">,</span> s2cfdeflst_vt
+    <span class="keyword">)</span></span> <span class="comment">// end of [S2CFDEFLSTcons]
+</span>  <span class="keyword">|</span> S2CFDEFLSTmark <span class="keyword">of</span> <span class="staexp">s2cfdeflst_vt</span>
+  <span class="keyword">|</span> S2CFDEFLSTnil
+<span class="comment">// end of [s2cfdeflst_vt]
+</span>
+<span class="keyword">fun</span> <a name="6309"><span class="dyncstdec">s3aexp_make_s2exp
+  <span class="keyword">(</span>s2e<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2cs<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>s2cstlst</span><span class="keyword">,</span> fds<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>s2cfdeflst_vt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3aexpopt_vt</span></span></a>
+
+<span class="keyword">fun</span> <a name="6399"><span class="dyncstdec">s3bexp_make_s2exp
+  <span class="keyword">(</span>s2e<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2cs<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>s2cstlst</span><span class="keyword">,</span> fds<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>s2cfdeflst_vt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexpopt_vt</span></span></a>
+<span class="keyword">fun</span> <a name="6488"><span class="dyncstdec">s3bexp_make_h3ypo
+  <span class="keyword">(</span>h3p<span class="keyword">:</span> <span class="staexp">h3ypo</span><span class="keyword">,</span> s2cs<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>s2cstlst</span><span class="keyword">,</span> fds<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>s2cfdeflst_vt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3bexpopt_vt</span></span></a>
+
+<span class="keyword">fun</span> <a name="6578"><span class="dyncstdec">s3iexp_make_s2exp
+  <span class="keyword">(</span>s2e<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2cs<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>s2cstlst</span><span class="keyword">,</span> fds<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>s2cfdeflst_vt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s3iexpopt_vt</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="6689"><span class="dyncstdec">c3str_solve <span class="keyword">(</span>c3t<span class="keyword">:</span> <span class="staexp">c3str</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_constraint.sats] *)</span>
+</pre>
+</body>
+</html>

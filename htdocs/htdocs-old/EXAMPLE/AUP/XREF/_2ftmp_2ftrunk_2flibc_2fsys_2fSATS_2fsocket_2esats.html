@@ -1,0 +1,343 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS - Unleashing the Power of Types!
+**
+** Copyright (C) 2002-2010 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the  terms of the  GNU General Public License as published by the Free
+** Software Foundation; either version 2.1, or (at your option) any later
+** version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see  the  file  COPYING.  If not, write to the Free
+** Software Foundation, 51  Franklin  Street,  Fifth  Floor,  Boston,  MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)  *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{#
+#include "libc/sys/CATS/socket.cats"
+%}</span> <span class="comment">// end of [%{#]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">SA <span class="keyword">=</span> "libc/sys/SATS/sockaddr.sats"</span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="1612"><span class="stacstdec">sa_family_t <span class="keyword">=</span> $SA<span class="keyword">.</span>sa_family_t</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="1649"><span class="stacstdec">socklen_t <span class="keyword">=</span> $SA<span class="keyword">.</span>socklen_t</span></a></span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="1682"><span class="stacstdec">sockaddr_struct <span class="keyword">=</span> $SA<span class="keyword">.</span>sockaddr_struct</span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="1751"><span class="stacstdec">socktype_t <span class="keyword">=</span> int</span></a></span>
+<span class="comment">(*
+// HX: using $UNSAFE.cast2int instead
+castfn int_of_socktype (x: socktype_t):&lt;&gt; int
+overload int_of with int_of_socktype
+*)</span>
+<span class="keyword">macdef</span> <span class="neuexp">SOCK_STREAM <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>socktype_t<span class="keyword">,</span> "SOCK_STREAM"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SOCK_DGRAM <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>socktype_t<span class="keyword">,</span> "SOCK_DGRAM"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SOCK_RAW <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>socktype_t<span class="keyword">,</span> "SOCK_RAW"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SOCK_RDM <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>socktype_t<span class="keyword">,</span> "SOCK_RDM"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SOCK_PACKET <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>socktype_t<span class="keyword">,</span> "SOCK_PACKET"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SOCK_SEQPACKET <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>socktype_t<span class="keyword">,</span> "SOCK_SEQPACKET"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SOCK_DCCP <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>socktype_t<span class="keyword">,</span> "SOCK_DCCP"<span class="keyword">)</span></span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="2292"><span class="stacstdec">socktypeflag_t <span class="keyword">=</span> int</span></a></span>
+<span class="keyword">macdef</span> <span class="neuexp">SOCK_CLOEXEC <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>socktypeflag_t<span class="keyword">,</span> "SOCK_CLOEXEC"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SOCK_NONBLOCK <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>socktypeflag_t<span class="keyword">,</span> "SOCK_NONBLOCK"<span class="keyword">)</span></span>
+<span class="keyword">fun</span> <a name="2445"><span class="dyncstdec">lor_socktype_socktypeflag
+  <span class="keyword">(</span>t<span class="keyword">:</span> <span class="staexp">socktype_t</span><span class="keyword">,</span> f<span class="keyword">:</span> <span class="staexp">socktypeflag_t</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">socktype_t</span></span></a> <span class="keyword">=</span> "atspre_lor_uint_uint"
+<span class="neuexp"><span class="keyword">overload</span> lor <span class="keyword">with</span> lor_socktype_socktypeflag</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="2622"><span class="stacstdec">sockprot_t <span class="keyword">=</span> int</span></a></span>
+<span class="comment">(*
+// HX: using $UNSAFE.cast2int instead
+castfn int_of_sockprot (x: sockprot_t):&lt;&gt; int
+overload int_of with int_of_sockprot
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX:
+</span><span class="comment">// client: init -&gt; connect
+</span><span class="comment">// server: init -&gt; bind -&gt; listen -&gt; accept
+</span><span class="comment">//
+</span><span class="keyword">datasort</span> <span class="staexp">status <span class="keyword">=</span> init <span class="keyword">|</span> bind <span class="keyword">|</span> listen <span class="keyword">|</span> conn</span>
+
+<span class="keyword">absview</span> <span class="staexp"><a name="2926"><span class="stacstdec">socket_v</span></a></span> <span class="keyword">(</span>int<span class="keyword">,</span> status<span class="keyword">)</span>
+
+<span class="keyword">fun</span> <a name="2954"><span class="dyncstdec">socket_family_type_err
+  <span class="keyword">(</span>af<span class="keyword">:</span> <span class="staexp">sa_family_t</span><span class="keyword">,</span> t<span class="keyword">:</span> <span class="staexp">socktype_t</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>fd<span class="keyword">:</span>int<span class="keyword">]</span> <span class="keyword">(</span>option_v <span class="keyword">(</span>socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> init<span class="keyword">)</span><span class="keyword">,</span> fd &gt;= 0<span class="keyword">)</span> <span class="keyword">|</span> int fd<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atslib_socket_family_type_err"
+<span class="comment">// end of [socket_family_type_err]
+</span>
+<span class="keyword">fun</span> <a name="3152"><span class="dyncstdec">socket_family_type_exn
+  <span class="keyword">(</span>af<span class="keyword">:</span> <span class="staexp">sa_family_t</span><span class="keyword">,</span> t<span class="keyword">:</span> <span class="staexp">socktype_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>fd<span class="keyword">:</span>nat<span class="keyword">]</span> <span class="keyword">(</span>socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> init<span class="keyword">)</span> <span class="keyword">|</span> int fd<span class="keyword">)</span></span></span></a>
+<span class="comment">// end of [socket_family_type_exn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">dataview</span> <span class="prfexp"><span class="staexp"><a name="3317"><span class="stacstdec">connect_v <span class="keyword">(</span>fd<span class="keyword">:</span> int<span class="keyword">,</span> int<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> connect_v_succ <span class="staexp"><span class="keyword">(</span>fd<span class="keyword">,</span>  0<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> conn<span class="keyword">)</span></span>
+  <span class="keyword">|</span> connect_v_fail <span class="staexp"><span class="keyword">(</span>fd<span class="keyword">,</span> ~1<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> init<span class="keyword">)</span></span></span>
+<span class="comment">// end of [connect_v]
+</span>
+<span class="keyword">fun</span> <a name="3473"><span class="dyncstdec">connect_err
+  <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pfskt<span class="keyword">:</span> <span class="staexp">socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> init<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span>
+  <span class="keyword">,</span> servaddr<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sockaddr_struct<span class="keyword">(</span>n<span class="keyword">)</span></span><span class="keyword">,</span> salen<span class="keyword">:</span> <span class="staexp">socklen_t<span class="keyword">(</span>n<span class="keyword">)</span></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &lt;= 0<span class="keyword">]</span> <span class="keyword">(</span>connect_v <span class="keyword">(</span>fd<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">|</span> int i<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "#atslib_connect_err"
+<span class="comment">// end of [connect_err]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">dataview</span> <span class="prfexp"><span class="staexp"><a name="3739"><span class="stacstdec">bind_v <span class="keyword">(</span>fd<span class="keyword">:</span>int<span class="keyword">,</span> int<span class="keyword">)</span></span></a></span> <span class="keyword">=</span> 
+  <span class="keyword">|</span> bind_v_fail <span class="staexp"><span class="keyword">(</span>fd<span class="keyword">,</span> ~1<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> init<span class="keyword">)</span></span>
+  <span class="keyword">|</span> bind_v_succ <span class="staexp"><span class="keyword">(</span>fd<span class="keyword">,</span>  0<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> bind<span class="keyword">)</span></span></span>
+<span class="comment">// end of [bind_v]
+</span>
+<span class="keyword">fun</span> <a name="3883"><span class="dyncstdec">bind_err
+  <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pfskt<span class="keyword">:</span> <span class="staexp">socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> init<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span>
+  <span class="keyword">,</span> servaddr<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sockaddr_struct<span class="keyword">(</span>n<span class="keyword">)</span></span><span class="keyword">,</span> salen<span class="keyword">:</span> <span class="staexp">socklen_t<span class="keyword">(</span>n<span class="keyword">)</span></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>i<span class="keyword">:</span>int<span class="keyword">]</span> <span class="keyword">(</span>bind_v <span class="keyword">(</span>fd<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">|</span> int i<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_bind_err"
+<span class="comment">// end of [bind_err]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">macdef</span> <span class="neuexp">SOMAXCONN <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>Pos<span class="keyword">,</span> "SOMAXCONN"<span class="keyword">)</span></span>
+
+<span class="keyword">dataview</span> <span class="prfexp"><span class="staexp"><a name="4173"><span class="stacstdec">listen_v <span class="keyword">(</span>fd<span class="keyword">:</span>int<span class="keyword">,</span> int<span class="keyword">)</span></span></a></span> <span class="keyword">=</span> 
+  <span class="keyword">|</span> listen_v_fail <span class="staexp"><span class="keyword">(</span>fd<span class="keyword">,</span> ~1<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> bind<span class="keyword">)</span></span> 
+  <span class="keyword">|</span> listen_v_succ <span class="staexp"><span class="keyword">(</span>fd<span class="keyword">,</span>  0<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> listen<span class="keyword">)</span></span></span>
+<span class="comment">// end of [listen_v]
+</span>
+<span class="keyword">fun</span> <a name="4328"><span class="dyncstdec">listen_err <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pfskt<span class="keyword">:</span> <span class="staexp">socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> bind<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> backlog<span class="keyword">:</span> <span class="staexp">Pos</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>i<span class="keyword">:</span>int<span class="keyword">]</span> <span class="keyword">(</span>listen_v <span class="keyword">(</span>fd<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">|</span> int i<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atslib_listen_err"
+<span class="comment">// end of [listen_err]
+</span>
+<span class="keyword">fun</span> <a name="4497"><span class="dyncstdec">listen_exn <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pfskt<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> bind<span class="keyword">)</span> &gt;&gt; socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> listen<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> backlog<span class="keyword">:</span> <span class="staexp">Pos</span> <span class="comment">// [backlog = 0] is not supported on all systems
+</span>  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="comment">// end of [listen_exn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">dataview</span>
+<span class="prfexp"><span class="staexp"><a name="4719"><span class="stacstdec">accept_v <span class="keyword">(</span>fd<span class="keyword">:</span>int<span class="keyword">,</span> int<span class="comment">(*err*)</span><span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> accept_v_fail <span class="staexp"><span class="keyword">(</span>fd<span class="keyword">,</span> ~1<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">cfd<span class="keyword">:</span>nat</span><span class="keyword">}</span> accept_v_succ <span class="staexp"><span class="keyword">(</span>fd<span class="keyword">,</span> cfd<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">socket_v <span class="keyword">(</span>cfd<span class="keyword">,</span> conn<span class="keyword">)</span></span></span>
+<span class="comment">// end of [accept_v]
+</span>
+<span class="keyword">fun</span> <a name="4872"><span class="dyncstdec">accept_err
+  <span class="staexp"><span class="keyword">{</span>sfd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>
+  <span class="prfexp">pfskt<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>socket_v <span class="keyword">(</span>sfd<span class="keyword">,</span> listen<span class="keyword">)</span></span></span>
+<span class="keyword">|</span> sfd<span class="keyword">:</span> <span class="staexp">int sfd</span>
+<span class="keyword">,</span> sa<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>sockaddr_struct<span class="keyword">(</span>n<span class="keyword">)</span>? &gt;&gt; opt <span class="keyword">(</span>sockaddr_struct<span class="keyword">(</span>n<span class="keyword">)</span><span class="keyword">,</span> cfd &gt;= 0<span class="keyword">)</span></span>
+<span class="keyword">,</span> salen<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>socklen_t<span class="keyword">(</span>n<span class="keyword">)</span> &gt;&gt; socklen_t<span class="keyword">(</span>n1<span class="keyword">)</span></span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>cfd<span class="keyword">:</span>int<span class="keyword">;</span>n1<span class="keyword">:</span>nat<span class="keyword">]</span> <span class="keyword">(</span>accept_v <span class="keyword">(</span>sfd<span class="keyword">,</span> cfd<span class="keyword">)</span> <span class="keyword">|</span> int cfd<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "#atslib_accept_err"
+<span class="comment">// end of [accept_err]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="5186"><span class="dyncstdec">accept_null_err <span class="staexp"><span class="keyword">{</span>sfd<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pfskt<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>socket_v <span class="keyword">(</span>sfd<span class="keyword">,</span> listen<span class="keyword">)</span></span></span> <span class="keyword">|</span> sfd<span class="keyword">:</span> <span class="staexp">int sfd</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>cfd<span class="keyword">:</span>int<span class="keyword">]</span> <span class="keyword">(</span>option_v <span class="keyword">(</span>socket_v <span class="keyword">(</span>cfd<span class="keyword">,</span> conn<span class="keyword">)</span><span class="keyword">,</span> cfd &gt;= 0<span class="keyword">)</span> <span class="keyword">|</span> int cfd<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atslib_accept_null_err"
+<span class="comment">// end of [accept_null_err]
+</span>
+<span class="keyword">fun</span> <a name="5392"><span class="dyncstdec">accept_null_exn <span class="staexp"><span class="keyword">{</span>sfd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>
+  <span class="prfexp">pfskt<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>socket_v <span class="keyword">(</span>sfd<span class="keyword">,</span> listen<span class="keyword">)</span></span></span> <span class="keyword">|</span> sfd<span class="keyword">:</span> <span class="staexp">int sfd</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>cfd<span class="keyword">:</span>nat<span class="keyword">]</span> <span class="keyword">(</span>socket_v <span class="keyword">(</span>cfd<span class="keyword">,</span> conn<span class="keyword">)</span> <span class="keyword">|</span> int cfd<span class="keyword">)</span></span></span></a> <span class="comment">// for client side
+</span><span class="comment">// end of [accept_null_exn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="5588"><span class="dyncstdec">socket_close_err
+  <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>s<span class="keyword">:</span>status<span class="keyword">}</span></span> <span class="keyword">(</span>
+  <span class="prfexp">pfskt<span class="keyword">:</span> <span class="staexp">socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> s<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &lt;= 0<span class="keyword">]</span> <span class="keyword">(</span>option_v <span class="keyword">(</span>socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> s<span class="keyword">)</span><span class="keyword">,</span> i <span class="keyword">&lt;</span> 0<span class="keyword">)</span> <span class="keyword">|</span> int i<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "#atslib_socket_close_err" <span class="comment">// = atslib_close_err
+</span><span class="comment">// end of [socket_close_err]
+</span>
+<span class="comment">//
+</span><span class="comment">// HX: this one is like [fildes_close_loop_exn]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="5875"><span class="dyncstdec">socket_close_exn <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>s<span class="keyword">:</span>status<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pfskt<span class="keyword">:</span> <span class="staexp">socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> s<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="comment">// end of [socket_close_exn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">abst@ype</span> <span class="staexp"><a name="6019"><span class="stacstdec">shutkind_t <span class="keyword">=</span> int</span></a></span>
+<span class="keyword">macdef</span> <span class="neuexp">SHUT_RD <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>shutkind_t<span class="keyword">,</span> "SHUT_RD"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SHUT_WR <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>shutkind_t<span class="keyword">,</span> "SHUT_WR"<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">SHUT_RDWR <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span>shutkind_t<span class="keyword">,</span> "SHUT_RDWR"<span class="keyword">)</span></span>
+
+<span class="keyword">fun</span> <a name="6192"><span class="dyncstdec">shutdown_err <span class="comment">// HX: what error can occur?
+</span>  <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="comment">// 0/-1 : succ/fail // errno set
+</span>  <span class="keyword">(</span><span class="prfexp">pfskt<span class="keyword">:</span> <span class="staexp">socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> conn<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> how<span class="keyword">:</span> <span class="staexp">shutkind_t</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &lt;= 0<span class="keyword">]</span> <span class="keyword">(</span>option_v <span class="keyword">(</span>socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> conn<span class="keyword">)</span><span class="keyword">,</span> i <span class="keyword">&lt;</span> 0<span class="keyword">)</span> <span class="keyword">|</span> int i<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "#atslib_shutdown_err"
+<span class="comment">// end of [shutdown_err]
+</span>
+<span class="keyword">fun</span> <a name="6465"><span class="dyncstdec">shutdown_exn <span class="comment">// HX: this one is preferred!
+</span>  <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="comment">// 0/-1 : succ/fail // errno set
+</span>  <span class="keyword">(</span><span class="prfexp">pfskt<span class="keyword">:</span> <span class="staexp">socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> conn<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> how<span class="keyword">:</span> <span class="staexp">shutkind_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="comment">// end of [shutdown_exn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: actually implemented in [libc/CATS/fcntl.cats]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="6729"><span class="dyncstdec">socket_read_err <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>sz<span class="keyword">:</span>nat <span class="keyword">|</span> n &lt;= sz<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pfskt<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> conn<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bytes sz</span><span class="keyword">,</span> ntotal<span class="keyword">:</span> <span class="staexp">size_t n</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">ssizeBtw<span class="keyword">(</span>~1<span class="keyword">,</span> n+1<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_socket_read_err" <span class="comment">// = atslib_fildes_read_err
+</span><span class="comment">// end of [socket_read_err]
+</span><span class="comment">//
+</span><span class="comment">// HX: implemented in [libc/sys/DATSsocket.dats]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="7023"><span class="dyncstdec">socket_read_exn <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>sz<span class="keyword">:</span>nat <span class="keyword">|</span> n &lt;= sz<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pfskt<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> conn<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bytes sz</span><span class="keyword">,</span> ntotal<span class="keyword">:</span> <span class="staexp">size_t n</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">sizeLte n</span></span></a>
+<span class="comment">// end of [socket_read_exn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: actually implemented in [libc/CATS/fcntl.cats]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="7279"><span class="dyncstdec">socket_write_err <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>sz<span class="keyword">:</span>nat <span class="keyword">|</span> n &lt;= sz<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pfskt<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> conn<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bytes sz</span><span class="keyword">,</span> ntotal<span class="keyword">:</span> <span class="staexp">size_t n</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">ssizeBtw<span class="keyword">(</span>~1<span class="keyword">,</span> n+1<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_socket_write_err" <span class="comment">// = atslib_fildes_write_err
+</span><span class="comment">// end of [socket_write_err]
+</span><span class="comment">//
+</span><span class="comment">// HX: [socket_write_exn]: plesae use [socket_write_all_exn] instead
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX:
+</span><span class="comment">// this one is actually implemented in [libc/DATS/fcntl.dats]
+</span><span class="comment">// note that it is used only when it is known ahead how many bytes are expected;
+</span><span class="comment">// otherwise, there is the risk of forever blocking!!!
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="7828"><span class="dyncstdec">socket_read_all_err <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>sz<span class="keyword">:</span>nat <span class="keyword">|</span> n &lt;= sz<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pfskt<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> conn<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bytes sz</span><span class="keyword">,</span> ntotal<span class="keyword">:</span> <span class="staexp">size_t n</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">ssizeBtw <span class="keyword">(</span>~1<span class="keyword">,</span> n+1<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_socket_read_all_err" <span class="comment">// = atslib_fildes_read_all_err
+</span><span class="comment">// end of [socket_read_all_err]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: this one is actually implemented in [libc/DATS/fcntl.dats]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="8177"><span class="dyncstdec">socket_write_all_err <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>sz<span class="keyword">:</span>nat <span class="keyword">|</span> n &lt;= sz<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pfskt<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> conn<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bytes sz</span><span class="keyword">,</span> ntotal<span class="keyword">:</span> <span class="staexp">size_t n</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">ssizeBtw<span class="keyword">(</span>~1<span class="keyword">,</span> n+1<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_socket_write_all_err" <span class="comment">// = atslib_fildes_write_all_err
+</span><span class="comment">// end of [socket_write_all_err]
+</span><span class="comment">//
+</span><span class="comment">// HX: this one is implemented in [libc/sys/DATS/socket.dats]
+</span><span class="comment">//
+</span><span class="keyword">fun</span> <a name="8504"><span class="dyncstdec">socket_write_all_exn <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>sz<span class="keyword">:</span>nat <span class="keyword">|</span> n &lt;= sz<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pfskt<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> conn<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> buf<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bytes sz</span><span class="keyword">,</span> ntotal<span class="keyword">:</span> <span class="staexp">size_t n</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="comment">// all bytes must be written if this function returns
+</span>  <span class="keyword">=</span> "atslib_socket_write_all_exn"
+<span class="comment">// end of [socket_write_all_exn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="8794"><span class="dyncstdec">socket_write_substring
+  <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>st<span class="keyword">,</span>ln<span class="keyword">:</span>nat <span class="keyword">|</span> st+ln &lt;= n<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pf_sock<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> conn<span class="keyword">)</span></span></span>
+  <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> str<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> st<span class="keyword">:</span> <span class="staexp">size_t st</span><span class="keyword">,</span> ln<span class="keyword">:</span> <span class="staexp">size_t ln</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="comment">// all bytes must be written if this function returns
+</span><span class="comment">// end of [socket_write_substring]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">dataview</span> <span class="prfexp"><span class="staexp"><a name="9090"><span class="stacstdec">socket_fdopen_v
+  <span class="keyword">(</span>fd<span class="keyword">:</span> int<span class="keyword">,</span> m<span class="keyword">:</span> file_mode<span class="keyword">,</span> addr<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> socket_fdopen_v_fail <span class="staexp"><span class="keyword">(</span>fd<span class="keyword">,</span> m<span class="keyword">,</span> null<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> conn<span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">l<span class="keyword">:</span>agz</span><span class="keyword">}</span> socket_fdopen_v_succ <span class="staexp"><span class="keyword">(</span>fd<span class="keyword">,</span> m<span class="keyword">,</span> l<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">FILE m @ l</span></span>
+<span class="keyword">fun</span> <a name="9264"><span class="dyncstdec">socket_fdopen_err <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">socket_v <span class="keyword">(</span>fd<span class="keyword">,</span> conn<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> m<span class="keyword">:</span> <span class="staexp">file_mode m</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>socket_fdopen_v <span class="keyword">(</span>fd<span class="keyword">,</span> m<span class="keyword">,</span> l<span class="keyword">)</span> <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></span></a> <span class="keyword">=</span> "#atslib_socket_fdopen_err"
+<span class="comment">// end of [socket_fdopen_err]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="9498"><span class="dyncstdec">setsockopt <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>t@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> level<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> option<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> value<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>a</span><span class="keyword">,</span> valen<span class="keyword">:</span> <span class="staexp">sizeof_t a</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a>
+  <span class="keyword">=</span> "atslib_setsockopt" <span class="comment">// function!
+</span><span class="comment">// end of [setsockopt]
+</span>
+<span class="keyword">fun</span> <a name="9668"><span class="dyncstdec">getsockopt_err <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>t@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>
+    fd<span class="keyword">:</span> <span class="staexp">int fd</span>
+  <span class="keyword">,</span> level<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> option<span class="keyword">:</span> <span class="staexp">int</span>
+  <span class="keyword">,</span> value<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>a? &gt;&gt; opt <span class="keyword">(</span>a<span class="keyword">,</span> i==0<span class="keyword">)</span></span><span class="keyword">,</span> valen<span class="keyword">:</span> <span class="staexp">sizeof_t a</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>int <span class="keyword">|</span> i &lt;= 0<span class="keyword">]</span> int i</span></span></a> <span class="keyword">=</span> "atslib_getsockopt_err" <span class="comment">// function!
+</span><span class="comment">// end of [getsockopt_err]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> <a name="9920"><span class="dyncstdec">sockatmark <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a> <span class="keyword">=</span> "#atslib_sockatmark"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [socket.sats] *)</span>
+</pre>
+</body>
+</html>

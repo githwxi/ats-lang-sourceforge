@@ -1,0 +1,983 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: October 2007
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Err <span class="keyword">=</span> "ats_error.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Fil <span class="keyword">=</span> "ats_filename.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">HT <span class="keyword">=</span> "ats_hashtbl.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Lst <span class="keyword">=</span> "ats_list.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">NS <span class="keyword">=</span> "ats_namespace.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Sym <span class="keyword">=</span> "ats_symbol.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">SymEnv <span class="keyword">=</span> "ats_symenv.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_reference.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp1.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_trans2_env.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymous*)</span> <span class="keyword">=</span> "ats_hashtbl.dats"</span>
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymous*)</span> <span class="keyword">=</span> "ats_map_lin.dats"</span>
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymous*)</span> <span class="keyword">=</span> "ats_symenv.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">nil list_nil</span>
+<span class="keyword">#define</span> <span class="neuexp">cons list_cons</span>
+<span class="keyword">#define</span> <span class="neuexp">:: list_cons</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">=</span> <span class="keyword">with</span> $Sym<span class="keyword">.</span>eq_symbol_symbol</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> prerr_loc_error2 <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">(</span>$Loc<span class="keyword">.</span>prerr_location loc<span class="keyword">;</span> prerr ": error(2)"<span class="keyword">)</span>
+<span class="comment">// end of [prerr_loc_error2]
+</span>
+<span class="keyword">fn</span> prerr_interror <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> prerr "INTERNAL ERROR (ats_trans2_env)"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="2467"><span class="stacstdec">s2rtextmap <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symmap_t <span class="keyword">(</span>s2rtext<span class="keyword">)</span></span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="2515"><span class="stacstdec">s2rtextmapref <span class="keyword">=</span> ref s2rtextmap</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="2554"><span class="stacstdec">s2rtextmaptbl <span class="keyword">=</span> $HT<span class="keyword">.</span>hashtbl_t <span class="keyword">(</span>sym_t<span class="keyword">,</span> s2rtextmapref<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">val</span> the_s2rtextmaptbl<span class="keyword">:</span> <span class="staexp">s2rtextmaptbl</span> <span class="keyword">=</span>
+  $HT<span class="keyword">.</span>hashtbl_make_hint <span class="staexp"><span class="keyword">{</span>sym_t<span class="keyword">,</span> s2rtextmapref<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="keyword">lam</span> s <span class="keyword">=&gt;</span> $Sym<span class="keyword">.</span>symbol_hash s<span class="keyword">,</span> <span class="keyword">lam</span> <span class="keyword">(</span>s1<span class="keyword">,</span> s2<span class="keyword">)</span> <span class="keyword">=&gt;</span> s1 <span class="keyword">=</span> s2<span class="keyword">,</span> 256
+  <span class="keyword">)</span>
+<span class="comment">// end of [the_s2rtextmaptbl]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="2826"><span class="stacstdec">s2itemmap <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symmap_t <span class="keyword">(</span>s2item<span class="keyword">)</span></span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="2872"><span class="stacstdec">s2itemmapref <span class="keyword">=</span> ref s2itemmap</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="2909"><span class="stacstdec">s2itemmaptbl <span class="keyword">=</span> $HT<span class="keyword">.</span>hashtbl_t <span class="keyword">(</span>sym_t<span class="keyword">,</span> s2itemmapref<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">val</span> the_s2itemmaptbl<span class="keyword">:</span> <span class="staexp">s2itemmaptbl</span> <span class="keyword">=</span>
+  $HT<span class="keyword">.</span>hashtbl_make_hint <span class="staexp"><span class="keyword">{</span>sym_t<span class="keyword">,</span> s2itemmapref<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="keyword">lam</span> s <span class="keyword">=&gt;</span> $Sym<span class="keyword">.</span>symbol_hash s<span class="keyword">,</span> <span class="keyword">lam</span> <span class="keyword">(</span>s1<span class="keyword">,</span> s2<span class="keyword">)</span> <span class="keyword">=&gt;</span> s1 <span class="keyword">=</span> s2<span class="keyword">,</span> 256
+  <span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="3146"><span class="stacstdec">d2itemmap <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symmap_t <span class="keyword">(</span>d2item<span class="keyword">)</span></span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="3192"><span class="stacstdec">d2itemmapref <span class="keyword">=</span> ref d2itemmap</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="3229"><span class="stacstdec">d2itemmaptbl <span class="keyword">=</span> $HT<span class="keyword">.</span>hashtbl_t <span class="keyword">(</span>sym_t<span class="keyword">,</span> d2itemmapref<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">val</span> the_d2itemmaptbl<span class="keyword">:</span> <span class="staexp">d2itemmaptbl</span> <span class="keyword">=</span>
+  $HT<span class="keyword">.</span>hashtbl_make_hint <span class="staexp"><span class="keyword">{</span>sym_t<span class="keyword">,</span> d2itemmapref<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="keyword">lam</span> s <span class="keyword">=&gt;</span> $Sym<span class="keyword">.</span>symbol_hash s<span class="keyword">,</span> <span class="keyword">lam</span> <span class="keyword">(</span>s1<span class="keyword">,</span> s2<span class="keyword">)</span> <span class="keyword">=&gt;</span> s1 <span class="keyword">=</span> s2<span class="keyword">,</span> 256
+  <span class="keyword">)</span>
+<span class="comment">// end of [the_d2itemmaptbl]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="3491"><span class="stacstdec">d2eclsttbl <span class="keyword">=</span> $HT<span class="keyword">.</span>hashtbl_t <span class="keyword">(</span>sym_t<span class="keyword">,</span> d2eclst<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">val</span> the_d2eclsttbl<span class="keyword">:</span> <span class="staexp">d2eclsttbl</span> <span class="keyword">=</span>
+  $HT<span class="keyword">.</span>hashtbl_make_hint <span class="staexp"><span class="keyword">{</span>sym_t<span class="keyword">,</span> d2eclst<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="keyword">lam</span> s <span class="keyword">=&gt;</span> $Sym<span class="keyword">.</span>symbol_hash s<span class="keyword">,</span> <span class="keyword">lam</span> <span class="keyword">(</span>s1<span class="keyword">,</span> s2<span class="keyword">)</span> <span class="keyword">=&gt;</span> s1 <span class="keyword">=</span> s2<span class="keyword">,</span> 256
+  <span class="keyword">)</span>
+<span class="comment">// end of [the_d2eclsttbl]
+</span>
+<span class="keyword">implement</span> d2eclst_namespace_add <span class="keyword">(</span>id<span class="keyword">,</span> d2cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> $HT<span class="keyword">.</span>hashtbl_insert <span class="keyword">(</span>the_d2eclsttbl<span class="keyword">,</span> id<span class="keyword">,</span> d2cs<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> ans <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      prerr ": d2eclst_namespace_add: id = "<span class="keyword">;</span> $Sym<span class="keyword">.</span>prerr_symbol id<span class="keyword">;</span>
+      prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>  <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2eclst_namespace_add]
+</span>
+<span class="keyword">implement</span> d2eclst_namespace_find <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">=</span> 
+  $HT<span class="keyword">.</span>hashtbl_search <span class="keyword">(</span>the_d2eclsttbl<span class="keyword">,</span> id<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">assume</span> <span class="staexp">s2rtenv_token <span class="keyword">=</span> unit_v</span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="4230"><span class="stacstdec">s2rtenv <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_t <span class="keyword">(</span>s2rtext<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">val</span> the_s2rtenv<span class="keyword">:</span> <span class="staexp">s2rtenv</span> <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_make <span class="keyword">(</span><span class="keyword">)</span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> the_s2rtenv_add <span class="keyword">(</span>id<span class="keyword">,</span> s2te<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_remove_fst <span class="keyword">(</span>the_s2rtenv<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> ans <span class="keyword">of</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  $SymEnv<span class="keyword">.</span>symenv_insert_fst <span class="keyword">(</span>the_s2rtenv<span class="keyword">,</span> id<span class="keyword">,</span> s2te<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2rtenv_add]
+</span>
+<span class="keyword">fn</span> the_s2rtenv_namespace_find
+  <span class="keyword">(</span>id<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2rtextopt_vt</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fn</span> f <span class="keyword">(</span>name<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp">s2rtextopt_vt</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> r_m<span class="keyword">:</span> <span class="staexp">s2rtextmapref</span> <span class="keyword">=</span>
+      <span class="keyword">case+</span> $HT<span class="keyword">.</span>hashtbl_search <span class="keyword">(</span>the_s2rtextmaptbl<span class="keyword">,</span> name<span class="keyword">)</span> <span class="keyword">of</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>Some_vt m <span class="keyword">=&gt;</span> m <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          prerr ": s2rtenv_namespace_find: name = "<span class="keyword">;</span> $Sym<span class="keyword">.</span>prerr_symbol name<span class="keyword">;</span>
+          prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>s2rtextmapref<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>  <span class="keyword">in</span>
+    $SymEnv<span class="keyword">.</span>symmap_ref_search <span class="keyword">(</span>r_m<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [f]
+</span><span class="keyword">in</span>
+  $NS<span class="keyword">.</span>the_namespace_search <span class="keyword">(</span>f<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2rtenv_namespace_find]
+</span>
+<span class="keyword">implement</span> the_s2rtenv_find <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span>
+    $SymEnv<span class="keyword">.</span>symenv_search_all <span class="keyword">(</span>the_s2rtenv<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="comment">// end of [ans]
+</span><span class="keyword">in</span>
+  <span class="keyword">case+</span> ans <span class="keyword">of</span>
+  <span class="keyword">|</span> Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>fold@ ans<span class="keyword">;</span> ans<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> ans <span class="keyword">=</span> the_s2rtenv_namespace_find id
+    <span class="keyword">in</span>
+      <span class="keyword">case+</span> ans <span class="keyword">of</span>
+      <span class="keyword">|</span> Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span> fold@ ans<span class="keyword">;</span> ans <span class="keyword">end</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          $SymEnv<span class="keyword">.</span>symenv_pervasive_search <span class="keyword">(</span>the_s2rtenv<span class="keyword">,</span> id<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span><span class="keyword">end</span> <span class="comment">// end of [the_s2rtenv_find]
+</span>
+<span class="keyword">implement</span> the_s2rtenv_find_qua <span class="keyword">(</span>q<span class="keyword">,</span> id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> q<span class="keyword">.</span>s0rtq_node <span class="keyword">of</span>
+  <span class="keyword">|</span> $Syn<span class="keyword">.</span>S0RTQnone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> the_s2rtenv_find id
+  <span class="keyword">|</span> $Syn<span class="keyword">.</span>S0RTQsym q_id <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> fil <span class="keyword">=</span> <span class="keyword">case+</span> the_s2expenv_find q_id <span class="keyword">of</span>
+        <span class="keyword">|</span> <span class="keyword">~</span>Some_vt <span class="keyword">(</span>S2ITEMfil fil<span class="keyword">)</span> <span class="keyword">=&gt;</span> fil
+        <span class="keyword">|</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+            prerr_loc_error2 q<span class="keyword">.</span>s0rtq_loc<span class="keyword">;</span>
+            prerr ": the qualifier ["<span class="keyword">;</span>
+            $Sym<span class="keyword">.</span>prerr_symbol q_id<span class="keyword">;</span>
+            prerr "] should refer to a filename but it does not."<span class="keyword">;</span>
+            prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+            $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>fil_t<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>        <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+            prerr_loc_error2 q<span class="keyword">.</span>s0rtq_loc<span class="keyword">;</span>
+            prerr ": the qualifier ["<span class="keyword">;</span>
+            $Sym<span class="keyword">.</span>prerr_symbol q_id<span class="keyword">;</span>
+            prerr "] is unrecognized."<span class="keyword">;</span>
+            prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+            $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>fil_t<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>      <span class="keyword">val</span> fil_sym <span class="keyword">=</span> $Fil<span class="keyword">.</span>filename_full_sym fil
+    <span class="keyword">in</span>
+      <span class="keyword">case+</span> $HT<span class="keyword">.</span>hashtbl_search <span class="keyword">(</span>the_s2rtextmaptbl<span class="keyword">,</span> fil_sym<span class="keyword">)</span> <span class="keyword">of</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>Some_vt r_m <span class="keyword">=&gt;</span> $SymEnv<span class="keyword">.</span>symmap_ref_search <span class="keyword">(</span>r_m<span class="keyword">,</span> id<span class="keyword">)</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          prerr ": the loaded file ["<span class="keyword">;</span>
+          $Sym<span class="keyword">.</span>prerr_symbol fil_sym<span class="keyword">;</span>
+          prerr "] cannot be located."<span class="keyword">;</span>
+          prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>s2rtextopt_vt<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>    <span class="keyword">end</span> <span class="comment">(* end of [S0RTQsym] *)</span>
+  <span class="keyword">|</span> $Syn<span class="keyword">.</span>S0RTQstr name <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="comment">// this feature should probably be deprecated!!!
+</span>    <span class="keyword">in</span>
+      None_vt <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S0RTQstr]
+</span><span class="keyword">end</span> <span class="comment">// end [the_s2rtenv_find_qua]
+</span>
+<span class="keyword">implement</span> the_s2rtenv_pop <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">let</span> <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf</span> <span class="keyword">in</span> $SymEnv<span class="keyword">.</span>symenv_pop <span class="keyword">(</span>the_s2rtenv<span class="keyword">)</span> <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2rtenv_pop]
+</span>
+<span class="keyword">implement</span> the_s2rtenv_push <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_push <span class="keyword">(</span>the_s2rtenv<span class="keyword">)</span> <span class="keyword">in</span> <span class="keyword">(</span><span class="prfexp">unit_v</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2rtenv_push]
+</span>
+<span class="keyword">implement</span> the_s2rtenv_localjoin <span class="keyword">(</span><span class="prfexp">pf1</span><span class="keyword">,</span> <span class="prfexp">pf2</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf1 <span class="keyword">and</span> unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf2</span>
+<span class="keyword">in</span>
+  $SymEnv<span class="keyword">.</span>symenv_localjoin <span class="keyword">(</span>the_s2rtenv<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2rtenv_localjoin]
+</span>
+<span class="keyword">fn</span> the_s2rtenv_pervasive_add_topenv <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> m <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_top_get <span class="keyword">(</span>the_s2rtenv<span class="keyword">)</span>
+<span class="keyword">in</span>
+  $SymEnv<span class="keyword">.</span>symenv_pervasive_add <span class="keyword">(</span>the_s2rtenv<span class="keyword">,</span> m<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2rtenv_pervasive_add_topenv]
+</span>
+<span class="keyword">fn</span> the_s2rtenv_namespace_add_topenv <span class="keyword">(</span>id<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> m <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_top_get the_s2rtenv
+  <span class="keyword">val</span> r_m <span class="keyword">=</span> ref_make_elt&lt;<span class="staexp">s2rtextmap</span><span class="keyword">&gt;</span> <span class="keyword">(</span>m<span class="keyword">)</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> $HT<span class="keyword">.</span>hashtbl_insert <span class="keyword">(</span>the_s2rtextmaptbl<span class="keyword">,</span> id<span class="keyword">,</span> r_m<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> ans <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      prerr ": s2rtenv_namespace_add_topenv: id = "<span class="keyword">;</span> $Sym<span class="keyword">.</span>prerr_symbol id<span class="keyword">;</span>
+      prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>  <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>  
+<span class="keyword">end</span> <span class="comment">// end of [the_s2rtenv_namespace_add_topenv]
+</span>
+<span class="keyword">fn</span> the_s2rtenv_save <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_save <span class="keyword">(</span>the_s2rtenv<span class="keyword">)</span>
+<span class="keyword">fn</span> the_s2rtenv_restore <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_restore <span class="keyword">(</span>the_s2rtenv<span class="keyword">)</span>
+
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">assume</span> <span class="staexp">s2expenv_token <span class="keyword">=</span> unit_v</span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="8584"><span class="stacstdec">s2expenv <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_t <span class="keyword">(</span>s2item<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">local</span>
+<span class="comment">//
+</span><span class="keyword">val</span> the_s2expenv<span class="keyword">:</span> <span class="staexp">s2expenv</span> <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_make <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">//
+</span><span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> the_s2expenv_add <span class="keyword">(</span>id<span class="keyword">,</span> s2i<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_remove_fst <span class="keyword">(</span>the_s2expenv<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> ans <span class="keyword">of</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  $SymEnv<span class="keyword">.</span>symenv_insert_fst <span class="keyword">(</span>the_s2expenv<span class="keyword">,</span> id<span class="keyword">,</span> s2i<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_add]
+</span>
+<span class="keyword">implement</span> the_s2expenv_add_scst <span class="keyword">(</span>s2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "s2expenv_add_scst: s2c = "; print s2c; print_newline ()
+  end
+  val () = begin
+    print "s2expenv_add_scst: s2c_s2t = "; print (s2cst_srt_get s2c);
+    print_newline ()
+  end // end of [val]
+*)</span>
+  <span class="keyword">val</span> id <span class="keyword">=</span> s2cst_sym_get s2c
+  <span class="keyword">val</span> s2cs <span class="keyword">=</span> <span class="keyword">(</span>
+    <span class="keyword">case+</span> the_s2expenv_find <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">~</span>Some_vt s2i <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2i <span class="keyword">of</span>
+      <span class="keyword">|</span> S2ITEMcst s2cs <span class="keyword">=&gt;</span> s2cs <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> S2CSTLSTnil <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>    <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> S2CSTLSTnil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">s2cstlst</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_remove_fst <span class="keyword">(</span>the_s2expenv<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> ans <span class="keyword">of</span> <span class="keyword">~</span>Some_vt s2i <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  $SymEnv<span class="keyword">.</span>symenv_insert_fst <span class="keyword">(</span>
+    the_s2expenv<span class="keyword">,</span> id<span class="keyword">,</span> S2ITEMcst <span class="keyword">(</span>S2CSTLSTcons <span class="keyword">(</span>s2c<span class="keyword">,</span> s2cs<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="comment">// end of [$SymEnv.symenv_insert_fst]
+</span><span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_add_scst]
+</span>
+<span class="keyword">implement</span> the_s2expenv_add_svar <span class="keyword">(</span>s2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> id <span class="keyword">=</span> s2var_sym_get s2v <span class="keyword">in</span> the_s2expenv_add <span class="keyword">(</span>id<span class="keyword">,</span> S2ITEMvar s2v<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_add_svar]
+</span>
+<span class="keyword">implement</span> the_s2expenv_add_svarlst <span class="keyword">(</span>s2vs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> s2vs <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>s2v<span class="keyword">,</span> s2vs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      the_s2expenv_add_svar s2v<span class="keyword">;</span> the_s2expenv_add_svarlst s2vs
+    <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_add_svarlst]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> the_s2expenv_add_datconptr <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> sym <span class="keyword">=</span> d2con_sym_get d2c
+  <span class="keyword">val</span> name <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_name sym
+  <span class="keyword">val</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_make_string <span class="keyword">(</span>name + "_unfold"<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2expenv_add <span class="keyword">(</span>id<span class="keyword">,</span> S2ITEMdatconptr d2c<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_add_datconptr]
+</span>
+<span class="keyword">implement</span> the_s2expenv_add_datcontyp <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> sym <span class="keyword">=</span> d2con_sym_get d2c
+  <span class="keyword">val</span> name <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_name sym
+  <span class="keyword">val</span> id <span class="keyword">=</span> $Sym<span class="keyword">.</span>symbol_make_string <span class="keyword">(</span>name + "_pstruct"<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2expenv_add <span class="keyword">(</span>id<span class="keyword">,</span> S2ITEMdatcontyp d2c<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_add_datcontyp]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> the_s2expenv_namespace_find
+  <span class="keyword">(</span>id<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2itemopt_vt</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fn</span> f <span class="keyword">(</span>name<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp">s2itemopt_vt</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> r_m<span class="keyword">:</span> <span class="staexp">s2itemmapref</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+      <span class="keyword">case+</span> $HT<span class="keyword">.</span>hashtbl_search <span class="keyword">(</span>the_s2itemmaptbl<span class="keyword">,</span> name<span class="keyword">)</span> <span class="keyword">of</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>Some_vt m <span class="keyword">=&gt;</span> m <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          prerr ": the_s2expenv_namespace_find: name = "<span class="keyword">;</span> $Sym<span class="keyword">.</span>prerr_symbol name<span class="keyword">;</span>
+          prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>s2itemmapref<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">in</span>
+    $SymEnv<span class="keyword">.</span>symmap_ref_search <span class="keyword">(</span>r_m<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [f]
+</span><span class="keyword">in</span>
+  $NS<span class="keyword">.</span>the_namespace_search <span class="keyword">(</span>f<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_namespace_find]
+</span>
+<span class="keyword">implement</span> the_s2expenv_find <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span>
+    $SymEnv<span class="keyword">.</span>symenv_search_all <span class="keyword">(</span>the_s2expenv<span class="keyword">,</span> id<span class="keyword">)</span> 
+  <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="keyword">case+</span> ans <span class="keyword">of</span>
+  <span class="keyword">|</span> Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fold@ ans <span class="keyword">in</span> ans <span class="keyword">end</span>
+    <span class="keyword">end</span> <span class="comment">// end of [Some]
+</span>  <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> ans <span class="keyword">=</span> the_s2expenv_namespace_find id <span class="keyword">in</span>
+      <span class="keyword">case+</span> ans <span class="keyword">of</span>
+      <span class="keyword">|</span> Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fold@ ans <span class="keyword">in</span> ans <span class="keyword">end</span>
+        <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>      <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          $SymEnv<span class="keyword">.</span>symenv_pervasive_search <span class="keyword">(</span>the_s2expenv<span class="keyword">,</span> id<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span><span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_find]
+</span>
+<span class="keyword">implement</span> the_s2expenv_pervasive_find <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  $SymEnv<span class="keyword">.</span>symenv_pervasive_search <span class="keyword">(</span>the_s2expenv<span class="keyword">,</span> id<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_pervasive_find]
+</span>
+<span class="keyword">implement</span> the_s2expenv_find_qua <span class="keyword">(</span>q<span class="keyword">,</span> id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> q<span class="keyword">.</span>s0taq_node <span class="keyword">of</span>
+  <span class="keyword">|</span> $Syn<span class="keyword">.</span>S0TAQnone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> the_s2expenv_find id
+  <span class="keyword">|</span> $Syn<span class="keyword">.</span>S0TAQsymdot <span class="keyword">(</span>q_id<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> ans <span class="keyword">=</span> the_s2expenv_find q_id
+      <span class="keyword">val</span> fil <span class="keyword">=</span> <span class="keyword">case+</span> ans <span class="keyword">of</span>
+        <span class="keyword">|</span> <span class="keyword">~</span>Some_vt <span class="keyword">(</span>S2ITEMfil fil<span class="keyword">)</span> <span class="keyword">=&gt;</span> fil
+        <span class="keyword">|</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+            prerr_loc_error2 q<span class="keyword">.</span>s0taq_loc<span class="keyword">;</span>
+            prerr ": the qualifier ["<span class="keyword">;</span>
+            $Sym<span class="keyword">.</span>prerr_symbol q_id<span class="keyword">;</span>
+            prerr "] should refer to a filename but it does not."<span class="keyword">;</span>
+            prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+            $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>fil_t<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>        <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+            prerr_loc_error2 q<span class="keyword">.</span>s0taq_loc<span class="keyword">;</span>
+            prerr ": the qualifier ["<span class="keyword">;</span>
+            $Sym<span class="keyword">.</span>prerr_symbol q_id<span class="keyword">;</span>
+            prerr "] is unrecognized."<span class="keyword">;</span>
+            prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+            $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>fil_t<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>      <span class="comment">// end of [val]
+</span>      <span class="keyword">val</span> fil_sym <span class="keyword">=</span> $Fil<span class="keyword">.</span>filename_full_sym fil
+      <span class="keyword">val</span> ans <span class="keyword">=</span> $HT<span class="keyword">.</span>hashtbl_search <span class="keyword">(</span>the_s2itemmaptbl<span class="keyword">,</span> fil_sym<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="keyword">case+</span> ans <span class="keyword">of</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>Some_vt r_m <span class="keyword">=&gt;</span> $SymEnv<span class="keyword">.</span>symmap_ref_search <span class="keyword">(</span>r_m<span class="keyword">,</span> id<span class="keyword">)</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [$Syn.S0TAQsymdot]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_find_qua]
+</span>
+<span class="keyword">implement</span> the_s2expenv_pop <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">let</span> <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf</span> <span class="keyword">in</span> $SymEnv<span class="keyword">.</span>symenv_pop <span class="keyword">(</span>the_s2expenv<span class="keyword">)</span> <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_pop]
+</span>
+<span class="keyword">implement</span> the_s2expenv_push <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_push <span class="keyword">(</span>the_s2expenv<span class="keyword">)</span> <span class="keyword">in</span> <span class="keyword">(</span><span class="prfexp">unit_v</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_push]
+</span>
+<span class="keyword">implement</span> the_s2expenv_localjoin <span class="keyword">(</span><span class="prfexp">pf1</span><span class="keyword">,</span> <span class="prfexp">pf2</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf1 <span class="keyword">and</span> unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf2</span>
+<span class="keyword">in</span>
+  $SymEnv<span class="keyword">.</span>symenv_localjoin <span class="keyword">(</span>the_s2expenv<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_localjoin]
+</span>
+<span class="keyword">fn</span> the_s2expenv_pervasive_add_topenv <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> m <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_top_get <span class="keyword">(</span>the_s2expenv<span class="keyword">)</span>
+<span class="keyword">in</span>
+  $SymEnv<span class="keyword">.</span>symenv_pervasive_add <span class="keyword">(</span>the_s2expenv<span class="keyword">,</span> m<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_pervasive_add_topenv]
+</span>
+<span class="keyword">fn</span> the_s2expenv_namespace_add_topenv <span class="keyword">(</span>id<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> m <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_top_get the_s2expenv
+  <span class="keyword">val</span> r_m <span class="keyword">=</span> ref_make_elt&lt;<span class="staexp">s2itemmap</span><span class="keyword">&gt;</span> <span class="keyword">(</span>m<span class="keyword">)</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> $HT<span class="keyword">.</span>hashtbl_insert <span class="keyword">(</span>the_s2itemmaptbl<span class="keyword">,</span> id<span class="keyword">,</span> r_m<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> ans <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      prerr ": the_s2expenv_namespace_add_topenv: id = "<span class="keyword">;</span> $Sym<span class="keyword">.</span>prerr_symbol id<span class="keyword">;</span>
+      prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>  <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>  
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_namespace_add_topenv]
+</span>
+<span class="keyword">fn</span> the_s2expenv_save <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_save <span class="keyword">(</span>the_s2expenv<span class="keyword">)</span>
+<span class="keyword">fn</span> the_s2expenv_restore <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_restore <span class="keyword">(</span>the_s2expenv<span class="keyword">)</span>
+
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">val</span> the_macdef<span class="keyword">:</span> <span class="staexp">ref int</span> <span class="keyword">=</span> ref_make_elt&lt;<span class="staexp">int</span><span class="keyword">&gt;</span> <span class="keyword">(</span>0<span class="keyword">)</span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> macdef_get <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>the_macdef
+<span class="keyword">implement</span> macdef_inc <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> x <span class="keyword">=</span> <span class="keyword">!</span>the_macdef <span class="keyword">in</span> <span class="keyword">!</span>the_macdef := x + 1
+<span class="keyword">end</span> <span class="comment">// end of [macdef_inc]
+</span><span class="keyword">implement</span> macdef_dec <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> x <span class="keyword">=</span> <span class="keyword">!</span>the_macdef <span class="keyword">in</span> <span class="keyword">!</span>the_macdef := x - 1
+<span class="keyword">end</span> <span class="comment">// end of [macdef_dec]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">val</span> the_macro_level<span class="keyword">:</span> <span class="staexp">ref int</span> <span class="keyword">=</span> ref_make_elt&lt;<span class="staexp">int</span><span class="keyword">&gt;</span> <span class="keyword">(</span>1<span class="keyword">)</span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> macro_level_get <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>the_macro_level
+
+<span class="keyword">implement</span> macro_level_inc <span class="keyword">(</span>loc<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> level <span class="keyword">=</span> <span class="keyword">!</span>the_macro_level
+<span class="comment">(*
+  val () = if level &gt; 0 then begin
+    print_loc_error2 loc;
+    print ": the syntax `(...) is used incorrectly at this location.";
+    print_newline ();
+    $Err.abort {void} ()
+  end // end of [val]
+*)</span>
+<span class="keyword">in</span>
+  <span class="keyword">!</span>the_macro_level := level + 1
+<span class="keyword">end</span> <span class="comment">// end of [macro_level_inc]
+</span>
+<span class="keyword">implement</span> macro_level_dec <span class="keyword">(</span>loc<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> level <span class="keyword">=</span> <span class="keyword">!</span>the_macro_level
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> level <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+    prerr_loc_error2 loc<span class="keyword">;</span>
+    prerr ": the syntax ,(...) or %(...) is used incorrectly at this location."<span class="keyword">;</span>
+    prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+    $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="keyword">!</span>the_macro_level := level - 1
+<span class="keyword">end</span> <span class="comment">// end of [macro_level_dec]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">val</span> the_template_level <span class="keyword">=</span> ref_make_elt&lt;<span class="staexp">int</span><span class="keyword">&gt;</span> <span class="keyword">(</span>0<span class="keyword">)</span>
+
+<span class="keyword">in</span>
+
+<span class="keyword">implement</span> template_level_get <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">!</span>the_template_level
+
+<span class="keyword">implement</span> template_level_inc <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">!</span>the_template_level := <span class="keyword">!</span>the_template_level + 1
+
+<span class="keyword">implement</span> template_level_dec <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">!</span>the_template_level := <span class="keyword">!</span>the_template_level - 1
+
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="keyword">implement</span>
+  s2var_tmplev_check <span class="keyword">(</span>loc<span class="keyword">,</span> s2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2v_tmplev <span class="keyword">=</span> s2var_tmplev_get <span class="keyword">(</span>s2v<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+  <span class="keyword">|</span> _ <span class="keyword">when</span> s2v_tmplev <span class="keyword">&gt;</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> tmplev <span class="keyword">=</span> template_level_get <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> s2v_tmplev <span class="keyword">&lt;</span> tmplev <span class="keyword">then</span> <span class="keyword">begin</span>
+        prerr_loc_error2 loc<span class="keyword">;</span>
+        prerr ": the static variable ["<span class="keyword">;</span> prerr s2v<span class="keyword">;</span> prerr "] is out of scope."<span class="keyword">;</span>
+        prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+        $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [_ when s2v_tmplev &gt; 0]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// not a template variable
+</span><span class="keyword">end</span> <span class="comment">// end of [s2var_tmplev_check]
+</span>
+<span class="keyword">implement</span> s2qualst_tmplev_set <span class="keyword">(</span>s2vpss<span class="keyword">,</span> tmplev<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux_s2vs
+    <span class="keyword">(</span>s2vs<span class="keyword">:</span> <span class="staexp">s2varlst</span><span class="keyword">,</span> tmplev<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">case+</span> s2vs <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>s2v<span class="keyword">,</span> s2vs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        s2var_tmplev_set <span class="keyword">(</span>s2v<span class="keyword">,</span> tmplev<span class="keyword">)</span><span class="keyword">;</span> aux_s2vs <span class="keyword">(</span>s2vs<span class="keyword">,</span> tmplev<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">fun</span> aux_s2qualst <span class="keyword">(</span>s2vpss<span class="keyword">:</span> <span class="staexp">s2qualst</span><span class="keyword">,</span> tmplev<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> s2vpss <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>s2vps<span class="keyword">,</span> s2vpss<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        aux_s2vs <span class="keyword">(</span>s2vps<span class="keyword">.</span>0<span class="keyword">,</span> tmplev<span class="keyword">)</span><span class="keyword">;</span> aux_s2qualst <span class="keyword">(</span>s2vpss<span class="keyword">,</span> tmplev<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  aux_s2qualst <span class="keyword">(</span>s2vpss<span class="keyword">,</span> tmplev<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of s2qualst_tmplev_set]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">assume</span> <span class="staexp">d2var_current_level_v <span class="keyword">=</span> unit_v</span>
+<span class="keyword">val</span> the_d2var_current_level <span class="keyword">=</span> ref_make_elt&lt;<span class="staexp">int</span><span class="keyword">&gt;</span> <span class="keyword">(</span>0<span class="keyword">)</span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> d2var_current_level_get <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">!</span>the_d2var_current_level
+<span class="keyword">implement</span> d2var_current_level_set <span class="keyword">(</span>n<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">!</span>the_d2var_current_level := n
+
+<span class="keyword">implement</span> d2var_current_level_inc <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> n <span class="keyword">=</span> <span class="keyword">!</span>the_d2var_current_level <span class="keyword">in</span>
+    <span class="keyword">!</span>the_d2var_current_level := n + 1<span class="keyword">;</span> <span class="keyword">(</span><span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span></span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [d2var_current_level_inc]
+</span>
+<span class="keyword">implement</span> d2var_current_level_inc_and_get <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> n <span class="keyword">=</span> <span class="keyword">!</span>the_d2var_current_level<span class="keyword">;</span> <span class="keyword">val</span> n1 <span class="keyword">=</span> n + 1 <span class="keyword">in</span>
+    <span class="keyword">!</span>the_d2var_current_level := n1<span class="keyword">;</span> <span class="keyword">(</span><span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span></span> <span class="keyword">|</span> n1<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [d2var_current_level_inc_and_get]
+</span>
+<span class="keyword">implement</span> d2var_current_level_dec <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf</span><span class="keyword">;</span> <span class="keyword">val</span> n <span class="keyword">=</span> <span class="keyword">!</span>the_d2var_current_level
+<span class="keyword">in</span>
+  <span class="keyword">!</span>the_d2var_current_level := n - 1
+<span class="keyword">end</span> <span class="comment">// end of [d2var_current_level_dec]
+</span>
+<span class="keyword">implement</span> d2var_current_level_dec_and_get <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf</span><span class="keyword">;</span> <span class="keyword">val</span> n <span class="keyword">=</span> <span class="keyword">!</span>the_d2var_current_level<span class="keyword">;</span> <span class="keyword">val</span> n1 <span class="keyword">=</span> n - 1
+<span class="keyword">in</span>
+  <span class="keyword">!</span>the_d2var_current_level := n1<span class="keyword">;</span> n1
+<span class="keyword">end</span> <span class="comment">// end of [d2var_current_level_dec_and_get]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">assume</span> <span class="staexp">d2expenv_token <span class="keyword">=</span> unit_v</span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="18597"><span class="stacstdec">d2expenv <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_t <span class="keyword">(</span>d2item<span class="keyword">)</span></span></a></span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">val</span> the_d2expenv<span class="keyword">:</span> <span class="staexp">d2expenv</span> <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_make <span class="keyword">(</span><span class="keyword">)</span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> the_d2expenv_add <span class="keyword">(</span>id<span class="keyword">,</span> d2i<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_remove_fst <span class="keyword">(</span>the_d2expenv<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> ans <span class="keyword">of</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  $SymEnv<span class="keyword">.</span>symenv_insert_fst <span class="keyword">(</span>the_d2expenv<span class="keyword">,</span> id<span class="keyword">,</span> d2i<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_add]
+</span>
+<span class="keyword">implement</span> the_d2expenv_add_dcon <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> id <span class="keyword">=</span> d2con_sym_get d2c
+  <span class="keyword">val</span> d2cs <span class="keyword">=</span> <span class="keyword">(</span>
+    <span class="keyword">case+</span> the_d2expenv_find <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">~</span>Some_vt d2i <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> d2i <span class="keyword">of</span>
+      <span class="keyword">|</span> D2ITEMcon d2cs <span class="keyword">=&gt;</span> d2cs <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> D2CONLSTnil <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>    <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> D2CONLSTnil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">d2conlst</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_remove_fst <span class="keyword">(</span>the_d2expenv<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> ans <span class="keyword">of</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  $SymEnv<span class="keyword">.</span>symenv_insert_fst <span class="keyword">(</span>
+    the_d2expenv<span class="keyword">,</span> id<span class="keyword">,</span> D2ITEMcon <span class="keyword">(</span>D2CONLSTcons <span class="keyword">(</span>d2c<span class="keyword">,</span> d2cs<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="comment">// end of [$SymEnv.symenv_insert_fst]
+</span><span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_add_dcon]
+</span>
+<span class="keyword">implement</span> the_d2expenv_add_dcst <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> id <span class="keyword">=</span> d2cst_sym_get d2c <span class="keyword">in</span> the_d2expenv_add <span class="keyword">(</span>id<span class="keyword">,</span> D2ITEMcst d2c<span class="keyword">)</span> <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_add_dcst]
+</span>
+<span class="keyword">implement</span> the_d2expenv_add_dmac_def <span class="keyword">(</span>d2m<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> id <span class="keyword">=</span> d2mac_sym_get d2m <span class="keyword">in</span> the_d2expenv_add <span class="keyword">(</span>id<span class="keyword">,</span> D2ITEMmacdef d2m<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_add_dmac_def]
+</span>
+<span class="keyword">implement</span> the_d2expenv_add_dmac_var <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> id <span class="keyword">=</span> d2var_sym_get d2v <span class="keyword">in</span> the_d2expenv_add <span class="keyword">(</span>id<span class="keyword">,</span> D2ITEMmacvar d2v<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_add_dmac_var]
+</span>
+<span class="keyword">implement</span> the_d2expenv_add_dmac_varlst <span class="keyword">(</span>d2vs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>d2vs<span class="keyword">,</span> the_d2expenv_add_dmac_var<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_add_dmac_varlst]
+</span>
+<span class="keyword">implement</span> the_d2expenv_add_dvar <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> id <span class="keyword">=</span> d2var_sym_get d2v <span class="keyword">in</span> the_d2expenv_add <span class="keyword">(</span>id<span class="keyword">,</span> D2ITEMvar d2v<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_add_dvar]
+</span>
+<span class="keyword">implement</span> the_d2expenv_add_dvarlst <span class="keyword">(</span>d2vs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  $Lst<span class="keyword">.</span>list_foreach_fun <span class="keyword">(</span>d2vs<span class="keyword">,</span> the_d2expenv_add_dvar<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_add_dvarlst]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> the_d2expenv_namespace_find
+  <span class="keyword">(</span>id<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">d2itemopt_vt</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fn</span> f <span class="keyword">(</span>name<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp">d2itemopt_vt</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> ans <span class="keyword">=</span> $HT<span class="keyword">.</span>hashtbl_search <span class="keyword">(</span>the_d2itemmaptbl<span class="keyword">,</span> name<span class="keyword">)</span>
+    <span class="keyword">val</span> r_m <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> ans <span class="keyword">of</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>Some_vt m <span class="keyword">=&gt;</span> m <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          prerr ": d2expenv_namespace_find: name = "<span class="keyword">;</span> $Sym<span class="keyword">.</span>prerr_symbol name<span class="keyword">;</span>
+          prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>d2itemmapref<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">d2itemmapref</span>
+  <span class="keyword">in</span>
+    $SymEnv<span class="keyword">.</span>symmap_ref_search <span class="keyword">(</span>r_m<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [f]
+</span><span class="keyword">in</span>
+  $NS<span class="keyword">.</span>the_namespace_search <span class="keyword">(</span>f<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_namespace_find]
+</span>
+<span class="keyword">implement</span> the_d2expenv_find <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = let
+    val ptr = __cast (the_d2expenv)
+      where { extern castfn __cast (x: d2expenv): ptr }
+    // end of [val]
+  in
+    print "the_d2expenv_find: ptr = "; print ptr; print_newline ()
+  end // end of [val]
+  val () = begin
+    print "the_d2expenv_find: id = "; $Sym.print_symbol id; print_newline ()
+  end // end of [val]
+*)</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span>
+    $SymEnv<span class="keyword">.</span>symenv_search_all <span class="keyword">(</span>the_d2expenv<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="keyword">case+</span> ans <span class="keyword">of</span>
+  <span class="keyword">|</span> Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fold@ ans</span> <span class="keyword">in</span> ans
+    <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>  <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> ans <span class="keyword">=</span> the_d2expenv_namespace_find id
+    <span class="keyword">in</span>
+      <span class="keyword">case+</span> ans <span class="keyword">of</span>
+      <span class="keyword">|</span> Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+          <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fold@ ans</span> <span class="keyword">in</span> ans
+        <span class="keyword">end</span> <span class="comment">// end of [Some]
+</span>      <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          $SymEnv<span class="keyword">.</span>symenv_pervasive_search <span class="keyword">(</span>the_d2expenv<span class="keyword">,</span> id<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span><span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_find]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> the_d2expenv_current_find <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">=</span>
+  $SymEnv<span class="keyword">.</span>symenv_search_all <span class="keyword">(</span>the_d2expenv<span class="keyword">,</span> id<span class="keyword">)</span>
+<span class="comment">// end of [the_d2expenv_current_find]
+</span>
+<span class="keyword">implement</span> the_d2expenv_pervasive_find <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  $SymEnv<span class="keyword">.</span>symenv_pervasive_search <span class="keyword">(</span>the_d2expenv<span class="keyword">,</span> id<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_pervasive_find]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> the_d2expenv_find_qua <span class="keyword">(</span>q<span class="keyword">,</span> id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> q<span class="keyword">.</span>d0ynq_node <span class="keyword">of</span>
+  <span class="keyword">|</span> $Syn<span class="keyword">.</span>D0YNQnone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> the_d2expenv_find id
+  <span class="keyword">|</span> $Syn<span class="keyword">.</span>D0YNQsymdot <span class="keyword">(</span>q_id<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> fil <span class="keyword">=</span> <span class="keyword">case+</span> the_s2expenv_find q_id <span class="keyword">of</span>
+        <span class="keyword">|</span> <span class="keyword">~</span>Some_vt <span class="keyword">(</span>S2ITEMfil fil<span class="keyword">)</span> <span class="keyword">=&gt;</span> fil
+        <span class="keyword">|</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+            prerr_loc_error2 q<span class="keyword">.</span>d0ynq_loc<span class="keyword">;</span>
+            prerr ": the qualifier ["<span class="keyword">;</span>
+            $Sym<span class="keyword">.</span>prerr_symbol q_id<span class="keyword">;</span>
+            prerr "] should refer to a filename but it does not."<span class="keyword">;</span>
+            prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+            $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>fil_t<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>        <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+            prerr_loc_error2 q<span class="keyword">.</span>d0ynq_loc<span class="keyword">;</span>
+            prerr ": the qualifier ["<span class="keyword">;</span>
+            $Sym<span class="keyword">.</span>prerr_symbol q_id<span class="keyword">;</span>
+            prerr "] is unrecognized."<span class="keyword">;</span>
+            prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+            $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>fil_t<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>      <span class="keyword">val</span> fil_sym <span class="keyword">=</span> $Fil<span class="keyword">.</span>filename_full_sym fil
+    <span class="keyword">in</span>
+      <span class="keyword">case+</span> $HT<span class="keyword">.</span>hashtbl_search <span class="keyword">(</span>the_d2itemmaptbl<span class="keyword">,</span> fil_sym<span class="keyword">)</span> <span class="keyword">of</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>Some_vt r_m <span class="keyword">=&gt;</span> $SymEnv<span class="keyword">.</span>symmap_ref_search <span class="keyword">(</span>r_m<span class="keyword">,</span> id<span class="keyword">)</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D0YNQsymdoc]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_find_qua]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> the_d2expenv_pop <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">let</span> <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf</span> <span class="keyword">in</span> $SymEnv<span class="keyword">.</span>symenv_pop <span class="keyword">(</span>the_d2expenv<span class="keyword">)</span> <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_pop]
+</span>
+<span class="keyword">implement</span> the_d2expenv_push <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_push <span class="keyword">(</span>the_d2expenv<span class="keyword">)</span> <span class="keyword">in</span> <span class="keyword">(</span><span class="prfexp">unit_v</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_push]
+</span>
+<span class="keyword">implement</span> the_d2expenv_swap <span class="keyword">(</span>r_map<span class="keyword">)</span> <span class="keyword">=</span>
+  $SymEnv<span class="keyword">.</span>symenv_swap <span class="keyword">(</span>the_d2expenv<span class="keyword">,</span> r_map<span class="keyword">)</span>
+<span class="comment">// end of [the_d2expenv_swap]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> the_d2expenv_localjoin <span class="keyword">(</span><span class="prfexp">pf1</span><span class="keyword">,</span> <span class="prfexp">pf2</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf1 <span class="keyword">and</span> unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf2</span> <span class="keyword">in</span>
+  $SymEnv<span class="keyword">.</span>symenv_localjoin <span class="keyword">(</span>the_d2expenv<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_localjoin]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> the_d2expenv_pervasive_add_topenv <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> m <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_top_get <span class="keyword">(</span>the_d2expenv<span class="keyword">)</span> <span class="keyword">in</span>
+  $SymEnv<span class="keyword">.</span>symenv_pervasive_add <span class="keyword">(</span>the_d2expenv<span class="keyword">,</span> m<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_pervasive_add_topenv]
+</span>
+<span class="keyword">fn</span> the_d2expenv_namespace_add_topenv <span class="keyword">(</span>id<span class="keyword">:</span> <span class="staexp">sym_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> m <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_top_get the_d2expenv
+  <span class="keyword">val</span> r_m <span class="keyword">=</span> ref_make_elt&lt;<span class="staexp">d2itemmap</span><span class="keyword">&gt;</span> <span class="keyword">(</span>m<span class="keyword">)</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> $HT<span class="keyword">.</span>hashtbl_insert <span class="keyword">(</span>the_d2itemmaptbl<span class="keyword">,</span> id<span class="keyword">,</span> r_m<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> ans <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      prerr ": d2expenv_namespace_add_topenv: id = "<span class="keyword">;</span> $Sym<span class="keyword">.</span>prerr_symbol id<span class="keyword">;</span>
+      prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>  <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>  
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_namespace_add_topenv]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> the_d2expenv_save <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_save <span class="keyword">(</span>the_d2expenv<span class="keyword">)</span>
+<span class="keyword">fn</span> the_d2expenv_restore <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $SymEnv<span class="keyword">.</span>symenv_restore <span class="keyword">(</span>the_d2expenv<span class="keyword">)</span>
+
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">assume</span> <span class="staexp">staload_level_token <span class="keyword">=</span> unit_v</span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">val</span> the_staload_level <span class="keyword">=</span> ref_make_elt&lt;<span class="staexp">int</span><span class="keyword">&gt;</span> <span class="keyword">(</span>0<span class="keyword">)</span>
+
+<span class="keyword">in</span>
+
+<span class="keyword">implement</span> staload_level_get_level <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>the_staload_level
+
+<span class="keyword">implement</span> staload_level_push <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> ref_get_view_ptr <span class="keyword">(</span>the_staload_level<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>p := <span class="keyword">!</span>p + 1
+<span class="keyword">in</span>
+  <span class="keyword">(</span><span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span></span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [staload_level_inc]
+</span>
+<span class="keyword">implement</span> staload_level_pop <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> ref_get_view_ptr <span class="keyword">(</span>the_staload_level<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">!</span>p := <span class="keyword">!</span>p - 1
+<span class="keyword">end</span> <span class="comment">// end of [staload_level_dec]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">assume</span> <span class="staexp">trans2_env_token <span class="keyword">=</span> <span class="keyword">@(</span>unit_v<span class="keyword">,</span> unit_v<span class="keyword">,</span> unit_v<span class="keyword">)</span></span>
+
+<span class="keyword">implement</span>
+trans2_env_pop <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $NS<span class="keyword">.</span>the_namespace_pop <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2rtenv_pop <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">.</span>0</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2expenv_pop <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">.</span>1</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2expenv_pop <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">.</span>2</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [trans2_env_pop]
+</span>
+<span class="keyword">implement</span>
+trans2_env_push <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $NS<span class="keyword">.</span>the_namespace_push <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf0</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2rtenv_push <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf1</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2expenv_push <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf2</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2expenv_push <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">(</span><span class="prfexp"><span class="keyword">@(</span>pf0<span class="keyword">,</span> pf1<span class="keyword">,</span> pf2<span class="keyword">)</span></span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [trans2_env_push]
+</span>
+<span class="keyword">implement</span>
+trans2_env_localjoin <span class="keyword">(</span><span class="prfexp">pf1</span><span class="keyword">,</span> <span class="prfexp">pf2</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $NS<span class="keyword">.</span>the_namespace_localjoin <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2rtenv_localjoin <span class="keyword">(</span><span class="prfexp">pf1<span class="keyword">.</span>0</span><span class="keyword">,</span> <span class="prfexp">pf2<span class="keyword">.</span>0</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2expenv_localjoin <span class="keyword">(</span><span class="prfexp">pf1<span class="keyword">.</span>1</span><span class="keyword">,</span> <span class="prfexp">pf2<span class="keyword">.</span>1</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2expenv_localjoin <span class="keyword">(</span><span class="prfexp">pf1<span class="keyword">.</span>2</span><span class="keyword">,</span> <span class="prfexp">pf2<span class="keyword">.</span>2</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [trans2_env_localjoin]
+</span>
+<span class="keyword">implement</span>
+trans2_env_save <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $NS<span class="keyword">.</span>the_namespace_save <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2rtenv_save <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2expenv_save <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2expenv_save <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [trans2_env_save]
+</span>
+<span class="keyword">implement</span>
+trans2_env_restore <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> $NS<span class="keyword">.</span>the_namespace_restore <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2rtenv_restore <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2expenv_restore <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2expenv_restore <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [trans2_env_restore]
+</span>
+<span class="keyword">implement</span>
+trans2_env_pervasive_add_topenv <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2rtenv_pervasive_add_topenv <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2expenv_pervasive_add_topenv <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2expenv_pervasive_add_topenv <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [trans2_env_pervasive_add_topenv]
+</span>
+<span class="keyword">implement</span>
+trans2_env_namespace_add_topenv <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2rtenv_namespace_add_topenv <span class="keyword">(</span>id<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2expenv_namespace_add_topenv <span class="keyword">(</span>id<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2expenv_namespace_add_topenv <span class="keyword">(</span>id<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [trans2_env_namespace_add_topenv]
+</span>
+<span class="keyword">implement</span>
+trans2_env_initialize <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="comment">// sort environment
+</span>  the_s2rtenv_add <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_ADDR<span class="keyword">,</span> S2TEsrt s2rt_addr<span class="keyword">)</span><span class="keyword">;</span>
+  the_s2rtenv_add <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_BOOL<span class="keyword">,</span> S2TEsrt s2rt_bool<span class="keyword">)</span><span class="keyword">;</span>
+  the_s2rtenv_add <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_CHAR<span class="keyword">,</span> S2TEsrt s2rt_char<span class="keyword">)</span><span class="keyword">;</span>
+  the_s2rtenv_add <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_CLS<span class="keyword">,</span> S2TEsrt s2rt_cls<span class="keyword">)</span><span class="keyword">;</span>
+  the_s2rtenv_add <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_EFF<span class="keyword">,</span> S2TEsrt s2rt_eff<span class="keyword">)</span><span class="keyword">;</span>
+  the_s2rtenv_add <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_INT<span class="keyword">,</span> S2TEsrt s2rt_int<span class="keyword">)</span><span class="keyword">;</span>
+  the_s2rtenv_add <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_PROP<span class="keyword">,</span> S2TEsrt s2rt_prop<span class="keyword">)</span><span class="keyword">;</span>
+  the_s2rtenv_add <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_TYPE<span class="keyword">,</span> S2TEsrt s2rt_type<span class="keyword">)</span><span class="keyword">;</span>
+  the_s2rtenv_add <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_T0YPE<span class="keyword">,</span> S2TEsrt s2rt_t0ype<span class="keyword">)</span><span class="keyword">;</span>
+  the_s2rtenv_add <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_VIEW<span class="keyword">,</span> S2TEsrt s2rt_view<span class="keyword">)</span><span class="keyword">;</span>
+  the_s2rtenv_add <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_VIEWTYPE<span class="keyword">,</span> S2TEsrt s2rt_viewtype<span class="keyword">)</span><span class="keyword">;</span>
+  the_s2rtenv_add <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_VIEWT0YPE<span class="keyword">,</span> S2TEsrt s2rt_viewt0ype<span class="keyword">)</span><span class="keyword">;</span>
+  the_s2rtenv_add <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_TYPES<span class="keyword">,</span> S2TEsrt s2rt_types<span class="keyword">)</span><span class="keyword">;</span>
+  the_s2rtenv_pervasive_add_topenv <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+  <span class="comment">// dynamic environment
+</span>  the_d2expenv_add <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_LRBRACKETS<span class="keyword">,</span> D2ITEMsymdef nil<span class="keyword">)</span><span class="keyword">;</span>
+  the_d2expenv_pervasive_add_topenv <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [trans2_env_initialize]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_trans2_env.dats] *)</span>
+</pre>
+</body>
+</html>

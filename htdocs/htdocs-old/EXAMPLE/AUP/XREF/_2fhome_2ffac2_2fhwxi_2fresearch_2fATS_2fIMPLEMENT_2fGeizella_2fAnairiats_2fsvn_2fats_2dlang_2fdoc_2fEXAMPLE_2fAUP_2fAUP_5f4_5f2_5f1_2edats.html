@@ -1,0 +1,178 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: September, 2010
+</span><span class="comment">//
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// book: AUP (2nd edition), pages 204 - 208
+</span><span class="comment">// section: 4.2: Reading from a Terminal
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/errno.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">F <span class="keyword">=</span> "libc/SATS/fcntl.sats"</span>
+<span class="keyword">macdef</span> <span class="neuexp">fildes_read_err <span class="keyword">=</span> $F<span class="keyword">.</span>read_err</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/unistd.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#include</span> <span class="neuexp">"prelude/HATS/lmacrodef.hats"</span> <span class="comment">// for println
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> getln <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>pos<span class="keyword">}</span></span> <span class="keyword">(</span>
+    s<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bytes<span class="keyword">(</span>n<span class="keyword">)</span></span><span class="keyword">,</span> nmax<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">,</span> iseof<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bool</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_fd</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> stdin_fildes_view_get <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> nread <span class="keyword">=</span> fildes_read_err <span class="keyword">(</span><span class="prfexp">pf_fd</span> <span class="keyword">|</span> STDIN_FILENO<span class="keyword">,</span> s<span class="keyword">,</span> nmax - 1<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> res <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> 0 <span class="keyword">of</span>
+<span class="keyword">|</span> _ <span class="keyword">when</span> nread <span class="keyword">&gt;</span> 0 <span class="keyword">=&gt;</span> true <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> iseof := false
+    <span class="keyword">val</span> nread <span class="keyword">=</span> size1_of_ssize1 <span class="keyword">(</span>nread<span class="keyword">)</span>
+    <span class="keyword">val</span> nread1 <span class="keyword">=</span> nread - 1
+    <span class="keyword">macdef</span> <span class="neuexp">NUL <span class="keyword">=</span> byte_of_char<span class="keyword">(</span>'\0'<span class="keyword">)</span></span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> s<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">nread1</span><span class="keyword">]</span> <span class="keyword">=</span> <span class="keyword">(</span>byte_of_char<span class="keyword">)</span>'\n'
+      <span class="keyword">then</span> s<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">nread1</span><span class="keyword">]</span> := NUL <span class="keyword">else</span> s<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">nread</span><span class="keyword">]</span> := NUL
+    <span class="comment">// end of [val]
+</span>  <span class="keyword">}</span> <span class="comment">// end of [_ when ...]
+</span><span class="keyword">|</span> _ <span class="keyword">when</span> nread &gt;= 0 <span class="keyword">=&gt;</span> true <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> iseof := true
+  <span class="keyword">}</span> <span class="comment">// end of [_ when ...]
+</span><span class="keyword">|</span> _ <span class="comment">(* nread=-1 *)</span> <span class="keyword">=&gt;</span> false
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">bool</span> <span class="comment">// end of [val]
+</span><span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> stdin_fildes_view_set <span class="keyword">(</span><span class="prfexp">pf_fd</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  res
+<span class="keyword">end</span> <span class="comment">// end of [getln]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+#define atslib_read1(c) read(STDIN_FILENO, c, 1)
+%}</span> <span class="comment">// end of [%{^]
+</span>
+<span class="keyword">#define</span> <span class="neuexp">c2b byte_of_char</span>
+
+<span class="keyword">fun</span> getln2 <span class="staexp"><span class="keyword">{</span>nmax<span class="keyword">:</span>pos<span class="keyword">}</span></span> <span class="keyword">(</span>
+    s<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bytes<span class="keyword">(</span>nmax<span class="keyword">)</span></span><span class="keyword">,</span> nmax<span class="keyword">:</span> <span class="staexp">size_t nmax</span><span class="keyword">,</span> iseof<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>bool</span> 
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">//
+</span>  <span class="keyword">extern</span> <span class="keyword">fun</span> <a name="1445"><span class="dyncstdec">read1 <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>fildes_v <span class="keyword">(</span>STDIN_FILENO<span class="keyword">)</span></span></span> <span class="keyword">|</span> c<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>char</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">ssize_t</span></span></a> <span class="keyword">=</span> "#atslib_read1"
+<span class="comment">//
+</span>  <span class="keyword">var</span> c<span class="keyword">:</span> <span class="staexp">char</span> <span class="keyword">=</span> '\000'
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_fd</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> stdin_fildes_view_get <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">var</span> n<span class="keyword">:</span> <span class="staexp">natLte nmax</span> <span class="keyword">=</span> 0
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> iseof := false
+  <span class="keyword">var</span> res<span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> false
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">while*</span>
+    <span class="keyword">{</span><span class="staexp">n<span class="keyword">:</span>nat</span> <span class="keyword">|</span> <span class="staexp">n <span class="keyword">&lt;</span> nmax</span><span class="keyword">}</span> <span class="keyword">(</span>n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">)</span> <span class="keyword">=&gt;</span>
+    <span class="keyword">(</span>true<span class="keyword">)</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> nread <span class="keyword">=</span> read1 <span class="keyword">(</span><span class="prfexp">pf_fd</span> <span class="keyword">|</span> c<span class="keyword">)</span>
+    <span class="keyword">val</span> nread <span class="keyword">=</span> int_of_ssize <span class="keyword">(</span>nread<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+    <span class="keyword">|</span> _ <span class="keyword">when</span> nread <span class="keyword">=</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">n</span><span class="keyword">]</span> := <span class="keyword">(</span>c2b<span class="keyword">)</span>'\0'
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> iseof := true
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> res := true
+      <span class="keyword">in</span>
+        <span class="keyword">break</span>
+      <span class="keyword">end</span> <span class="comment">// end of [_ when ...]
+</span>    <span class="keyword">|</span> _ <span class="keyword">when</span> nread &gt;= 1 <span class="keyword">=&gt;</span>
+        <span class="keyword">if</span> c <span class="keyword">=</span> '\n' <span class="keyword">then</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> s<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">n</span><span class="keyword">]</span> := <span class="keyword">(</span>c2b<span class="keyword">)</span>'\0'
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> res := true
+        <span class="keyword">in</span>
+          <span class="keyword">break</span>
+        <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">(</span>
+          <span class="keyword">if</span> n+1 <span class="keyword">&lt;</span> nmax <span class="keyword">then</span>
+            <span class="keyword">(</span>s<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">n</span><span class="keyword">]</span> := c2b<span class="keyword">(</span>c<span class="keyword">)</span><span class="keyword">;</span> n := n+1<span class="keyword">;</span> <span class="keyword">continue</span><span class="keyword">)</span>
+          <span class="keyword">else</span>
+            <span class="keyword">(</span>s<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">n</span><span class="keyword">]</span> := c2b<span class="keyword">(</span>'\0'<span class="keyword">)</span><span class="keyword">;</span> errno_set <span class="keyword">(</span>E2BIG<span class="keyword">)</span><span class="keyword">;</span> <span class="keyword">break</span><span class="keyword">)</span>
+          <span class="comment">// end of [if]
+</span>        <span class="keyword">)</span> <span class="comment">// end of [if]
+</span>      <span class="comment">// end of [_ when ...]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">break</span> <span class="comment">// HX: [read1]  failed
+</span>  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> stdin_fildes_view_set <span class="keyword">(</span><span class="prfexp">pf_fd</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  res
+<span class="keyword">end</span> <span class="comment">// end of [getln2]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">BUFSZ 1024</span>
+
+<span class="keyword">implement</span>
+main <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">var</span> <span class="keyword">!</span>p_buf <span class="keyword">with</span> <span class="prfexp">pf_buf</span> <span class="keyword">=</span> <span class="keyword">@[</span><span class="staexp">byte</span><span class="keyword">]</span><span class="keyword">[</span>BUFSZ<span class="keyword">]</span><span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_buf := bytes_v_of_b0ytes_v <span class="keyword">(</span>pf_buf<span class="keyword">)</span></span>
+  <span class="keyword">var</span> iseof<span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> false
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> println "Please input:"
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">while</span> <span class="keyword">(</span>true<span class="keyword">)</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> err <span class="keyword">=</span> getln <span class="keyword">(</span><span class="keyword">!</span>p_buf<span class="keyword">,</span> BUFSZ<span class="keyword">,</span> iseof<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">~</span>err <span class="keyword">then</span> <span class="keyword">break</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> iseof <span class="keyword">then</span>
+      printf <span class="keyword">(</span>"EOF\n"<span class="keyword">,</span> <span class="keyword">@(</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">else</span>
+      printf <span class="keyword">(</span>"Read: %s\n"<span class="keyword">,</span> <span class="keyword">@(</span>__cast p_buf<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">extern</span> <span class="keyword">castfn</span> <a name="3034"><span class="dyncstdec">__cast <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">ptr</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">string</span></span></a> <span class="comment">// cutting a corner
+</span>      <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>    <span class="comment">// end of [val]
+</span>    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> iseof <span class="keyword">then</span> <span class="keyword">break</span>
+  <span class="keyword">in</span>
+    <span class="comment">// nothing
+</span>  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> println "Please input:"
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">while</span> <span class="keyword">(</span>true<span class="keyword">)</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> err <span class="keyword">=</span> getln2 <span class="keyword">(</span><span class="keyword">!</span>p_buf<span class="keyword">,</span> BUFSZ<span class="keyword">,</span> iseof<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">~</span>err <span class="keyword">then</span> <span class="keyword">break</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> iseof <span class="keyword">then</span>
+      printf <span class="keyword">(</span>"EOF\n"<span class="keyword">,</span> <span class="keyword">@(</span><span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">else</span>
+      printf <span class="keyword">(</span>"Read: %s\n"<span class="keyword">,</span> <span class="keyword">@(</span>__cast p_buf<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">extern</span> <span class="keyword">castfn</span> <a name="3480"><span class="dyncstdec">__cast <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">ptr</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">string</span></span></a> <span class="comment">// cutting a corner
+</span>      <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>    <span class="comment">// end of [val]
+</span>    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> iseof <span class="keyword">then</span> <span class="keyword">break</span>
+  <span class="keyword">in</span>
+    <span class="comment">// nothing
+</span>  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="comment">//
+</span><span class="keyword">}</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [AUP_4_2_1.dats] *)</span>
+</pre>
+</body>
+</html>

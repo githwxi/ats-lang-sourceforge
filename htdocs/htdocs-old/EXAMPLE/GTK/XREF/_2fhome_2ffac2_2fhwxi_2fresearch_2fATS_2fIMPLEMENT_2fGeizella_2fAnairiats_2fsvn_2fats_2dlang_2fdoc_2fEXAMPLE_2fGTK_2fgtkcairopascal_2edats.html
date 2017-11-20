@@ -1,0 +1,415 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(*
+**
+** A simple GTK/CAIRO example:
+** Illustrating a famous theorm of Pascal's
+**
+** Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+** Time: Summer, 2010
+**
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">_ <span class="keyword">=</span> "prelude/DATS/list_vt.dats"</span>
+<span class="keyword">staload</span> <span class="staexp">_ <span class="keyword">=</span> "prelude/DATS/reference.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/math.sats"</span>
+
+<span class="keyword">macdef</span> <span class="neuexp">PI <span class="keyword">=</span> M_PI</span>
+<span class="keyword">macdef</span> <span class="neuexp">_2PI <span class="keyword">=</span> 2*PI</span>
+
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/random.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"contrib/cairo/SATS/cairo.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="458"><span class="stacstdec">dbl <span class="keyword">=</span> double</span></a></span>
+
+<span class="comment">// y = k1 * x + b1
+</span><span class="comment">// y = k2 * x + b2
+</span>
+<span class="keyword">fun</span> line_intersect <span class="keyword">(</span>
+    k1<span class="keyword">:</span> <span class="staexp">dbl</span><span class="keyword">,</span> b1<span class="keyword">:</span> <span class="staexp">dbl</span><span class="keyword">,</span> k2<span class="keyword">:</span> <span class="staexp">dbl</span><span class="keyword">,</span> b2<span class="keyword">:</span> <span class="staexp">dbl</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><span class="keyword">@(</span>dbl<span class="keyword">,</span> dbl<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">(</span>x<span class="keyword">,</span> y<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> x <span class="keyword">=</span> <span class="keyword">(</span>b1 - b2<span class="keyword">)</span> / <span class="keyword">(</span>k2 - k1<span class="keyword">)</span><span class="keyword">;</span> <span class="keyword">val</span> y <span class="keyword">=</span> k1 * x + b1
+<span class="keyword">}</span> <span class="comment">// end of [line_intersect]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> sort <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">list_vt <span class="keyword">(</span>double<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">list_vt <span class="keyword">(</span>double<span class="keyword">,</span> n<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> <span class="keyword">!</span>p_cmp <span class="keyword">=</span> @lam <span class="keyword">(</span>x1<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>double</span><span class="keyword">,</span> x2<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>double</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">Sgn</span> <span class="keyword">=&lt;</span><span class="staexp">clo</span><span class="keyword">&gt;</span> compare <span class="keyword">(</span>x1<span class="keyword">,</span> x2<span class="keyword">)</span>
+<span class="keyword">in</span>
+  list_vt_mergesort&lt;<span class="staexp">double</span><span class="keyword">&gt;</span> <span class="keyword">(</span>xs<span class="keyword">,</span> <span class="keyword">!</span>p_cmp<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [sort]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> draw_colinear <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>agz<span class="keyword">}</span></span> <span class="keyword">(</span>
+    cr<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>cairo_ref l</span>
+  <span class="keyword">,</span> x1<span class="keyword">:</span> <span class="staexp">double</span><span class="keyword">,</span> y1<span class="keyword">:</span> <span class="staexp">double</span><span class="keyword">,</span> x2<span class="keyword">:</span> <span class="staexp">double</span><span class="keyword">,</span> y2<span class="keyword">:</span> <span class="staexp">double</span><span class="keyword">,</span> x3<span class="keyword">:</span> <span class="staexp">double</span><span class="keyword">,</span> y3<span class="keyword">:</span> <span class="staexp">double</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> x1 &lt;= x2 <span class="keyword">then</span>
+    <span class="keyword">if</span> x1 &lt;= x3 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_move_to <span class="keyword">(</span>cr<span class="keyword">,</span> x1<span class="keyword">,</span> y1<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> x2 &lt;= x3 <span class="keyword">then</span> cairo_line_to <span class="keyword">(</span>cr<span class="keyword">,</span> x3<span class="keyword">,</span> y3<span class="keyword">)</span> <span class="keyword">else</span> cairo_line_to <span class="keyword">(</span>cr<span class="keyword">,</span> x2<span class="keyword">,</span> y2<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_move_to <span class="keyword">(</span>cr<span class="keyword">,</span> x3<span class="keyword">,</span> y3<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      cairo_line_to <span class="keyword">(</span>cr<span class="keyword">,</span> x2<span class="keyword">,</span> y2<span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">else</span> <span class="comment">// x2 &lt; x1
+</span>    <span class="keyword">if</span> x2 &lt;= x3 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_move_to <span class="keyword">(</span>cr<span class="keyword">,</span> x2<span class="keyword">,</span> y2<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> x1 &lt;= x3 <span class="keyword">then</span> cairo_line_to <span class="keyword">(</span>cr<span class="keyword">,</span> x3<span class="keyword">,</span> y3<span class="keyword">)</span> <span class="keyword">else</span> cairo_line_to <span class="keyword">(</span>cr<span class="keyword">,</span> x1<span class="keyword">,</span> y1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_move_to <span class="keyword">(</span>cr<span class="keyword">,</span> x3<span class="keyword">,</span> y3<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      cairo_line_to <span class="keyword">(</span>cr<span class="keyword">,</span> x1<span class="keyword">,</span> y1<span class="keyword">)</span>
+    <span class="keyword">end</span> 
+  <span class="comment">// end of [if]
+</span><span class="comment">(* end of [draw_colinear] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">:: list0_cons</span>
+<span class="keyword">#define</span> <span class="neuexp">nil list0_nil</span>
+
+<span class="keyword">fun</span> genRandDoubles
+  <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>n<span class="keyword">:</span> <span class="staexp">int n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">list_vt <span class="keyword">(</span>double<span class="keyword">,</span> n<span class="keyword">)</span></span> <span class="keyword">=</span>
+  <span class="keyword">if</span> n <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> x <span class="keyword">=</span> drand48 <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">in</span> list_vt_cons <span class="keyword">(</span>x<span class="keyword">,</span> genRandDoubles <span class="keyword">(</span>n-1<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> list_vt_nil
+<span class="comment">// end of [genRandDoubles]
+</span>
+<span class="keyword">local</span>
+<span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> srand48_with_time <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+<span class="keyword">val</span> theVertexLst
+  <span class="keyword">:</span> <span class="staexp">ref <span class="keyword">(</span>list0 double<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> ts <span class="keyword">=</span> genRandDoubles <span class="keyword">(</span>6<span class="keyword">)</span>
+  <span class="keyword">val</span> ts <span class="keyword">=</span> sort <span class="keyword">(</span>ts<span class="keyword">)</span><span class="keyword">;</span> <span class="keyword">val</span> ts <span class="keyword">=</span> list0_of_list_vt <span class="keyword">(</span>ts<span class="keyword">)</span>
+<span class="keyword">in</span>
+  ref_make_elt&lt;<span class="staexp">list0 double</span><span class="keyword">&gt;</span> <span class="keyword">(</span>ts<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// enbd of [theVertexLst]
+</span><span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="2248"><span class="dyncstdec">draw_pascal_theorem
+  <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>agz<span class="keyword">}</span></span> <span class="keyword">(</span>cr<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>cairo_ref l</span><span class="keyword">,</span> W<span class="keyword">:</span> <span class="staexp">double</span><span class="keyword">,</span> H<span class="keyword">:</span> <span class="staexp">double</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+<span class="comment">// end of [draw_pascal_theorem]
+</span>
+<span class="keyword">implement</span>
+draw_pascal_theorem
+  <span class="keyword">(</span>cr<span class="keyword">,</span> W<span class="keyword">,</span> H<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> ts <span class="keyword">=</span> <span class="keyword">!</span>theVertexLst
+  <span class="keyword">val-</span> t1 :: t2 :: t3 :: t4 :: t5 :: t6 :: nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> ts
+  <span class="keyword">val</span> a1 <span class="keyword">=</span> _2PI * t1
+  <span class="keyword">val</span> x1 <span class="keyword">=</span> cos a1 <span class="keyword">and</span> y1 <span class="keyword">=</span> sin a1
+  <span class="keyword">val</span> a2 <span class="keyword">=</span> _2PI * t2
+  <span class="keyword">val</span> x2 <span class="keyword">=</span> cos a2 <span class="keyword">and</span> y2 <span class="keyword">=</span> sin a2
+  <span class="keyword">val</span> a3 <span class="keyword">=</span> _2PI * t3
+  <span class="keyword">val</span> x3 <span class="keyword">=</span> cos a3 <span class="keyword">and</span> y3 <span class="keyword">=</span> sin a3
+  <span class="keyword">val</span> a4 <span class="keyword">=</span> _2PI * t4
+  <span class="keyword">val</span> x4 <span class="keyword">=</span> cos a4 <span class="keyword">and</span> y4 <span class="keyword">=</span> sin a4
+  <span class="keyword">val</span> a5 <span class="keyword">=</span> _2PI * t5
+  <span class="keyword">val</span> x5 <span class="keyword">=</span> cos a5 <span class="keyword">and</span> y5 <span class="keyword">=</span> sin a5
+  <span class="keyword">val</span> a6 <span class="keyword">=</span> _2PI * t6
+  <span class="keyword">val</span> x6 <span class="keyword">=</span> cos a6 <span class="keyword">and</span> y6 <span class="keyword">=</span> sin a6
+<span class="comment">//
+</span>  <span class="keyword">val</span> k12 <span class="keyword">=</span> <span class="keyword">(</span>y1 - y2<span class="keyword">)</span> / <span class="keyword">(</span>x1 - x2<span class="keyword">)</span>
+  <span class="keyword">val</span> b12 <span class="keyword">=</span> y1 - k12 * x1
+  <span class="keyword">val</span> k23 <span class="keyword">=</span> <span class="keyword">(</span>y2 - y3<span class="keyword">)</span> / <span class="keyword">(</span>x2 - x3<span class="keyword">)</span>
+  <span class="keyword">val</span> b23 <span class="keyword">=</span> y2 - k23 * x2
+  <span class="keyword">val</span> k34 <span class="keyword">=</span> <span class="keyword">(</span>y3 - y4<span class="keyword">)</span> / <span class="keyword">(</span>x3 - x4<span class="keyword">)</span>
+  <span class="keyword">val</span> b34 <span class="keyword">=</span> y3 - k34 * x3
+  <span class="keyword">val</span> k45 <span class="keyword">=</span> <span class="keyword">(</span>y4 - y5<span class="keyword">)</span> / <span class="keyword">(</span>x4 - x5<span class="keyword">)</span>
+  <span class="keyword">val</span> b45 <span class="keyword">=</span> y4 - k45 * x4
+  <span class="keyword">val</span> k56 <span class="keyword">=</span> <span class="keyword">(</span>y5 - y6<span class="keyword">)</span> / <span class="keyword">(</span>x5 - x6<span class="keyword">)</span>
+  <span class="keyword">val</span> b56 <span class="keyword">=</span> y5 - k56 * x5
+  <span class="keyword">val</span> k61 <span class="keyword">=</span> <span class="keyword">(</span>y6 - y1<span class="keyword">)</span> / <span class="keyword">(</span>x6 - x1<span class="keyword">)</span>
+  <span class="keyword">val</span> b61 <span class="keyword">=</span> y6 - k61 * x6
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span>px1<span class="keyword">,</span> py1<span class="keyword">)</span> <span class="keyword">=</span> line_intersect <span class="keyword">(</span>k12<span class="keyword">,</span> b12<span class="keyword">,</span> k45<span class="keyword">,</span> b45<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span>px2<span class="keyword">,</span> py2<span class="keyword">)</span> <span class="keyword">=</span> line_intersect <span class="keyword">(</span>k23<span class="keyword">,</span> b23<span class="keyword">,</span> k56<span class="keyword">,</span> b56<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span>px3<span class="keyword">,</span> py3<span class="keyword">)</span> <span class="keyword">=</span> line_intersect <span class="keyword">(</span>k34<span class="keyword">,</span> b34<span class="keyword">,</span> k61<span class="keyword">,</span> b61<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> pxs <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">#define</span> <span class="neuexp">nil list_vt_nil</span>
+    <span class="keyword">#define</span> <span class="neuexp">:: list_vt_cons</span>
+  <span class="keyword">in</span>
+    1.0 :: ~1.0 :: px1 :: px2 :: px3 :: nil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> qxs <span class="keyword">=</span> sort <span class="keyword">(</span>pxs<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">~</span>list_vt_cons <span class="keyword">(</span>qx1<span class="keyword">,</span> qxs<span class="keyword">)</span> <span class="keyword">=</span> qxs
+  <span class="keyword">val</span> <span class="keyword">~</span>list_vt_cons <span class="keyword">(</span>_qx2<span class="keyword">,</span> qxs<span class="keyword">)</span> <span class="keyword">=</span> qxs
+  <span class="keyword">val</span> <span class="keyword">~</span>list_vt_cons <span class="keyword">(</span>_qx3<span class="keyword">,</span> qxs<span class="keyword">)</span> <span class="keyword">=</span> qxs
+  <span class="keyword">val</span> <span class="keyword">~</span>list_vt_cons <span class="keyword">(</span>_qx4<span class="keyword">,</span> qxs<span class="keyword">)</span> <span class="keyword">=</span> qxs
+  <span class="keyword">val</span> <span class="keyword">~</span>list_vt_cons <span class="keyword">(</span>qx5<span class="keyword">,</span> qxs<span class="keyword">)</span> <span class="keyword">=</span> qxs
+  <span class="keyword">val</span> <span class="keyword">~</span>list_vt_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> qxs
+<span class="comment">//
+</span>  <span class="keyword">val</span> dx <span class="keyword">=</span> qx5 - qx1
+<span class="comment">//
+</span>  <span class="keyword">val</span> pys <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">#define</span> <span class="neuexp">nil list_vt_nil</span>
+    <span class="keyword">#define</span> <span class="neuexp">:: list_vt_cons</span>
+  <span class="keyword">in</span>
+    1.0 :: ~1.0 :: py1 :: py2 :: py3 :: nil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> qys <span class="keyword">=</span> sort <span class="keyword">(</span>pys<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">~</span>list_vt_cons <span class="keyword">(</span>qy1<span class="keyword">,</span> qys<span class="keyword">)</span> <span class="keyword">=</span> qys
+  <span class="keyword">val</span> <span class="keyword">~</span>list_vt_cons <span class="keyword">(</span>_qy2<span class="keyword">,</span> qys<span class="keyword">)</span> <span class="keyword">=</span> qys
+  <span class="keyword">val</span> <span class="keyword">~</span>list_vt_cons <span class="keyword">(</span>_qy3<span class="keyword">,</span> qys<span class="keyword">)</span> <span class="keyword">=</span> qys
+  <span class="keyword">val</span> <span class="keyword">~</span>list_vt_cons <span class="keyword">(</span>_qy4<span class="keyword">,</span> qys<span class="keyword">)</span> <span class="keyword">=</span> qys
+  <span class="keyword">val</span> <span class="keyword">~</span>list_vt_cons <span class="keyword">(</span>qy5<span class="keyword">,</span> qys<span class="keyword">)</span> <span class="keyword">=</span> qys
+  <span class="keyword">val</span> <span class="keyword">~</span>list_vt_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> qys
+<span class="comment">//
+</span>  <span class="keyword">val</span> dy <span class="keyword">=</span> qy5 - qy1
+<span class="comment">//
+</span>  <span class="keyword">val</span> WH <span class="keyword">=</span> min <span class="keyword">(</span>W<span class="keyword">,</span> H<span class="keyword">)</span>
+  <span class="keyword">val</span> dxy <span class="keyword">=</span> max <span class="keyword">(</span>dx<span class="keyword">,</span> dy<span class="keyword">)</span>
+  <span class="keyword">val</span> alpha <span class="keyword">=</span> WH / dxy
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_translate <span class="keyword">(</span>cr<span class="keyword">,</span> <span class="keyword">(</span>W-WH<span class="keyword">)</span>/2<span class="keyword">,</span> <span class="keyword">(</span>H-WH<span class="keyword">)</span>/2<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_scale <span class="keyword">(</span>cr<span class="keyword">,</span> alpha<span class="keyword">,</span> alpha<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_rectangle <span class="keyword">(</span>cr<span class="keyword">,</span> 0.0<span class="keyword">,</span> 0.0<span class="keyword">,</span> dxy<span class="keyword">,</span> dxy<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_set_source_rgb <span class="keyword">(</span>cr<span class="keyword">,</span> 1.0<span class="keyword">,</span> 1.0<span class="keyword">,</span> 1.0<span class="keyword">)</span> <span class="comment">// white color
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_fill <span class="keyword">(</span>cr<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_translate <span class="keyword">(</span>
+    cr<span class="keyword">,</span> <span class="keyword">(</span>dxy - dx<span class="keyword">)</span> / 2 - <span class="keyword">(</span>qx1/dx<span class="keyword">)</span>*dx<span class="keyword">,</span> <span class="keyword">(</span>dxy - dy<span class="keyword">)</span> / 2 - <span class="keyword">(</span>qy1/dy<span class="keyword">)</span>*dy
+  <span class="keyword">)</span> <span class="comment">// end of [val]
+</span><span class="comment">//
+</span>  <span class="keyword">val</span> xc <span class="keyword">=</span> 0.0 <span class="keyword">and</span> yc <span class="keyword">=</span> 0.0<span class="keyword">;</span> <span class="keyword">val</span> rad <span class="keyword">=</span> 1.0
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_arc <span class="keyword">(</span>cr<span class="keyword">,</span> xc<span class="keyword">,</span> yc<span class="keyword">,</span> rad<span class="keyword">,</span> 0.0<span class="keyword">,</span> _2PI<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_set_source_rgb <span class="keyword">(</span>cr<span class="keyword">,</span> 0.0<span class="keyword">,</span> 0.0<span class="keyword">,</span> 1.0<span class="keyword">)</span> <span class="comment">// blue color
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_fill <span class="keyword">(</span>cr<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_move_to <span class="keyword">(</span>cr<span class="keyword">,</span> x1<span class="keyword">,</span> y1<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_line_to <span class="keyword">(</span>cr<span class="keyword">,</span> x2<span class="keyword">,</span> y2<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_line_to <span class="keyword">(</span>cr<span class="keyword">,</span> x3<span class="keyword">,</span> y3<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_line_to <span class="keyword">(</span>cr<span class="keyword">,</span> x4<span class="keyword">,</span> y4<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_line_to <span class="keyword">(</span>cr<span class="keyword">,</span> x5<span class="keyword">,</span> y5<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_line_to <span class="keyword">(</span>cr<span class="keyword">,</span> x6<span class="keyword">,</span> y6<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_close_path <span class="keyword">(</span>cr<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_set_source_rgb <span class="keyword">(</span>cr<span class="keyword">,</span> 1.0<span class="keyword">,</span> 1.0<span class="keyword">,</span> 0.0<span class="keyword">)</span> <span class="comment">// yellow color
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_fill <span class="keyword">(</span>cr<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_set_line_width <span class="keyword">(</span>cr<span class="keyword">,</span> 0.01<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_set_source_rgb <span class="keyword">(</span>cr<span class="keyword">,</span> 0.0<span class="keyword">,</span> 0.0<span class="keyword">,</span> 0.0<span class="keyword">)</span> <span class="comment">// black color
+</span><span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> draw_colinear <span class="keyword">(</span>cr<span class="keyword">,</span> x1<span class="keyword">,</span> y1<span class="keyword">,</span> x2<span class="keyword">,</span> y2<span class="keyword">,</span> px1<span class="keyword">,</span> py1<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> draw_colinear <span class="keyword">(</span>cr<span class="keyword">,</span> x4<span class="keyword">,</span> y4<span class="keyword">,</span> x5<span class="keyword">,</span> y5<span class="keyword">,</span> px1<span class="keyword">,</span> py1<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> draw_colinear <span class="keyword">(</span>cr<span class="keyword">,</span> x2<span class="keyword">,</span> y2<span class="keyword">,</span> x3<span class="keyword">,</span> y3<span class="keyword">,</span> px2<span class="keyword">,</span> py2<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> draw_colinear <span class="keyword">(</span>cr<span class="keyword">,</span> x5<span class="keyword">,</span> y5<span class="keyword">,</span> x6<span class="keyword">,</span> y6<span class="keyword">,</span> px2<span class="keyword">,</span> py2<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> draw_colinear <span class="keyword">(</span>cr<span class="keyword">,</span> x3<span class="keyword">,</span> y3<span class="keyword">,</span> x4<span class="keyword">,</span> y4<span class="keyword">,</span> px3<span class="keyword">,</span> py3<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> draw_colinear <span class="keyword">(</span>cr<span class="keyword">,</span> x6<span class="keyword">,</span> y6<span class="keyword">,</span> x1<span class="keyword">,</span> y1<span class="keyword">,</span> px3<span class="keyword">,</span> py3<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> draw_colinear <span class="keyword">(</span>cr<span class="keyword">,</span> px1<span class="keyword">,</span> py1<span class="keyword">,</span> px2<span class="keyword">,</span> py2<span class="keyword">,</span> px3<span class="keyword">,</span> py3<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_stroke <span class="keyword">(</span>cr<span class="keyword">)</span>
+<span class="comment">//
+</span><span class="keyword">}</span> <span class="comment">// end of [draw_pascal_theorem]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"contrib/glib/SATS/glib.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"contrib/glib/SATS/glib-object.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"contrib/GTK/SATS/gdk.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"contrib/GTK/SATS/gtk.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"contrib/GTK/SATS/gtkclassdec.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+GtkWidget *the_drawingarea = NULL;
+ats_ptr_type
+the_drawingarea_get () {
+  g_object_ref (G_OBJECT(the_drawingarea)); return the_drawingarea ;
+}
+ats_void_type
+the_drawingarea_set (ats_ptr_type x) {
+  g_object_ref(G_OBJECT(x)) ;
+  if (the_drawingarea) g_object_unref (G_OBJECT(the_drawingarea));
+  the_drawingarea = x ;
+  return ;
+} // end of [the_drawingarea_set]
+%}</span> <span class="comment">// end of [%{^] 
+</span><span class="keyword">extern</span> <span class="keyword">fun</span> <a name="6418"><span class="dyncstdec">the_drawingarea_get <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">GtkDrawingArea_ref1</span></span></a> <span class="keyword">=</span> "the_drawingarea_get"
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="6497"><span class="dyncstdec">the_drawingarea_set <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>GtkDrawingArea_ref1</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "the_drawingarea_set"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> fnext <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> ts <span class="keyword">=</span> genRandDoubles <span class="keyword">(</span>6<span class="keyword">)</span>
+  <span class="keyword">val</span> ts <span class="keyword">=</span> sort <span class="keyword">(</span>ts<span class="keyword">)</span>
+  <span class="keyword">val</span> ts <span class="keyword">=</span> list0_of_list_vt <span class="keyword">(</span>ts<span class="keyword">)</span> <span class="comment">// no-op
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>theVertexLst := ts
+  <span class="keyword">val</span> darea <span class="keyword">=</span> the_drawingarea_get <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf</span><span class="keyword">,</span> <span class="prfexp">fpf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> gtk_widget_getref_allocation <span class="keyword">(</span>darea<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> gtk_widget_queue_draw_area <span class="keyword">(</span>darea<span class="keyword">,</span> <span class="keyword">(</span>gint<span class="keyword">)</span>0<span class="keyword">,</span> <span class="keyword">(</span>gint<span class="keyword">)</span>0<span class="keyword">,</span> p<span class="keyword">-&gt;</span>width<span class="keyword">,</span> p<span class="keyword">-&gt;</span>height<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> minus_addback <span class="keyword">(</span><span class="prfexp">fpf</span><span class="keyword">,</span> <span class="prfexp">pf</span> <span class="keyword">|</span> darea<span class="keyword">)</span></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> g_object_unref <span class="keyword">(</span>darea<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [fnext]
+</span>
+<span class="keyword">fun</span> draw_main <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>agz<span class="keyword">}</span></span> <span class="keyword">(</span>
+    cr<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>cairo_ref l</span><span class="keyword">,</span> W<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> H<span class="keyword">:</span> <span class="staexp">int</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> W <span class="keyword">=</span> <span class="keyword">(</span>double_of<span class="keyword">)</span>W
+  <span class="keyword">and</span> H <span class="keyword">=</span> <span class="keyword">(</span>double_of<span class="keyword">)</span>H
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> draw_pascal_theorem <span class="keyword">(</span>cr<span class="keyword">,</span> W<span class="keyword">,</span> H<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [draw_main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+extern
+ats_void_type
+mainats (ats_int_type argc, ats_ptr_type argv) ;
+%}</span> <span class="comment">// end of [%{^]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> fexpose
+  <span class="staexp"><span class="keyword">{</span>c<span class="keyword">:</span>cls <span class="keyword">|</span> c &lt;= GtkDrawingArea<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>agz<span class="keyword">}</span></span>
+  <span class="keyword">(</span>darea<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>gobjref <span class="keyword">(</span>c<span class="keyword">,</span> l<span class="keyword">)</span></span><span class="keyword">,</span> event<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>GdkEvent</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">gboolean</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> clstrans <span class="staexp"><span class="keyword">{</span>c<span class="keyword">,</span>GtkDrawingArea<span class="keyword">,</span>GtkWidget<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">fpf_win</span> <span class="keyword">|</span> win<span class="keyword">)</span> <span class="keyword">=</span> gtk_widget_get_window <span class="keyword">(</span>darea<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert_errmsg <span class="keyword">(</span>g_object_isnot_null <span class="keyword">(</span>win<span class="keyword">)</span><span class="keyword">,</span> <span class="keyword">#LOCATION</span><span class="keyword">)</span>
+  <span class="keyword">val</span> cr <span class="keyword">=</span> gdk_cairo_create <span class="keyword">(</span>win<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> minus_addback <span class="keyword">(</span><span class="prfexp">fpf_win</span><span class="keyword">,</span> <span class="prfexp">win</span> <span class="keyword">|</span> darea<span class="keyword">)</span></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf</span><span class="keyword">,</span> <span class="prfexp">fpf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> gtk_widget_getref_allocation <span class="keyword">(</span>darea<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> draw_main <span class="keyword">(</span>cr<span class="keyword">,</span> <span class="keyword">(</span>int_of<span class="keyword">)</span>p<span class="keyword">-&gt;</span>width<span class="keyword">,</span> <span class="keyword">(</span>int_of<span class="keyword">)</span>p<span class="keyword">-&gt;</span>height<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> minus_addback <span class="keyword">(</span><span class="prfexp">fpf</span><span class="keyword">,</span> <span class="prfexp">pf</span> <span class="keyword">|</span> darea<span class="keyword">)</span></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> cairo_destroy <span class="keyword">(</span>cr<span class="keyword">)</span>
+<span class="keyword">in</span>
+  GFALSE <span class="comment">// HX: what does this mean?
+</span><span class="keyword">end</span> <span class="comment">// end of [fexpose]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">macdef</span> <span class="neuexp">gs <span class="keyword">=</span> gstring_of_string</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="8075"><span class="dyncstdec">main1 <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "main1"
+
+<span class="keyword">implement</span> main1 <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> srand48_with_time <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> window <span class="keyword">=</span> gtk_window_new <span class="keyword">(</span>GTK_WINDOW_TOPLEVEL<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+    gtk_window_set_default_size <span class="keyword">(</span>window<span class="keyword">,</span> <span class="keyword">(</span>gint<span class="keyword">)</span>400<span class="keyword">,</span> <span class="keyword">(</span>gint<span class="keyword">)</span>400<span class="keyword">)</span>
+  <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">fpf_x</span> <span class="keyword">|</span> x<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>gs<span class="keyword">)</span>"cairo: illustrating Pascal's theorem"
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> gtk_window_set_title <span class="keyword">(</span>window<span class="keyword">,</span> x<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fpf_x <span class="keyword">(</span>x<span class="keyword">)</span></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">fpf_window</span> <span class="keyword">|</span> window_<span class="keyword">)</span> <span class="keyword">=</span> g_object_vref <span class="keyword">(</span>window<span class="keyword">)</span>
+  <span class="keyword">val</span> _sid <span class="keyword">=</span> g_signal_connect0
+    <span class="keyword">(</span>window_<span class="keyword">,</span> <span class="keyword">(</span>gsignal<span class="keyword">)</span>"delete-event"<span class="keyword">,</span> G_CALLBACK <span class="keyword">(</span>gtk_widget_destroy<span class="keyword">)</span><span class="keyword">,</span> <span class="keyword">(</span>gpointer<span class="keyword">)</span>null<span class="keyword">)</span>
+  <span class="keyword">val</span> _sid <span class="keyword">=</span> g_signal_connect1
+    <span class="keyword">(</span>window<span class="keyword">,</span> <span class="keyword">(</span>gsignal<span class="keyword">)</span>"destroy"<span class="keyword">,</span> G_CALLBACK <span class="keyword">(</span>gtk_main_quit<span class="keyword">)</span><span class="keyword">,</span> <span class="keyword">(</span>gpointer<span class="keyword">)</span>null<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> vbox0 <span class="keyword">=</span> gtk_vbox_new <span class="keyword">(</span>GFALSE<span class="comment">(*homo*)</span><span class="keyword">,</span> <span class="keyword">(</span>gint<span class="keyword">)</span>10<span class="comment">(*spacing*)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> gtk_container_add <span class="keyword">(</span>window<span class="keyword">,</span> vbox0<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> hbox1 <span class="keyword">=</span> gtk_hbox_new <span class="keyword">(</span>GFALSE<span class="keyword">,</span> <span class="keyword">(</span>gint<span class="keyword">)</span>0<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> gtk_box_pack_start <span class="keyword">(</span>vbox0<span class="keyword">,</span> hbox1<span class="keyword">,</span> GFALSE<span class="keyword">,</span> GFALSE<span class="keyword">,</span> <span class="keyword">(</span>guint<span class="keyword">)</span>0<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> g_object_unref <span class="keyword">(</span>hbox1<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> darea <span class="keyword">=</span> gtk_drawing_area_new <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_drawingarea_set <span class="keyword">(</span>darea<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> gtk_box_pack_start <span class="keyword">(</span>vbox0<span class="keyword">,</span> darea<span class="keyword">,</span> GTRUE<span class="keyword">,</span> GTRUE<span class="keyword">,</span> <span class="keyword">(</span>guint<span class="keyword">)</span>0<span class="keyword">)</span>
+  <span class="keyword">val</span> _sid <span class="keyword">=</span> g_signal_connect
+    <span class="keyword">(</span>darea<span class="keyword">,</span> <span class="keyword">(</span>gsignal<span class="keyword">)</span>"expose-event"<span class="keyword">,</span> G_CALLBACK <span class="keyword">(</span>fexpose<span class="keyword">)</span><span class="keyword">,</span> <span class="keyword">(</span>gpointer<span class="keyword">)</span>null<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> g_object_unref <span class="keyword">(</span>darea<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> hsep <span class="keyword">=</span> gtk_hseparator_new <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> gtk_box_pack_start <span class="keyword">(</span>vbox0<span class="keyword">,</span> hsep<span class="keyword">,</span> GFALSE<span class="keyword">,</span> GFALSE<span class="keyword">,</span> <span class="keyword">(</span>guint<span class="keyword">)</span>0<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> g_object_unref <span class="keyword">(</span>hsep<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> hbox1 <span class="keyword">=</span> gtk_hbox_new <span class="keyword">(</span>GFALSE<span class="comment">(*homo*)</span><span class="keyword">,</span> <span class="keyword">(</span>gint<span class="keyword">)</span>5<span class="comment">(*spacing*)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> gtk_box_pack_start <span class="keyword">(</span>vbox0<span class="keyword">,</span> hbox1<span class="keyword">,</span> GFALSE<span class="keyword">,</span> GTRUE<span class="keyword">,</span> <span class="keyword">(</span>guint<span class="keyword">)</span>10<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">fpf_x</span> <span class="keyword">|</span> x<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>gs<span class="keyword">)</span>"_Close"
+  <span class="keyword">val</span> btn_close <span class="keyword">=</span> gtk_button_new_with_mnemonic <span class="keyword">(</span>x<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fpf_x <span class="keyword">(</span>x<span class="keyword">)</span></span>
+  <span class="keyword">val</span> _sid <span class="keyword">=</span> g_signal_connect
+    <span class="keyword">(</span>btn_close<span class="keyword">,</span> <span class="keyword">(</span>gsignal<span class="keyword">)</span>"clicked"<span class="keyword">,</span> G_CALLBACK<span class="keyword">(</span>gtk_main_quit<span class="keyword">)</span><span class="keyword">,</span> <span class="keyword">(</span>gpointer_vt<span class="keyword">)</span>window<span class="keyword">)</span>
+  <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> gtk_box_pack_end <span class="keyword">(</span>hbox1<span class="keyword">,</span> btn_close<span class="keyword">,</span> GFALSE<span class="keyword">,</span> GFALSE<span class="keyword">,</span> <span class="keyword">(</span>guint<span class="keyword">)</span>4<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> g_object_unref <span class="keyword">(</span>btn_close<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">fpf_x</span> <span class="keyword">|</span> x<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>gs<span class="keyword">)</span>"_Next"
+  <span class="keyword">val</span> btn_next <span class="keyword">=</span> gtk_button_new_with_mnemonic <span class="keyword">(</span>x<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fpf_x <span class="keyword">(</span>x<span class="keyword">)</span></span>
+  <span class="keyword">val</span> _sid <span class="keyword">=</span> g_signal_connect
+    <span class="keyword">(</span>btn_next<span class="keyword">,</span> <span class="keyword">(</span>gsignal<span class="keyword">)</span>"clicked"<span class="keyword">,</span> G_CALLBACK<span class="keyword">(</span>fnext<span class="keyword">)</span><span class="keyword">,</span> <span class="keyword">(</span>gpointer<span class="keyword">)</span>null<span class="keyword">)</span>
+  <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> gtk_box_pack_end <span class="keyword">(</span>hbox1<span class="keyword">,</span> btn_next<span class="keyword">,</span> GFALSE<span class="keyword">,</span> GFALSE<span class="keyword">,</span> <span class="keyword">(</span>guint<span class="keyword">)</span>4<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> g_object_unref <span class="keyword">(</span>btn_next<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> g_object_unref <span class="keyword">(</span>hbox1<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> g_object_unref <span class="keyword">(</span>vbox0<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> gtk_widget_show_all <span class="keyword">(</span>window<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fpf_window <span class="keyword">(</span>window<span class="keyword">)</span></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> gtk_main <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [main1]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> main_dummy <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{$
+ats_void_type
+mainats (
+  ats_int_type argc, ats_ptr_type argv
+) {
+  gtk_init ((int*)&amp;argc, (char***)&amp;argv) ; main1 () ; return ;
+} // end of [mainats]
+%}</span> <span class="comment">// end of [%{$]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [gtkcairopascal.dats] *)</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,412 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// Time: January 2008
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* Mainly for tracking effects during the third translation *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Eff <span class="keyword">=</span> "ats_effect.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Err <span class="keyword">=</span> "ats_error.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Lst <span class="keyword">=</span> "ats_list.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Syn <span class="keyword">=</span> "ats_syntax.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_trans3_env.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_reference.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymous*)</span> <span class="keyword">=</span> "ats_reference.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> prerr_interror <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> prerr "INTERNAL ERROR (ats_trans3_env_eff)"
+
+<span class="keyword">fn</span> prerr_loc_interror <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  $Loc<span class="keyword">.</span>prerr_location loc<span class="keyword">;</span> prerr ": INTERNAL ERROR (ats_trans3_env_eff)"
+<span class="keyword">end</span> <span class="comment">// end of [prerr_loc_interror]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="2202"><span class="stacstdec">effenvitm</span></a></span> <span class="keyword">=</span> <span class="comment">(* effect environment item *)</span>
+  <span class="keyword">|</span> EFFENVITEMeff <span class="keyword">of</span> <span class="staexp">$Syn<span class="keyword">.</span>effect_t</span>
+  <span class="keyword">|</span> EFFENVITEMeffmask <span class="keyword">of</span> <span class="staexp">$Syn<span class="keyword">.</span>effect_t</span>
+  <span class="keyword">|</span> EFFENVITEMlam <span class="keyword">of</span> <span class="staexp">s2eff</span>
+<span class="comment">// end of [effenvitm]
+</span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="2376"><span class="stacstdec">effenvitmlst <span class="keyword">=</span> List effenvitm</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="2414"><span class="stacstdec">effenvitmlstlst <span class="keyword">=</span> List effenvitmlst</span></a></span>
+
+<span class="keyword">extern</span>
+<span class="keyword">fun</span> <a name="2462"><span class="dyncstdec">fprint_effenvitm <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> efi<span class="keyword">:</span> <span class="staexp">effenvitm</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="keyword">extern</span>
+<span class="keyword">fun</span> <a name="2571"><span class="dyncstdec">fprint_effenvitmlst <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> efis<span class="keyword">:</span> <span class="staexp">effenvitmlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="keyword">extern</span>
+<span class="keyword">fun</span> <a name="2687"><span class="dyncstdec">fprint_effenvitmlstlst <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> efiss<span class="keyword">:</span> <span class="staexp">effenvitmlstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> fprint_effenvitm <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> efi<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">macdef</span> <span class="neuexp">strpr <span class="keyword">(</span>s<span class="keyword">)</span> <span class="keyword">=</span> fprint1_string <span class="keyword">(</span>pf <span class="keyword">|</span> out<span class="keyword">,</span> <span class="keyword">,(</span>s<span class="keyword">)</span><span class="keyword">)</span></span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> efi <span class="keyword">of</span>
+  <span class="keyword">|</span> EFFENVITEMeff eff <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      strpr "EFFENVeff("<span class="keyword">;</span> $Eff<span class="keyword">.</span>fprint_effect <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> eff<span class="keyword">)</span><span class="keyword">;</span> strpr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [EFFENVITEMeff]
+</span>  <span class="keyword">|</span> EFFENVITEMeffmask eff <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      strpr "EFFENVeffmask("<span class="keyword">;</span> $Eff<span class="keyword">.</span>fprint_effect <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> eff<span class="keyword">)</span><span class="keyword">;</span> strpr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [EFFENVITEMeffmask]
+</span>  <span class="keyword">|</span> EFFENVITEMlam s2fe <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      strpr "EFFENVeff("<span class="keyword">;</span> fprint_s2eff <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2fe<span class="keyword">)</span><span class="keyword">;</span> strpr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [EFFENVITEMlam]
+</span><span class="keyword">end</span> <span class="comment">// end of [fprint_effenvitm]
+</span>
+<span class="keyword">implement</span> fprint_effenvitmlst <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> efis<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> efis<span class="keyword">:</span> <span class="staexp">effenvitmlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> efis <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>efi<span class="keyword">,</span> efis<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ", "<span class="keyword">)</span><span class="keyword">;</span>
+        fprint_effenvitm <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> efi<span class="keyword">)</span><span class="keyword">;</span> aux <span class="keyword">(</span>out<span class="keyword">,</span> i + 1<span class="keyword">,</span> efis<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// end of [list_nil]
+</span>  <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> 0<span class="keyword">,</span> efis<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [fprint_effenvitmlst]
+</span>
+<span class="keyword">implement</span> fprint_effenvitmlstlst <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> efiss<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> efiss<span class="keyword">:</span> <span class="staexp">effenvitmlstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> efiss <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>efis<span class="keyword">,</span> efiss<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "; "<span class="keyword">)</span><span class="keyword">;</span>
+        fprint_effenvitmlst <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> efis<span class="keyword">)</span><span class="keyword">;</span> aux <span class="keyword">(</span>out<span class="keyword">,</span> i + 1<span class="keyword">,</span> efiss<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// end of [list_nil]
+</span>  <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> 0<span class="keyword">,</span> efiss<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [fprint_effenvitmlstlst]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">assume</span> <span class="staexp">effect_env_token <span class="keyword">=</span> unit_v</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="4381"><span class="stacstdec">eff_t <span class="keyword">=</span> $Syn<span class="keyword">.</span>effect_t</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="4411"><span class="stacstdec">efs_t <span class="keyword">=</span> $Eff<span class="keyword">.</span>effset_t</span></a></span>
+
+<span class="keyword">val</span> the_efis <span class="keyword">=</span> ref_make_elt&lt;<span class="staexp">effenvitmlst</span><span class="keyword">&gt;</span> <span class="keyword">(</span>list_nil<span class="keyword">)</span>
+<span class="keyword">val</span> the_efiss <span class="keyword">=</span> ref_make_elt&lt;<span class="staexp">effenvitmlstlst</span><span class="keyword">&gt;</span> <span class="keyword">(</span>list_nil<span class="keyword">)</span>
+
+<span class="keyword">in</span>
+
+<span class="keyword">implement</span> the_effect_env_add_lam <span class="keyword">(</span>s2fe<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">!</span>the_efis := list_cons <span class="keyword">(</span>EFFENVITEMlam s2fe<span class="keyword">,</span> <span class="keyword">!</span>the_efis<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_effect_env_add_lam]
+</span>
+<span class="keyword">implement</span> the_effect_env_add_eff <span class="keyword">(</span>eff<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">!</span>the_efis := list_cons <span class="keyword">(</span>EFFENVITEMeff eff<span class="keyword">,</span> <span class="keyword">!</span>the_efis<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_effect_env_add_eff]
+</span>
+<span class="keyword">implement</span> the_effect_env_pop <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf</span> <span class="keyword">in</span> <span class="keyword">case+</span> <span class="keyword">!</span>the_efiss <span class="keyword">of</span>
+  <span class="keyword">|</span> list_cons <span class="keyword">(</span>efis<span class="keyword">,</span> efiss<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">!</span>the_efis := efis<span class="keyword">;</span> <span class="keyword">!</span>the_efiss := efiss
+    <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>  <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      prerr ": the_effect_env_pop"<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [list_nil]
+</span><span class="keyword">end</span> <span class="comment">// end of [the_effect_env_pop]
+</span>
+<span class="keyword">implement</span> the_effect_env_push <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">!</span>the_efiss := list_cons <span class="keyword">(</span><span class="keyword">!</span>the_efis<span class="keyword">,</span> <span class="keyword">!</span>the_efiss<span class="keyword">)</span><span class="keyword">;</span>
+  <span class="keyword">(</span><span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span></span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_effect_env_push]
+</span>
+<span class="keyword">implement</span> the_effect_env_push_lam <span class="keyword">(</span>s2fe<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">!</span>the_efiss := list_cons <span class="keyword">(</span><span class="keyword">!</span>the_efis<span class="keyword">,</span> <span class="keyword">!</span>the_efiss<span class="keyword">)</span><span class="keyword">;</span>
+  <span class="keyword">!</span>the_efis := list_cons <span class="keyword">(</span>EFFENVITEMlam s2fe<span class="keyword">,</span> <span class="keyword">!</span>the_efis<span class="keyword">)</span><span class="keyword">;</span>
+  <span class="keyword">(</span><span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span></span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_effect_env_push_lam]
+</span>
+<span class="keyword">implement</span> the_effect_env_push_delay <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> efis <span class="keyword">=</span> <span class="keyword">!</span>the_efis
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>the_efiss := list_cons <span class="keyword">(</span>efis<span class="keyword">,</span> <span class="keyword">!</span>the_efiss<span class="keyword">)</span>
+  <span class="keyword">val</span> efis <span class="keyword">=</span> list_cons <span class="keyword">(</span>EFFENVITEMeff $Eff<span class="keyword">.</span>effect_ref<span class="keyword">,</span> efis<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">!</span>the_efis := efis<span class="keyword">;</span> <span class="keyword">(</span><span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span></span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_effect_env_push_delay]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> the_effect_env_push_eff <span class="keyword">(</span>effs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> efis <span class="keyword">=</span> <span class="keyword">!</span>the_efis
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>the_efiss := list_cons <span class="keyword">(</span>efis<span class="keyword">,</span> <span class="keyword">!</span>the_efiss<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>the_efis := aux <span class="keyword">(</span>effs<span class="keyword">,</span> efis<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">fun</span> aux <span class="keyword">(</span>effs<span class="keyword">:</span> <span class="staexp">$Syn<span class="keyword">.</span>effectlst</span><span class="keyword">,</span> efis<span class="keyword">:</span> <span class="staexp">effenvitmlst</span><span class="keyword">)</span>
+      <span class="keyword">:</span> <span class="staexp">effenvitmlst</span> <span class="keyword">=</span> <span class="keyword">case+</span> effs <span class="keyword">of</span>
+      <span class="keyword">|</span> list_cons <span class="keyword">(</span>eff<span class="keyword">,</span> effs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          aux <span class="keyword">(</span>effs<span class="keyword">,</span> list_cons <span class="keyword">(</span>EFFENVITEMeff eff<span class="keyword">,</span> efis<span class="keyword">)</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>      <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> efis <span class="comment">// end of [list_nil]
+</span>    <span class="comment">// end of [aux]
+</span>  <span class="keyword">}</span> <span class="comment">// end of [where]
+</span><span class="keyword">in</span>
+  <span class="keyword">(</span><span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span></span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_effect_env_push_eff]
+</span>
+<span class="keyword">implement</span> the_effect_env_push_effmask <span class="keyword">(</span>effs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> efis <span class="keyword">=</span> <span class="keyword">!</span>the_efis
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>the_efiss := list_cons <span class="keyword">(</span>efis<span class="keyword">,</span> <span class="keyword">!</span>the_efiss<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>the_efis := aux <span class="keyword">(</span>effs<span class="keyword">,</span> efis<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">fun</span> aux <span class="keyword">(</span>effs<span class="keyword">:</span> <span class="staexp">$Syn<span class="keyword">.</span>effectlst</span><span class="keyword">,</span> efis<span class="keyword">:</span> <span class="staexp">effenvitmlst</span><span class="keyword">)</span>
+      <span class="keyword">:</span> <span class="staexp">effenvitmlst</span> <span class="keyword">=</span> <span class="keyword">case+</span> effs <span class="keyword">of</span>
+      <span class="keyword">|</span> list_cons <span class="keyword">(</span>eff<span class="keyword">,</span> effs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          aux <span class="keyword">(</span>effs<span class="keyword">,</span> list_cons <span class="keyword">(</span>EFFENVITEMeffmask eff<span class="keyword">,</span> efis<span class="keyword">)</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>      <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> efis <span class="comment">// end of [list_nil]
+</span>    <span class="comment">// end of [aux]
+</span>  <span class="keyword">}</span> <span class="comment">// end of [where]
+</span><span class="keyword">in</span>
+  <span class="keyword">(</span><span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span></span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_effect_env_push_effmask]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">=</span> <span class="keyword">with</span> $Eff<span class="keyword">.</span>eq_effect_effect</span>
+
+<span class="keyword">fn</span> the_effect_env_check_eff_err <span class="keyword">(</span>eff0<span class="keyword">:</span> <span class="staexp">eff_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "the_effect_env_check_eff_err: eff0 = "; print eff0; print_newline ()
+  end // end of [val]
+*)</span>
+  <span class="keyword">fun</span> aux
+    <span class="keyword">(</span>eff0<span class="keyword">:</span> <span class="staexp">eff_t</span><span class="keyword">,</span> efis<span class="keyword">:</span> <span class="staexp">effenvitmlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> efis <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>efi<span class="keyword">,</span> efis<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> efi <span class="keyword">of</span>
+      <span class="keyword">|</span> EFFENVITEMeff eff <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          <span class="keyword">if</span> eff0 <span class="keyword">=</span> eff <span class="keyword">then</span> 1 <span class="keyword">else</span> aux <span class="keyword">(</span>eff0<span class="keyword">,</span> efis<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [EFFENVITEMeff]
+</span>      <span class="keyword">|</span> EFFENVITEMeffmask eff <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          <span class="keyword">if</span> eff0 <span class="keyword">=</span> eff <span class="keyword">then</span> 0 <span class="keyword">else</span> aux <span class="keyword">(</span>eff0<span class="keyword">,</span> efis<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [EFFENVITEMeffmask]
+</span>      <span class="keyword">|</span> EFFENVITEMlam s2fe <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          <span class="keyword">if</span> s2eff_contain_eff <span class="keyword">(</span>s2fe<span class="keyword">,</span> eff0<span class="keyword">)</span> <span class="keyword">then</span> 0 <span class="keyword">else</span> 1
+        <span class="keyword">end</span> <span class="comment">// end of [EFFENVITEMlam]
+</span>      <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> 0
+  <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>eff0<span class="keyword">,</span> <span class="keyword">!</span>the_efis<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_effect_env_check_eff]
+</span>
+<span class="keyword">fn</span> the_effect_env_check_eff
+  <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> eff0<span class="keyword">:</span> <span class="staexp">eff_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">if</span> the_effect_env_check_eff_err <span class="keyword">(</span>eff0<span class="keyword">)</span> <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+    $Loc<span class="keyword">.</span>prerr_location loc0<span class="keyword">;</span>
+    prerr ": error(3)"<span class="keyword">;</span>
+    prerr ": the effect ["<span class="keyword">;</span>
+    $Eff<span class="keyword">.</span>prerr_effect eff0<span class="keyword">;</span>
+    prerr "] is disallowed."<span class="keyword">;</span>
+    prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+    $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">// end of [the_effect_env_check_eff]
+</span>
+<span class="keyword">implement</span> the_effect_env_check_exn <span class="keyword">(</span>loc0<span class="keyword">)</span> <span class="keyword">=</span>
+  the_effect_env_check_eff <span class="keyword">(</span>loc0<span class="keyword">,</span> $Eff<span class="keyword">.</span>effect_exn<span class="keyword">)</span>
+
+<span class="keyword">implement</span> the_effect_env_check_ntm <span class="keyword">(</span>loc0<span class="keyword">)</span> <span class="keyword">=</span>
+  the_effect_env_check_eff <span class="keyword">(</span>loc0<span class="keyword">,</span> $Eff<span class="keyword">.</span>effect_ntm<span class="keyword">)</span>
+
+<span class="keyword">implement</span> the_effect_env_check_ref <span class="keyword">(</span>loc0<span class="keyword">)</span> <span class="keyword">=</span>
+  the_effect_env_check_eff <span class="keyword">(</span>loc0<span class="keyword">,</span> $Eff<span class="keyword">.</span>effect_ref<span class="keyword">)</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">fn</span> the_effect_env_check_effset <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> efs0<span class="keyword">:</span> <span class="staexp">efs_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> auxCK <span class="keyword">(</span>effs<span class="keyword">:</span> <span class="staexp">List eff_t</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp">List eff_t</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> effs <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>eff<span class="keyword">,</span> effs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> $Eff<span class="keyword">.</span>effset_contain <span class="keyword">(</span>efs0<span class="keyword">,</span> eff<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> err <span class="keyword">=</span> the_effect_env_check_eff_err <span class="keyword">(</span>eff<span class="keyword">)</span>
+        <span class="keyword">in</span>
+          <span class="keyword">if</span> err <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> list_cons <span class="keyword">(</span>eff<span class="keyword">,</span> auxCK effs<span class="keyword">)</span> <span class="keyword">else</span> auxCK effs
+        <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+          auxCK effs
+        <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>      <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> list_nil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [auxCK]
+</span>  <span class="keyword">val</span> err <span class="keyword">=</span> auxCK <span class="keyword">(</span>$Eff<span class="keyword">.</span>effectlst_all<span class="keyword">)</span>
+  <span class="keyword">val</span> nerr <span class="keyword">=</span> aux <span class="keyword">(</span>err<span class="keyword">,</span> 0<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span> <span class="comment">// [nerr] is the length of [err]
+</span>    <span class="keyword">fun</span> aux <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp">List eff_t</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> <span class="keyword">case+</span> xs <span class="keyword">of</span>
+      <span class="keyword">|</span> list_cons <span class="keyword">(</span>_<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=&gt;</span> aux <span class="keyword">(</span>xs<span class="keyword">,</span> i+1<span class="keyword">)</span> <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> i
+  <span class="keyword">}</span> <span class="comment">// end of [where]
+</span>  <span class="keyword">fun</span> auxPR <span class="keyword">(</span>i<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> effs<span class="keyword">:</span> <span class="staexp">List eff_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> effs <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>eff<span class="keyword">,</span> effs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> prerr ", "<span class="keyword">;</span> $Eff<span class="keyword">.</span>prerr_effect eff<span class="keyword">;</span> auxPR <span class="keyword">(</span>i+1<span class="keyword">,</span> effs<span class="keyword">)</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> nerr <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+    $Loc<span class="keyword">.</span>prerr_location loc0<span class="keyword">;</span>
+    prerr ": error(3)"<span class="keyword">;</span>
+    <span class="keyword">if</span> nerr &lt;= 1 <span class="keyword">then</span> prerr ": the effect [" <span class="keyword">else</span> prerr ": the effects ["<span class="keyword">;</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> nerr <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> auxPR <span class="keyword">(</span>0<span class="keyword">,</span> err<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> nerr <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+    <span class="keyword">if</span> nerr &lt;= 1 <span class="keyword">then</span> prerr "] is disallowed." <span class="keyword">else</span> prerr "] are disallowed."<span class="keyword">;</span>
+    prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+    $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_effect_env_check_effset]
+</span>
+<span class="keyword">implement</span> the_effect_env_check_all <span class="keyword">(</span>loc0<span class="keyword">)</span> <span class="keyword">=</span>
+  the_effect_env_check_effset <span class="keyword">(</span>loc0<span class="keyword">,</span> $Eff<span class="keyword">.</span>effset_all<span class="keyword">)</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> the_effect_env_check_effvar <span class="keyword">(</span>loc0<span class="keyword">,</span> s2v0<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "effect_env_check_var: s2v0 = "; print s2v0; print_newline ()
+  end // end of [val]
+*)</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>s2v0<span class="keyword">:</span> <span class="staexp">s2var_t</span><span class="keyword">,</span> efis<span class="keyword">:</span> <span class="staexp">effenvitmlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> efis <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>efi<span class="keyword">,</span> efis<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> efi <span class="keyword">of</span>
+      <span class="keyword">|</span> EFFENVITEMeff eff <span class="keyword">=&gt;</span> false
+      <span class="keyword">|</span> EFFENVITEMeffmask eff <span class="keyword">=&gt;</span> aux <span class="keyword">(</span>s2v0<span class="keyword">,</span> efis<span class="keyword">)</span>
+      <span class="keyword">|</span> EFFENVITEMlam s2fe <span class="keyword">=&gt;</span> s2eff_contain_effvar <span class="keyword">(</span>s2fe<span class="keyword">,</span> s2v0<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+<span class="keyword">in</span>
+  <span class="keyword">if</span> aux <span class="keyword">(</span>s2v0<span class="keyword">,</span> <span class="keyword">!</span>the_efis<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+    $Loc<span class="keyword">.</span>prerr_location loc0<span class="keyword">;</span>
+    prerr ": error(3)"<span class="keyword">;</span>
+    prerr ": the effect ["<span class="keyword">;</span> prerr s2v0<span class="keyword">;</span> prerr "] is disallowed"<span class="keyword">;</span>
+    prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+    $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+  <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_effect_env_check_effvar]
+</span>
+<span class="keyword">fun</span> the_effect_env_check_sexp
+  <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2e0<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2e0 <span class="keyword">=</span> s2exp_whnf s2e0 <span class="keyword">in</span> <span class="keyword">case+</span> s2e0<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+    <span class="keyword">|</span> S2Eeff s2fe <span class="keyword">=&gt;</span> the_effect_env_check_seff <span class="keyword">(</span>loc0<span class="keyword">,</span> s2fe<span class="keyword">)</span>
+    <span class="keyword">|</span> S2Evar s2v <span class="keyword">=&gt;</span> the_effect_env_check_effvar <span class="keyword">(</span>loc0<span class="keyword">,</span> s2v<span class="keyword">)</span>
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        prerr_loc_interror loc0<span class="keyword">;</span>
+        prerr ": the_effect_env_check_s2exp: s2e0 = "<span class="keyword">;</span> prerr s2e0<span class="keyword">;</span>
+        prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+        $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_effect_env_check_sexp]
+</span>
+<span class="keyword">and</span> the_effect_env_check_sexplst
+  <span class="keyword">(</span>loc0<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">,</span> s2es<span class="keyword">:</span> <span class="staexp">s2explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> s2es <span class="keyword">of</span>
+  <span class="keyword">|</span> list_cons <span class="keyword">(</span>s2e<span class="keyword">,</span> s2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      the_effect_env_check_sexp <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e<span class="keyword">)</span><span class="keyword">;</span>
+      the_effect_env_check_sexplst <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>  <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_effect_env_check_sexplst]
+</span>
+<span class="keyword">implement</span> the_effect_env_check_seff <span class="keyword">(</span>loc0<span class="keyword">,</span> s2fe0<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "the_effect_env_check_seff: s2fe0 = "; print s2fe0; print_newline ()
+  end
+*)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> s2fe0 <span class="keyword">of</span>
+  <span class="keyword">|</span> S2EFFall <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> the_effect_env_check_all loc0
+  <span class="keyword">|</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> S2EFFset <span class="keyword">(</span>efs<span class="keyword">,</span> s2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      the_effect_env_check_effset <span class="keyword">(</span>loc0<span class="keyword">,</span> efs<span class="keyword">)</span><span class="keyword">;</span>
+      the_effect_env_check_sexplst <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2EEFset]
+</span><span class="keyword">end</span> <span class="comment">// end of [the_effect_env_check_seff]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_trans3_env_eff.dats] *)</span>
+</pre>
+</body>
+</html>

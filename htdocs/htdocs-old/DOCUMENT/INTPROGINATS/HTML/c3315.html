@@ -1,0 +1,348 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>Dataviews as Linear Dataprops</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+TITLE="Introduction to Programming in ATS"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Linear Types for Programming"
+HREF="p3145.html"><LINK
+REL="PREVIOUS"
+TITLE="Stack-Allocated Variables"
+HREF="x3278.html"><LINK
+REL="NEXT"
+TITLE="Linear Arrays"
+HREF="x3347.html"></HEAD
+><BODY
+CLASS="chapter"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>Introduction to Programming in ATS: </TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="x3278.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="x3347.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="chapter"
+><H1
+><A
+NAME="dataviews"
+></A
+>Dataviews as Linear Dataprops</H1
+><P
+>&#13;The at-views of the form T@L for types T and addresses L are building
+blocks for constructing for other forms of views. One mechanism for putting
+together such building blocks is by declaring dataviews, which is mostly
+identical to declaring dataprops. I now present as follows some commonly
+encountered dataviews and their uses.
+
+</P
+><DIV
+CLASS="sect1"
+><H1
+CLASS="sect1"
+><A
+NAME="AEN3318"
+>Optional Views</A
+></H1
+><P
+>&#13;The dataview <FONT
+COLOR="RED"
+>option_v</FONT
+> is declared as follows:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3322"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>dataview option_v (v:view, bool) =
+  | Some_v (v, true) of (v) | None_v (v, false) of ()
+// end of [option_v]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;There are two proof constructors associated with <FONT
+COLOR="RED"
+>option_v</FONT
+>:
+<FONT
+COLOR="RED"
+>Some_v</FONT
+> and <FONT
+COLOR="RED"
+>None_v</FONT
+>.  Given a view V, <FONT
+COLOR="RED"
+>option_v</FONT
+>(V,
+b) is often called an optional view, where b is a boolean. Clearly, a proof
+of the view <FONT
+COLOR="RED"
+>option_v(V, true)</FONT
+> contains a proof of the view V while
+a proof the view <FONT
+COLOR="RED"
+>option_v(V, false)</FONT
+> contains nothing. As an
+example, let us take a look at the following function template interface:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3331"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun{a:t@ype}
+ptr_alloc_opt (): [l:addr] (option_v (a? @ l, l &#62; null) | ptr l)
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;Given a type T, the function <FONT
+COLOR="RED"
+>ptr_alloc_opt</FONT
+>&#60;T&#62; returns a
+pointer paired with a proof of an optional view; if the returned pointer is
+not null, then the proof can be turned into a proof of the view T?@L, where
+L is the location to which the pointer points; otherwise, there is no
+at-view associated with the returned pointer.
+
+</P
+><P
+>&#13;To see another example, let us assume that <FONT
+COLOR="RED"
+>get_width</FONT
+> is given the
+interface below:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3337"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun get_width (x: &#38;window): int
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;where <FONT
+COLOR="RED"
+>window</FONT
+> is some (unboxed) abstract type. One may
+think that <FONT
+COLOR="RED"
+>get_width</FONT
+> returns the width of a window object.
+The following code shows a typical use of an optional view:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3342"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>viewdef optat
+  (a:t@ype, l:addr) = option_v (a @ l, l &#62; null)
+// end of [optat]
+
+fun get_width_alt {l:addr} (
+  pf: !optat (int?, l) &#62;&#62; optat (int, l)
+| x: &#38;window, p: ptr l
+) : void =
+  if p &#62; null then let
+    prval Some_v (pf1) = pf
+    val () = !p := get_width (x)
+  in
+    pf := Some_v (pf1)
+  end else let
+    prval None_v () = pf in pf := None_v ()
+  end // end of [val]
+// end of [get_width_alt]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;The function <FONT
+COLOR="RED"
+>get_width_alt</FONT
+> is a variation of <FONT
+COLOR="RED"
+>get_width</FONT
+>.
+In addtion to the window object, it takes a pointer which, if not null,
+points to the location where the width information should be stored.
+
+</P
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="x3278.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="x3347.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Stack-Allocated Variables</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="p3145.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Linear Arrays</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

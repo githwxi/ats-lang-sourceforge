@@ -1,0 +1,1007 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: October 2007
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+#include "ats_counter.cats" /* only needed for [ATS/Geizella] */
+%}</span> <span class="comment">// end of [%{^]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Lab <span class="keyword">=</span> "ats_label.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Stamp <span class="keyword">=</span> "ats_stamp.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Sym <span class="keyword">=</span> "ats_symbol.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp1.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">nil list_nil</span>
+<span class="keyword">#define</span> <span class="neuexp">:: list_cons</span>
+<span class="keyword">#define</span> <span class="neuexp">cons list_cons</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">macdef</span> <span class="neuexp">fprint_label <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5flabel_2esats.html#2567"><span class="dyncstuse">$Lab<span class="keyword">.</span>fprint_label</span></span></a>
+<span class="keyword">macdef</span> <span class="neuexp">fprint_stamp <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstamp_2esats.html#2149"><span class="dyncstuse">$Stamp<span class="keyword">.</span>fprint_stamp</span></span></a>
+<span class="keyword">macdef</span> <span class="neuexp">fprint_symbol <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#5186"><span class="dyncstuse">$Sym<span class="keyword">.</span>fprint_symbol</span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> fprint_tyreckind <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#10177"><span class="stacstuse">file_mode_lte</span></a> <span class="keyword">(</span>m<span class="keyword">,</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20767"><span class="stacstuse">w</span></a><span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse">FILE</span></a></span></a> m</span><span class="keyword">,</span> k<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#3563"><span class="stacstuse">tyreckind</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> k <span class="keyword">of</span>
+  <span class="keyword">|</span> TYRECKINDbox _ <span class="keyword">=&gt;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "box"<span class="keyword">)</span>
+  <span class="keyword">|</span> TYRECKINDflt0 _ <span class="keyword">=&gt;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "flt"<span class="keyword">)</span>
+  <span class="keyword">|</span> TYRECKINDflt1 stamp <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "flt("<span class="keyword">)</span><span class="keyword">;</span>
+      fprint_stamp <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> stamp<span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ")"<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [TYRECKINDflt1]
+</span>  <span class="keyword">|</span> TYRECKINDflt_ext name <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "flt("<span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> name<span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ")"<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [TYRECKINDflt_ext]
+</span><span class="comment">// end of [fprint_tyreckind]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> fprint_s2rtdat <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#10177"><span class="stacstuse">file_mode_lte</span></a> <span class="keyword">(</span>m<span class="keyword">,</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20767"><span class="stacstuse">w</span></a><span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse">FILE</span></a></span></a> m</span><span class="keyword">,</span> s2td<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#2185"><span class="stacstuse">s2rtdat_t</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span>
+  fprint_symbol <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#12991"><span class="dyncstuse">s2rtdat_sym_get</span></a> s2td<span class="keyword">)</span>
+<span class="comment">// end of [fprint_s2rtdat]
+</span>
+<span class="keyword">fn</span> fprint_s2rtbas <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#10177"><span class="stacstuse">file_mode_lte</span></a> <span class="keyword">(</span>m<span class="keyword">,</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20767"><span class="stacstuse">w</span></a><span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse">FILE</span></a></span></a> m</span><span class="keyword">,</span> s2tb<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#3860"><span class="stacstuse">s2rtbas</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> s2tb <span class="keyword">of</span>
+  <span class="keyword">|</span> S2RTBASpre x <span class="keyword">=&gt;</span> fprint_symbol <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> x<span class="keyword">)</span>
+  <span class="keyword">|</span> S2RTBASimp <span class="keyword">(</span>x<span class="keyword">,</span> _<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> fprint_symbol <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> x<span class="keyword">)</span>
+  <span class="keyword">|</span> S2RTBASdef x <span class="keyword">=&gt;</span> fprint_s2rtdat <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> x<span class="keyword">)</span>
+<span class="comment">// end of [fprint_s2rtbas]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#24027"><span class="dyncstimp">fprint_s2item</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2i<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">macdef</span> <span class="neuexp">prstr <span class="keyword">(</span>s<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span>pf <span class="keyword">|</span> out<span class="keyword">,</span> <span class="keyword">,(</span>s<span class="keyword">)</span><span class="keyword">)</span></span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> s2i <span class="keyword">of</span>
+  <span class="keyword">|</span> S2ITEMcst _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "S2ITEMcst(...)"<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2ITEMcst]
+</span>  <span class="keyword">|</span> S2ITEMdatconptr d2c <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2ITEMdatconptr("<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#23451"><span class="dyncstuse">fprint_d2con</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> d2c<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2ITEMdatconptr]
+</span>  <span class="keyword">|</span> S2ITEMdatcontyp d2c <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2ITEMdatcontyp("<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#23451"><span class="dyncstuse">fprint_d2con</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> d2c<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2ITEMdatcontyp]
+</span>  <span class="keyword">|</span> S2ITEMe1xp e1xp <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2ITEMe1xp("<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp1_2esats.html#2405"><span class="dyncstuse">fprint_e1xp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> e1xp<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2ITEMe1xp]
+</span>  <span class="keyword">|</span> S2ITEMfil fil <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2ITEMfil("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ffilename_2esats.html#3217"><span class="dyncstuse">$Fil<span class="keyword">.</span>fprint_filename</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> fil<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2ITEMfil]
+</span>  <span class="keyword">|</span> S2ITEMvar s2v <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2ITEMvar("<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#17741"><span class="dyncstuse">fprint_s2var</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2v<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2ITEMvar]
+</span><span class="keyword">end</span> <span class="comment">(* end of [fprint_s2item] *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#24158"><span class="dyncstimp">print_s2item</span></a> <span class="keyword">(</span>s2i<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#24027"><span class="dyncstuse">fprint_s2item</span></a><span class="keyword">,</span> s2i<span class="keyword">)</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#24195"><span class="dyncstimp">prerr_s2item</span></a> <span class="keyword">(</span>s2i<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#24027"><span class="dyncstuse">fprint_s2item</span></a><span class="keyword">,</span> s2i<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#11650"><span class="dyncstimp">fprint_s2rt</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2t<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">macdef</span> <span class="neuexp">prstr <span class="keyword">(</span>s<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span>pf <span class="keyword">|</span> out<span class="keyword">,</span> <span class="keyword">,(</span>s<span class="keyword">)</span><span class="keyword">)</span></span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> s2t <span class="keyword">of</span>
+  <span class="keyword">|</span> S2RTbas s2tb <span class="keyword">=&gt;</span> fprint_s2rtbas <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2tb<span class="keyword">)</span>
+  <span class="keyword">|</span> S2RTfun <span class="keyword">(</span>s2ts<span class="keyword">,</span> s2t<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2RTfun("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#11775"><span class="dyncstuse">fprint_s2rtlst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ts<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#11650"><span class="dyncstuse">fprint_s2rt</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2t<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2RTfun]
+</span>  <span class="keyword">|</span> S2RTtup s2ts <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2RTtup("<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#11775"><span class="dyncstuse">fprint_s2rtlst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ts<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2RTtup]
+</span><span class="keyword">end</span> <span class="comment">(* end of [fprint_s2rt] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#11775"><span class="dyncstimp">fprint_s2rtlst</span></a> <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ts<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse">FILE</span></a></span></a> m</span><span class="keyword">,</span> s2ts<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#8800"><span class="stacstuse">s2rtlst</span></a></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> s2ts <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>s2t<span class="keyword">,</span> s2ts<span class="keyword">)</span> <span class="keyword">=&gt;</span> aux <span class="keyword">(</span>out<span class="keyword">,</span> s2ts<span class="keyword">,</span> i+1<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ", "<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#11650"><span class="dyncstuse">fprint_s2rt</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2t<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [cons]
+</span>    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// end of [nil]
+</span>  <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> s2ts<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">(* end of [fprint_s2rtlst] *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#11910"><span class="dyncstimp">fprint_s2rtlstlst</span></a> <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2tss<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse">FILE</span></a></span></a> m</span><span class="keyword">,</span> s2tss<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#8850"><span class="stacstuse">s2rtlstlst</span></a></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> s2tss <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>s2ts<span class="keyword">,</span> s2tss<span class="keyword">)</span> <span class="keyword">=&gt;</span> aux <span class="keyword">(</span>out<span class="keyword">,</span> s2tss<span class="keyword">,</span> i+1<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ", "<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#11775"><span class="dyncstuse">fprint_s2rtlst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ts<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [cons]
+</span>    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// end of [nil]
+</span>  <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> s2tss<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [fprint_s2rtlstlst]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#12194"><span class="dyncstimp">print_s2rt</span></a> <span class="keyword">(</span>s2t<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#11650"><span class="dyncstuse">fprint_s2rt</span></a><span class="keyword">,</span> s2t<span class="keyword">)</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#12225"><span class="dyncstimp">prerr_s2rt</span></a> <span class="keyword">(</span>s2t<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#11650"><span class="dyncstuse">fprint_s2rt</span></a><span class="keyword">,</span> s2t<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#12055"><span class="dyncstimp">fprint_s2rtext</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2te<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> s2te <span class="keyword">of</span>
+  <span class="keyword">|</span> S2TEsrt s2t <span class="keyword">=&gt;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#11650"><span class="dyncstuse">fprint_s2rt</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2t<span class="keyword">)</span>
+  <span class="keyword">|</span> S2TEsub <span class="keyword">(</span>s2v<span class="keyword">,</span> s2t<span class="keyword">,</span> s2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "{"<span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#17741"><span class="dyncstuse">fprint_s2var</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2v<span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ": "<span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#11650"><span class="dyncstuse">fprint_s2rt</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2t<span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> " | "<span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27315"><span class="dyncstuse">fprint_s2explst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2es<span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "}"<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2TEsub]
+</span><span class="comment">(*
+  | S2TElam (s2vs, s2te) =&gt; begin
+      fprint1_string (pf | out, "S2TElam(");
+      fprint_s2varlst (pf | out, s2vs);
+      fprint1_string (pf | out, "; ");
+      fprint_s2rtext (pf | out, s2te);
+      fprint1_string (pf | out, ")")
+    end // end of [S2TElam]
+  | S2TEapp (s2te, s2es) =&gt; begin
+      fprint1_string (pf | out, "S2TEapp(");
+      fprint_s2rtext (pf | out, s2te);
+      fprint1_string (pf | out, "; ");
+      fprint_s2explst (pf | out, s2es);
+      fprint1_string (pf | out, ")")
+    end // end of [S2TEapp]
+*)</span>
+<span class="keyword">end</span> <span class="comment">(* end of [fprint_s2rtext] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#24401"><span class="dyncstimp">fprint_s2eff</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2fe<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> s2fe <span class="keyword">of</span>
+  <span class="keyword">|</span> S2EFFall <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "&lt;all&gt;"<span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "&lt;nil&gt;"<span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> S2EFFset <span class="keyword">(</span>effs<span class="keyword">,</span> s2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "&lt;"<span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5feffect_2esats.html#2789"><span class="dyncstuse">$Eff<span class="keyword">.</span>fprint_effset</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> effs<span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ";"<span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27315"><span class="dyncstuse">fprint_s2explst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2es<span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "&gt;"<span class="keyword">)</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">(* end of [fprint_s2eff] *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#24530"><span class="dyncstimp">print_s2eff</span></a> <span class="keyword">(</span>s2fe<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#24401"><span class="dyncstuse">fprint_s2eff</span></a><span class="keyword">,</span> s2fe<span class="keyword">)</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#24566"><span class="dyncstimp">prerr_s2eff</span></a> <span class="keyword">(</span>s2fe<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#24401"><span class="dyncstuse">fprint_s2eff</span></a><span class="keyword">,</span> s2fe<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstimp">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e0<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">macdef</span> <span class="neuexp">prstr <span class="keyword">(</span>s<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span>pf <span class="keyword">|</span> out<span class="keyword">,</span> <span class="keyword">,(</span>s<span class="keyword">)</span><span class="keyword">)</span></span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> s2e0<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> S2Eapp <span class="keyword">(</span>s2e_fun<span class="keyword">,</span> s2es_arg<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Eapp("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e_fun<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27315"><span class="dyncstuse">fprint_s2explst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2es_arg<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eapp]
+</span>  <span class="keyword">|</span> S2Echar c <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Echar("<span class="keyword">;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fchar_2esats.html#5444"><span class="dyncstuse">fprint1_char</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> c<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Echar]
+</span>  <span class="keyword">|</span> S2Eclo <span class="keyword">(</span>knd<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Eclo("<span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2finteger_2esats.html#4733"><span class="dyncstuse">fprint1_int</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> knd<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eclo]
+</span>  <span class="keyword">|</span> S2Ecrypt <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Ecrypt("<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Ecrypt]
+</span>  <span class="keyword">|</span> S2Ecst s2c <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Ecst("<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#16018"><span class="dyncstuse">fprint_s2cst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2c<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Ecst]
+</span>  <span class="keyword">|</span> S2Edatconptr <span class="keyword">(</span>d2c<span class="keyword">,</span> s2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Edatconptr("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#23451"><span class="dyncstuse">fprint_d2con</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> d2c<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27315"><span class="dyncstuse">fprint_s2explst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2es<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Edatconptr]
+</span>  <span class="keyword">|</span> S2Edatcontyp <span class="keyword">(</span>d2c<span class="keyword">,</span> s2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Edatcontyp("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#23451"><span class="dyncstuse">fprint_d2con</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> d2c<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27315"><span class="dyncstuse">fprint_s2explst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2es<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Edatcontyp]
+</span>  <span class="keyword">|</span> S2Eeff s2fe <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Eeff("<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#24401"><span class="dyncstuse">fprint_s2eff</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2fe<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eeff]
+</span>  <span class="keyword">|</span> S2Eeqeq <span class="keyword">(</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Eeqeq("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e1<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ", "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e2<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eeqeq]
+</span>  <span class="keyword">|</span> S2Eexi <span class="keyword">(</span>s2vs<span class="keyword">,</span> s2ps<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Eexi("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#17871"><span class="dyncstuse">fprint_s2varlst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2vs<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27315"><span class="dyncstuse">fprint_s2explst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ps<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eexi]
+</span>  <span class="keyword">|</span> S2Eextype <span class="keyword">(</span>name<span class="keyword">,</span> arglst<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Eextype("<span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> name<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27453"><span class="dyncstuse">fprint_s2explstlst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> arglst<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eextype]
+</span>  <span class="keyword">|</span> S2Efun <span class="keyword">(</span>fc<span class="keyword">,</span> lin<span class="keyword">,</span> s2fe<span class="keyword">,</span> npf<span class="keyword">,</span> s2es<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Efun("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsyntax_2esats.html#15518"><span class="dyncstuse">$Syn<span class="keyword">.</span>fprint_funclo</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> fc<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2finteger_2esats.html#4733"><span class="dyncstuse">fprint1_int</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> lin<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2finteger_2esats.html#4733"><span class="dyncstuse">fprint1_int</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> npf<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27315"><span class="dyncstuse">fprint_s2explst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2es<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Efun]
+</span>  <span class="keyword">|</span> S2Eint i<span class="comment">(*int*)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Eint("<span class="keyword">;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2finteger_2esats.html#4733"><span class="dyncstuse">fprint1_int</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> i<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eint]
+</span>  <span class="keyword">|</span> S2Eintinf i<span class="comment">(*intinf*)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Eint("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fintinf_2esats.html#4138"><span class="dyncstuse">$IntInf<span class="keyword">.</span>fprint_intinf</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> i<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eintinf]
+</span>  <span class="keyword">|</span> S2Elam <span class="keyword">(</span>s2vs<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Elam("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#17871"><span class="dyncstuse">fprint_s2varlst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2vs<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Elam]
+</span>  <span class="keyword">|</span> S2Emetfn <span class="keyword">(</span>_<span class="comment">(*stamp*)</span><span class="keyword">,</span> s2es<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Emetfn("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27315"><span class="dyncstuse">fprint_s2explst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2es<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Emetfn]
+</span>  <span class="keyword">|</span> S2Emetlt <span class="keyword">(</span>s2es1<span class="keyword">,</span> s2es2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Emetlt("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27315"><span class="dyncstuse">fprint_s2explst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2es1<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ", "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27315"><span class="dyncstuse">fprint_s2explst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2es2<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Emetlt]
+</span><span class="comment">(*
+// HX-2010-12-04: inadequate design
+  | S2Enamed (name, s2e) =&gt; begin
+      prstr "S2Enamed(";
+      $Sym.fprint_symbol (pf | out, name);
+      prstr ", ";
+      fprint_s2exp (pf | out, s2e);
+      prstr ")"
+    end // end of [S2Enamed]
+*)</span>
+  <span class="keyword">|</span> S2Eout s2e <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Eout("<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eout]
+</span>  <span class="keyword">|</span> S2Eproj <span class="keyword">(</span>s2e<span class="keyword">,</span> s2l<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Eproj("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25193"><span class="dyncstuse">fprint_s2lab</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2l<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eproj]
+</span>  <span class="keyword">|</span> S2Eread <span class="keyword">(</span>s2e_v<span class="keyword">,</span> s2e_vt<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Eread("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e_v<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ", "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e_vt<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eread]
+</span>  <span class="keyword">|</span> S2Erefarg <span class="keyword">(</span>refval<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Erefarg("<span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2finteger_2esats.html#4733"><span class="dyncstuse">fprint1_int</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> refval<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ", "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Erefarg]
+</span>  <span class="keyword">|</span> S2Esel <span class="keyword">(</span>s2e<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Esel("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2finteger_2esats.html#4733"><span class="dyncstuse">fprint1_int</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> i<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Esel]
+</span>  <span class="keyword">|</span> S2Esize <span class="keyword">(</span>s2ze<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Esize("<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#26231"><span class="dyncstuse">fprint_s2zexp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ze<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Esize]
+</span>  <span class="keyword">|</span> S2Esizeof <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Esizeof("<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Esizeof]
+</span>  <span class="keyword">|</span> S2Etop <span class="keyword">(</span>knd<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Etop("<span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2finteger_2esats.html#4733"><span class="dyncstuse">fprint1_int</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> knd<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Etop]
+</span>  <span class="keyword">|</span> S2Etup s2es <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Etup("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27315"><span class="dyncstuse">fprint_s2explst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2es<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Etup]
+</span>  <span class="keyword">|</span> S2Etyarr <span class="keyword">(</span>s2e_elt<span class="keyword">,</span> s2ess_dim<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Etyarr("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e_elt<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27453"><span class="dyncstuse">fprint_s2explstlst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ess_dim<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Etyarr]
+</span>  <span class="keyword">|</span> S2Etyleq <span class="keyword">(</span>knd<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Etyleq("<span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2finteger_2esats.html#4733"><span class="dyncstuse">fprint1_int</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> knd<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e1<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ", "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e2<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Etyleq]
+</span>  <span class="keyword">|</span> S2Etylst s2es <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Etylst("<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27315"><span class="dyncstuse">fprint_s2explst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2es<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Etylst]
+</span>  <span class="keyword">|</span> S2Etyrec <span class="keyword">(</span>k<span class="keyword">,</span> npf<span class="keyword">,</span> ls2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Etyrec("<span class="keyword">;</span>
+      fprint_tyreckind <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> k<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2finteger_2esats.html#4733"><span class="dyncstuse">fprint1_int</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> npf<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#28228"><span class="dyncstuse">fprint_labs2explst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ls2es<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Etyrec]
+</span>  <span class="keyword">|</span> S2Euni <span class="keyword">(</span>s2vs<span class="keyword">,</span> s2ps<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Euni("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#17871"><span class="dyncstuse">fprint_s2varlst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2vs<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27315"><span class="dyncstuse">fprint_s2explst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ps<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Euni]
+</span>  <span class="keyword">|</span> S2Eunion <span class="keyword">(</span>stamp<span class="keyword">,</span> s2e_ind<span class="keyword">,</span> ls2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Eunion("<span class="keyword">;</span>
+      fprint_stamp <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> stamp<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e_ind<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#28228"><span class="dyncstuse">fprint_labs2explst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ls2es<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Eunion]
+</span>  <span class="keyword">|</span> S2Evar s2v <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Evar("<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#17741"><span class="dyncstuse">fprint_s2var</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2v<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Evar]
+</span>  <span class="keyword">|</span> S2EVar s2V <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+        prstr "S2EVar("<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#20347"><span class="dyncstuse">fprint_s2Var</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2V<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+      <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="comment">(*
+      val () = let
+        val os2e = s2Var_link_get s2V in case+ os2e of
+        | Some s2e =&gt; begin
+            prstr "["); fprint_s2exp (pf | out, s2e); prstr "]")
+          end (* end of [Some] *)
+        | None () =&gt; ()
+      end // end of [val]
+*)</span>
+    <span class="keyword">in</span>
+      <span class="comment">// empty
+</span>    <span class="keyword">end</span> <span class="comment">// end of [S2EVar]
+</span>  <span class="keyword">|</span> S2Evararg s2e <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Evararg("<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Evararg]
+</span>  <span class="keyword">|</span> S2Ewth <span class="keyword">(</span>s2e_res<span class="keyword">,</span> wths2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2Ewth("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e_res<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#28689"><span class="dyncstuse">fprint_wths2explst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> wths2es<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2Ewth]
+</span><span class="comment">(*
+  | _ =&gt; exit (1) where {
+      val () = prerr "INTERNAL ERROR (ats_staexp2_print): "
+      val () = prerr "[fprint_s2exp]: unsupported static expression"
+      val () = prerr_newline ()
+    } (* end of [_] *)
+*)</span>
+<span class="keyword">end</span> <span class="comment">(* end of [fprint_s2exp] *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27739"><span class="dyncstimp">print_s2exp</span></a> <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a><span class="keyword">,</span> s2e<span class="keyword">)</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27774"><span class="dyncstimp">prerr_s2exp</span></a> <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a><span class="keyword">,</span> s2e<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27315"><span class="dyncstimp">fprint_s2explst</span></a>
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>
+    out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse">FILE</span></a></span></a> m</span><span class="keyword">,</span> s2es<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#9393"><span class="stacstuse">s2explst</span></a></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> s2es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>s2e<span class="keyword">,</span> s2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> aux <span class="keyword">(</span>out<span class="keyword">,</span> s2es<span class="keyword">,</span> i+1<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ", "<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [cons]
+</span>    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// end of [nil]
+</span>  <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> s2es<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">(* end of [fprint_s2explst] *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27453"><span class="dyncstimp">fprint_s2explstlst</span></a>
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ess<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>
+    out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse">FILE</span></a></span></a> m</span><span class="keyword">,</span> s2ess<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#9489"><span class="stacstuse">s2explstlst</span></a></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> s2ess <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>s2es<span class="keyword">,</span> s2ess<span class="keyword">)</span> <span class="keyword">=&gt;</span> aux <span class="keyword">(</span>out<span class="keyword">,</span> s2ess<span class="keyword">,</span> i+1<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "; "<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27315"><span class="dyncstuse">fprint_s2explst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2es<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [cons]
+</span>    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// end of [nil]
+</span>  <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> s2ess<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">(* end of [fprint_s2explstlst] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27601"><span class="dyncstimp">fprint_s2expopt</span></a>
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> os2e<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> os2e <span class="keyword">of</span>
+  <span class="keyword">|</span> Some s2e <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "Some("<span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e<span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ")"<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [Some]
+</span>  <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "None()"<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [None]
+</span><span class="comment">(* end of [fprint_s2expopt] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#28228"><span class="dyncstimp">fprint_labs2explst</span></a>
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ls2es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>
+    out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse">FILE</span></a></span></a> m</span><span class="keyword">,</span> ls2es<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#8353"><span class="stacstuse">labs2explst</span></a></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> ls2es <span class="keyword">of</span>
+    <span class="keyword">|</span> LABS2EXPLSTcons <span class="keyword">(</span>l<span class="keyword">,</span> s2e<span class="keyword">,</span> ls2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ", "<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint_label <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> l<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "="<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        aux <span class="keyword">(</span>out<span class="keyword">,</span> ls2es<span class="keyword">,</span> i+1<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [LABS2EXPLSTcons]
+</span>    <span class="keyword">|</span> LABS2EXPLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> ls2es<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">(* end of [fprint_labs2explst] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#28397"><span class="dyncstimp">fprint_tmps2explstlst</span></a>
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ts2ess<span class="keyword">)</span> <span class="keyword">=</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> ts2ess<span class="keyword">,</span> 0<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>
+      out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse">FILE</span></a></span></a> m</span>
+    <span class="keyword">,</span> ts2ess<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#8466"><span class="stacstuse">tmps2explstlst</span></a></span>
+    <span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> ts2ess <span class="keyword">of</span>
+    <span class="keyword">|</span> TMPS2EXPLSTLSTcons
+        <span class="keyword">(</span>loc<span class="keyword">,</span> s2es<span class="keyword">,</span> ts2ess<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span>
+          <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "; "<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27315"><span class="dyncstuse">fprint_s2explst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2es<span class="keyword">)</span>
+      <span class="keyword">in</span>
+         aux <span class="keyword">(</span>out<span class="keyword">,</span> ts2ess<span class="keyword">,</span> i+1<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [TMPS2EXPLSTLSTcons]
+</span>    <span class="keyword">|</span> TMPS2EXPLSTLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="comment">// end of [aux]
+</span><span class="keyword">}</span> <span class="comment">// end of [fprint_s2explstlst]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#28555"><span class="dyncstimp">print_tmps2explstlst</span></a> <span class="keyword">(</span>ts2ess<span class="keyword">)</span> <span class="keyword">=</span>
+  print_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#28397"><span class="dyncstuse">fprint_tmps2explstlst</span></a><span class="keyword">,</span> ts2ess<span class="keyword">)</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#28611"><span class="dyncstimp">prerr_tmps2explstlst</span></a> <span class="keyword">(</span>ts2ess<span class="keyword">)</span> <span class="keyword">=</span>
+  prerr_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#28397"><span class="dyncstuse">fprint_tmps2explstlst</span></a><span class="keyword">,</span> ts2ess<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#28689"><span class="dyncstimp">fprint_wths2explst</span></a> <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> wths2es<span class="keyword">)</span> <span class="keyword">=</span> aux <span class="keyword">(</span>out<span class="keyword">,</span> wths2es<span class="keyword">,</span> 0<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>
+      out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse">FILE</span></a></span></a> m</span><span class="keyword">,</span> wths2es<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#8597"><span class="stacstuse">wths2explst</span></a></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">macdef</span> <span class="neuexp">prstr <span class="keyword">(</span>s<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span>pf <span class="keyword">|</span> out<span class="keyword">,</span> <span class="keyword">,(</span>s<span class="keyword">)</span><span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="keyword">case+</span> wths2es <span class="keyword">of</span>
+    <span class="keyword">|</span> WTHS2EXPLSTcons_some
+        <span class="keyword">(</span>refval<span class="keyword">,</span> s2e<span class="keyword">,</span> wths2es<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+        aux <span class="keyword">(</span>out<span class="keyword">,</span> wths2es<span class="keyword">,</span> i+1<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> prstr "; "
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+          prstr "Some("<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27187"><span class="dyncstuse">fprint_s2exp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2e<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+        <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>      <span class="keyword">}</span> <span class="comment">// end of [WTHS2EXPLSTcons_some]
+</span>    <span class="keyword">|</span> WTHS2EXPLSTcons_none
+        <span class="keyword">(</span>wths2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> aux <span class="keyword">(</span>out<span class="keyword">,</span> wths2es<span class="keyword">,</span> i+1<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> prstr "; "
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "None()"<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [STHS2EXPLSTcons_none]
+</span>    <span class="keyword">|</span> WTHS2EXPLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [aux]
+</span><span class="keyword">}</span> <span class="comment">(* end of [fprint_wths2explst] *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#28839"><span class="dyncstimp">print_wths2explst</span></a>
+  <span class="keyword">(</span>wths2es<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#28689"><span class="dyncstuse">fprint_wths2explst</span></a><span class="keyword">,</span> wths2es<span class="keyword">)</span>
+<span class="comment">// end of [print_wths2explst]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#28890"><span class="dyncstimp">prerr_wths2explst</span></a>
+  <span class="keyword">(</span>wths2es<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#28689"><span class="dyncstuse">fprint_wths2explst</span></a><span class="keyword">,</span> wths2es<span class="keyword">)</span>
+<span class="comment">// end of [prerr_wths2explst]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25193"><span class="dyncstimp">fprint_s2lab</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2l<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">macdef</span> <span class="neuexp">prstr <span class="keyword">(</span>s<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span>pf <span class="keyword">|</span> out<span class="keyword">,</span> <span class="keyword">,(</span>s<span class="keyword">)</span><span class="keyword">)</span></span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> s2l <span class="keyword">of</span>
+  <span class="keyword">|</span> S2LAB0lab l <span class="keyword">=&gt;</span> fprint_label <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> l<span class="keyword">)</span>
+  <span class="keyword">|</span> S2LAB0ind s2ess <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "["<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27453"><span class="dyncstuse">fprint_s2explstlst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ess<span class="keyword">)</span><span class="keyword">;</span> prstr "]"
+    <span class="keyword">end</span> <span class="comment">// end of [S2LAB0ind]
+</span>  <span class="keyword">|</span> S2LAB1lab <span class="keyword">(</span>l<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> fprint_label <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> l<span class="keyword">)</span>
+  <span class="keyword">|</span> S2LAB1ind <span class="keyword">(</span>s2ess<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "["<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27453"><span class="dyncstuse">fprint_s2explstlst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ess<span class="keyword">)</span><span class="keyword">;</span> prstr "]"
+    <span class="keyword">end</span> <span class="comment">// end of [S2LAB1ind]
+</span><span class="keyword">end</span> <span class="comment">(* end of [fprint_s2lab] *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25321"><span class="dyncstimp">print_s2lab</span></a> <span class="keyword">(</span>s2l<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25193"><span class="dyncstuse">fprint_s2lab</span></a><span class="keyword">,</span> s2l<span class="keyword">)</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25356"><span class="dyncstimp">prerr_s2lab</span></a> <span class="keyword">(</span>s2l<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25193"><span class="dyncstuse">fprint_s2lab</span></a><span class="keyword">,</span> s2l<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25392"><span class="dyncstimp">fprint_s2lablst</span></a> <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ls<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse">FILE</span></a></span></a> m</span><span class="keyword">,</span> s2ls<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#9196"><span class="stacstuse">s2lablst</span></a></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> s2ls <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>s2l<span class="keyword">,</span> s2ls<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ", "<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25193"><span class="dyncstuse">fprint_s2lab</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2l<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        aux <span class="keyword">(</span>out<span class="keyword">,</span> s2ls<span class="keyword">,</span> i+1<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// end of [nil]
+</span>  <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> s2ls<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">(* end of [fprint_s2lablst] *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25530"><span class="dyncstimp">print_s2lablst</span></a> <span class="keyword">(</span>s2ls<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25392"><span class="dyncstuse">fprint_s2lablst</span></a><span class="keyword">,</span> s2ls<span class="keyword">)</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25572"><span class="dyncstimp">prerr_s2lablst</span></a> <span class="keyword">(</span>s2ls<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25392"><span class="dyncstuse">fprint_s2lablst</span></a><span class="keyword">,</span> s2ls<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25636"><span class="dyncstimp">fprint_s2kexp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ke<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">macdef</span> <span class="neuexp">prstr <span class="keyword">(</span>s<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span>pf <span class="keyword">|</span> out<span class="keyword">,</span> <span class="keyword">,(</span>s<span class="keyword">)</span><span class="keyword">)</span></span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> s2ke <span class="keyword">of</span>
+  <span class="keyword">|</span> S2KEany <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "S2KEany()"<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2KEany]
+</span>  <span class="keyword">|</span> S2KEapp<span class="keyword">(</span>s2ke<span class="keyword">,</span> s2kes<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2KEapp("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25636"><span class="dyncstuse">fprint_s2kexp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ke<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25768"><span class="dyncstuse">fprint_s2kexplst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2kes<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2KEapp]
+</span>  <span class="keyword">|</span> S2KEcst s2c <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#16018"><span class="dyncstuse">fprint_s2cst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2c<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2KEcst]
+</span>  <span class="keyword">|</span> S2KEfun <span class="keyword">(</span>fc<span class="keyword">,</span> s2kes<span class="keyword">,</span> s2ke<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2KEfun("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsyntax_2esats.html#15518"><span class="dyncstuse">$Syn<span class="keyword">.</span>fprint_funclo</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> fc<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25768"><span class="dyncstuse">fprint_s2kexplst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2kes<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25636"><span class="dyncstuse">fprint_s2kexp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ke<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2KEfun]
+</span>  <span class="keyword">|</span> S2KEtyarr <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "S2KEtyarr()"<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2KEtyarr]
+</span>  <span class="keyword">|</span> S2KEtyrec <span class="keyword">(</span>recknd<span class="keyword">,</span> ls2kes<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2KEtyrec("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25910"><span class="dyncstuse">fprint_labs2kexplst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ls2kes<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2KEtyrec]
+</span>  <span class="keyword">|</span> S2KEunion <span class="keyword">(</span>s2kes<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2KEunion("<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25768"><span class="dyncstuse">fprint_s2kexplst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2kes<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2KEunion]
+</span>  <span class="keyword">|</span> S2KEvar s2v <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#17741"><span class="dyncstuse">fprint_s2var</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2v<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S2KEvar]
+</span><span class="keyword">end</span> <span class="comment">// end of [fprint_sk2exp]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25768"><span class="dyncstimp">fprint_s2kexplst</span></a>
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2kes<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>
+    out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse">FILE</span></a></span></a> m</span><span class="keyword">,</span> s2kes<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#9167"><span class="stacstuse">s2kexplst</span></a></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> s2kes <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>s2ke<span class="keyword">,</span> s2kes<span class="keyword">)</span> <span class="keyword">=&gt;</span> aux <span class="keyword">(</span>out<span class="keyword">,</span> s2kes<span class="keyword">,</span> i+1<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ", "<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25636"><span class="dyncstuse">fprint_s2kexp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ke<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [cons]
+</span>    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// end of [nil]
+</span>  <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> s2kes<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [fprint_s2kexplst]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25910"><span class="dyncstimp">fprint_labs2kexplst</span></a>
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ls2kes<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>
+      out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse">FILE</span></a></span></a> m</span>
+    <span class="keyword">,</span> ls2kes<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#4735"><span class="stacstuse">labs2kexplst</span></a></span>
+    <span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">macdef</span> <span class="neuexp">prstr <span class="keyword">(</span>s<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span>pf <span class="keyword">|</span> out<span class="keyword">,</span> <span class="keyword">,(</span>s<span class="keyword">)</span><span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="keyword">case+</span> ls2kes <span class="keyword">of</span>
+    <span class="keyword">|</span> LABS2KEXPLSTcons <span class="keyword">(</span>l<span class="keyword">,</span> s2ke<span class="keyword">,</span> ls2kes<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">(</span>i <span class="keyword">&gt;</span> 0<span class="keyword">)</span> <span class="keyword">then</span> prstr ", "
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>fprint_label <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> l<span class="keyword">)</span><span class="keyword">;</span> prstr "="<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25636"><span class="dyncstuse">fprint_s2kexp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ke<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        aux <span class="keyword">(</span>out<span class="keyword">,</span> ls2kes<span class="keyword">,</span> i+1<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [LABS2KEXPLSTcons]
+</span>    <span class="keyword">|</span> LABS2KEXPLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// end of [LABS2KEXPLSTnil]
+</span>  <span class="keyword">end</span> <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> ls2kes<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">(* end of [fprint_labs2kexplst] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#26066"><span class="dyncstimp">print_s2kexp</span></a> <span class="keyword">(</span>s2ke<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25636"><span class="dyncstuse">fprint_s2kexp</span></a><span class="keyword">,</span> s2ke<span class="keyword">)</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#26104"><span class="dyncstimp">prerr_s2kexp</span></a> <span class="keyword">(</span>s2ke<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#25636"><span class="dyncstuse">fprint_s2kexp</span></a><span class="keyword">,</span> s2ke<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#26231"><span class="dyncstimp">fprint_s2zexp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ze<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">macdef</span> <span class="neuexp">prstr <span class="keyword">(</span>s<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span>pf <span class="keyword">|</span> out<span class="keyword">,</span> <span class="keyword">,(</span>s<span class="keyword">)</span><span class="keyword">)</span></span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> s2ze <span class="keyword">of</span>
+  <span class="keyword">|</span> S2ZEapp <span class="keyword">(</span>s2ze_fun<span class="keyword">,</span> s2zes_arg<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2ZEapp("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#26231"><span class="dyncstuse">fprint_s2zexp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ze_fun<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#26404"><span class="dyncstuse">fprint_s2zexplst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2zes_arg<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2ZEapp]
+</span>  <span class="keyword">|</span> S2ZEbot <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> prstr "S2ZEbot()"
+  <span class="keyword">|</span> S2ZEcst s2c <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2ZEcst("<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#16018"><span class="dyncstuse">fprint_s2cst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2c<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2ZEcst]
+</span>  <span class="keyword">|</span> S2ZEextype name <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2ZEextype("<span class="keyword">;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> name<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2ZEextype]
+</span><span class="comment">(*
+  | S2ZEout s2ze =&gt; begin
+      prstr "S2ZEout(");
+      fprint_s2zexp (pf | out, s2ze);
+      prstr ")")
+    end // end of [S2ZEout]
+*)</span>
+  <span class="keyword">|</span> S2ZEptr <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> prstr "S2ZEptr()"
+  <span class="keyword">|</span> S2ZEtyarr <span class="keyword">(</span>s2ze<span class="keyword">,</span> s2ess_dim<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2ZEtyarr("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#26231"><span class="dyncstuse">fprint_s2zexp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ze<span class="keyword">)</span><span class="keyword">;</span>
+      prstr "; "<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27453"><span class="dyncstuse">fprint_s2explstlst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ess_dim<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2ZEtyarr]
+</span>  <span class="keyword">|</span> S2ZEtyrec <span class="keyword">(</span>_<span class="comment">(*knd*)</span><span class="keyword">,</span> ls2zes<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2ZEtyrec("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#26508"><span class="dyncstuse">fprint_labs2zexplst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ls2zes<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2ZEtyrec]
+</span>  <span class="keyword">|</span> S2ZEunion <span class="keyword">(</span>_<span class="comment">(*stamp*)</span><span class="keyword">,</span> ls2zes<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2ZEunion("<span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#26508"><span class="dyncstuse">fprint_labs2zexplst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ls2zes<span class="keyword">)</span><span class="keyword">;</span>
+      prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2ZEunion]
+</span>  <span class="keyword">|</span> S2ZEvar s2v <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prstr "S2ZEvar("<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#17741"><span class="dyncstuse">fprint_s2var</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2v<span class="keyword">)</span><span class="keyword">;</span> prstr ")"
+    <span class="keyword">end</span> <span class="comment">// end of [S2ZEvar]
+</span><span class="keyword">end</span> <span class="comment">(* end of [fprint_s2zexp] *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#26327"><span class="dyncstimp">print_s2zexp</span></a> <span class="keyword">(</span>s2ze<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#26231"><span class="dyncstuse">fprint_s2zexp</span></a><span class="keyword">,</span> s2ze<span class="keyword">)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#26365"><span class="dyncstimp">prerr_s2zexp</span></a> <span class="keyword">(</span>s2ze<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#26231"><span class="dyncstuse">fprint_s2zexp</span></a><span class="keyword">,</span> s2ze<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#26404"><span class="dyncstimp">fprint_s2zexplst</span></a>
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2zes<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>
+    out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse">FILE</span></a></span></a> m</span><span class="keyword">,</span> s2zes<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#9072"><span class="stacstuse">s2zexplst</span></a></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> s2zes <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>s2ze<span class="keyword">,</span> s2zes<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span>
+          <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ", "<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#26231"><span class="dyncstuse">fprint_s2zexp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ze<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        aux <span class="keyword">(</span>out<span class="keyword">,</span> s2zes<span class="keyword">,</span> i+1<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// end of [nil]
+</span>  <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> s2zes<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">(* end of [fprint_s2zexplst] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#26508"><span class="dyncstimp">fprint_labs2zexplst</span></a>
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ls2zes<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>
+    out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse">FILE</span></a></span></a> m</span><span class="keyword">,</span> ls2zes<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#5236"><span class="stacstuse">labs2zexplst</span></a></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> ls2zes <span class="keyword">of</span>
+    <span class="keyword">|</span> LABS2ZEXPLSTcons
+        <span class="keyword">(</span>l<span class="keyword">,</span> s2ze<span class="keyword">,</span> ls2zes<span class="keyword">)</span> <span class="keyword">=&gt;</span> aux <span class="keyword">(</span>out<span class="keyword">,</span> ls2zes<span class="keyword">,</span> i+1<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ", "<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>fprint_label <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> l<span class="keyword">)</span><span class="keyword">;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "="<span class="keyword">)</span><span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#26231"><span class="dyncstuse">fprint_s2zexp</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2ze<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [LABS2ZEXPLSTcons]
+</span>    <span class="keyword">|</span> LABS2ZEXPLSTnil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// end of [LABS2ZEXPLSTnil]
+</span>  <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> ls2zes<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">(* end of [fprint_labs2zexplst] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27875"><span class="dyncstimp">print_s2explst</span></a> <span class="keyword">(</span>s2es<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27315"><span class="dyncstuse">fprint_s2explst</span></a><span class="keyword">,</span> s2es<span class="keyword">)</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27917"><span class="dyncstimp">prerr_s2explst</span></a> <span class="keyword">(</span>s2es<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27315"><span class="dyncstuse">fprint_s2explst</span></a><span class="keyword">,</span> s2es<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#28031"><span class="dyncstimp">print_labs2explst</span></a> <span class="keyword">(</span>ls2es<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#28228"><span class="dyncstuse">fprint_labs2explst</span></a><span class="keyword">,</span> ls2es<span class="keyword">)</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#28080"><span class="dyncstimp">prerr_labs2explst</span></a> <span class="keyword">(</span>ls2es<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#28228"><span class="dyncstuse">fprint_labs2explst</span></a><span class="keyword">,</span> ls2es<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#28963"><span class="dyncstimp">fprint_s2exparg</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2a<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> s2a<span class="keyword">.</span>s2exparg_node <span class="keyword">of</span>
+  <span class="keyword">|</span> S2EXPARGone<span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ".."<span class="keyword">)</span>
+  <span class="keyword">|</span> S2EXPARGall<span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "..."<span class="keyword">)</span>
+  <span class="keyword">|</span> S2EXPARGseq s2es <span class="keyword">=&gt;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27315"><span class="dyncstuse">fprint_s2explst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2es<span class="keyword">)</span>
+<span class="comment">// end of [fprint_s2exparg]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#29100"><span class="dyncstimp">fprint_s2exparglst</span></a>
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2as<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>
+    out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse">FILE</span></a></span></a> m</span><span class="keyword">,</span> s2as<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#9932"><span class="stacstuse">s2exparglst</span></a></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> s2as <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>s2a<span class="keyword">,</span> s2as<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span>
+          <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ", "<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#28963"><span class="dyncstuse">fprint_s2exparg</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2a<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        aux <span class="keyword">(</span>out<span class="keyword">,</span> s2as<span class="keyword">,</span> i+1<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// end of [nil]
+</span>  <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> s2as<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">(* end of [fprint_s2exparglst] *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#29247"><span class="dyncstimp">print_s2exparglst</span></a> <span class="keyword">(</span>s2as<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#29100"><span class="dyncstuse">fprint_s2exparglst</span></a><span class="keyword">,</span> s2as<span class="keyword">)</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#29295"><span class="dyncstimp">prerr_s2exparglst</span></a> <span class="keyword">(</span>s2as<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#29100"><span class="dyncstuse">fprint_s2exparglst</span></a><span class="keyword">,</span> s2as<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#21537"><span class="dyncstimp">fprint_s2qua</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2q<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  fprint_string <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> "("<span class="keyword">)</span><span class="keyword">;</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#17871"><span class="dyncstuse">fprint_s2varlst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2q<span class="keyword">.</span>0<span class="keyword">)</span><span class="keyword">;</span>
+  fprint_string <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> " | "<span class="keyword">)</span><span class="keyword">;</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#27315"><span class="dyncstuse">fprint_s2explst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2q<span class="keyword">.</span>1<span class="keyword">)</span><span class="keyword">;</span>
+  fprint_string <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ")"<span class="keyword">)</span><span class="keyword">;</span>
+<span class="keyword">end</span> <span class="comment">// end of [fprint_s2qua]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#21631"><span class="dyncstimp">fprint_s2qualst</span></a>
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2qs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>
+    out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse">FILE</span></a></span></a> m</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span><span class="keyword">,</span> s2qs<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#10049"><span class="stacstuse">s2qualst</span></a></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> s2qs <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>s2q<span class="keyword">,</span> s2qs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span>
+          <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8037"><span class="dyncstuse">fprint1_string</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ", "<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#21537"><span class="dyncstuse">fprint_s2qua</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> s2q<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        aux <span class="keyword">(</span>out<span class="keyword">,</span> i+1<span class="keyword">,</span> s2qs<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// end of [nil]
+</span>  <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> 0<span class="keyword">,</span> s2qs<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [fprint_s2qualst]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#21732"><span class="dyncstimp">print_s2qualst</span></a> <span class="keyword">(</span>s2qs<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#21631"><span class="dyncstuse">fprint_s2qualst</span></a><span class="keyword">,</span> s2qs<span class="keyword">)</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#21774"><span class="dyncstimp">prerr_s2qualst</span></a> <span class="keyword">(</span>s2qs<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#21631"><span class="dyncstuse">fprint_s2qualst</span></a><span class="keyword">,</span> s2qs<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_staexp2_print.dats] *)</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,585 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: October 2007
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+#include "ats_counter.cats" /* only needed for [ATS/Geizella] */
+%}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Err <span class="keyword">=</span> "ats_error.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">IntInf <span class="keyword">=</span> "ats_intinf.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Lst <span class="keyword">=</span> "ats_list.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Stamp <span class="keyword">=</span> "ats_stamp.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Sym <span class="keyword">=</span> "ats_symbol.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">nil list_nil</span>
+<span class="keyword">#define</span> <span class="neuexp">:: list_cons</span>
+<span class="keyword">#define</span> <span class="neuexp">cons list_cons</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">=</span> <span class="keyword">with</span> $Stamp<span class="keyword">.</span>eq_stamp_stamp</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> prerr_interror <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> prerr "INTERNAL ERROR (ats_staexp2)"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> eq_tyreckind_tyreckind <span class="keyword">(</span>k1<span class="keyword">,</span> k2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>k1<span class="keyword">,</span> k2<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>TYRECKINDbox <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> TYRECKINDbox <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+  <span class="keyword">|</span> <span class="keyword">(</span>TYRECKINDflt0 <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> TYRECKINDflt0 <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> true
+  <span class="keyword">|</span> <span class="keyword">(</span>TYRECKINDflt1 s1<span class="keyword">,</span> TYRECKINDflt1 s2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>s1 <span class="keyword">=</span> s2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>TYRECKINDflt_ext s1<span class="keyword">,</span> TYRECKINDflt_ext s2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>s1 <span class="keyword">=</span> s2<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> false
+<span class="keyword">end</span> <span class="comment">// end of [eq_tyreckind_tyreckind]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">val</span> s2tb_addr<span class="keyword">:</span> <span class="staexp">s2rtbas</span> <span class="keyword">=</span> S2RTBASpre <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_ADDR<span class="keyword">)</span>
+<span class="keyword">val</span> s2tb_bool<span class="keyword">:</span> <span class="staexp">s2rtbas</span> <span class="keyword">=</span> S2RTBASpre <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_BOOL<span class="keyword">)</span>
+<span class="keyword">val</span> s2tb_char<span class="keyword">:</span> <span class="staexp">s2rtbas</span> <span class="keyword">=</span> S2RTBASpre <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_CHAR<span class="keyword">)</span>
+<span class="keyword">val</span> s2tb_cls<span class="keyword">:</span> <span class="staexp">s2rtbas</span> <span class="keyword">=</span> S2RTBASpre <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_CLS<span class="keyword">)</span>
+<span class="keyword">val</span> s2tb_eff<span class="keyword">:</span> <span class="staexp">s2rtbas</span> <span class="keyword">=</span> S2RTBASpre <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_EFF<span class="keyword">)</span>
+<span class="keyword">val</span> s2tb_int<span class="keyword">:</span> <span class="staexp">s2rtbas</span> <span class="keyword">=</span> S2RTBASpre <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_INT<span class="keyword">)</span>
+
+<span class="keyword">implement</span> s2rt_addr <span class="keyword">=</span> S2RTbas s2tb_addr
+<span class="keyword">implement</span> s2rt_bool <span class="keyword">=</span> S2RTbas s2tb_bool
+<span class="keyword">implement</span> s2rt_char <span class="keyword">=</span> S2RTbas s2tb_char
+<span class="keyword">implement</span> s2rt_cls <span class="keyword">=</span> S2RTbas s2tb_cls
+<span class="keyword">implement</span> s2rt_eff <span class="keyword">=</span> S2RTbas s2tb_eff
+<span class="keyword">implement</span> s2rt_int <span class="keyword">=</span> S2RTbas s2tb_int
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">PROOF_LEVEL 2</span>
+
+<span class="keyword">val</span> s2tb_prop<span class="keyword">:</span> <span class="staexp">s2rtbas</span> <span class="keyword">=</span>
+  S2RTBASimp <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_PROP<span class="keyword">,</span> PROOF_LEVEL<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">val</span> s2tb_type<span class="keyword">:</span> <span class="staexp">s2rtbas</span> <span class="keyword">=</span>
+  S2RTBASimp <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_TYPE<span class="keyword">,</span> 0<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">val</span> s2tb_t0ype<span class="keyword">:</span> <span class="staexp">s2rtbas</span> <span class="keyword">=</span>
+  S2RTBASimp <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_T0YPE<span class="keyword">,</span> 1<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">val</span> s2tb_view<span class="keyword">:</span> <span class="staexp">s2rtbas</span> <span class="keyword">=</span>
+  S2RTBASimp <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_VIEW<span class="keyword">,</span> PROOF_LEVEL<span class="keyword">,</span> 1<span class="keyword">)</span>
+<span class="keyword">val</span> s2tb_viewtype<span class="keyword">:</span> <span class="staexp">s2rtbas</span> <span class="keyword">=</span>
+  S2RTBASimp <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_VIEWTYPE<span class="keyword">,</span> 0<span class="keyword">,</span> 1<span class="keyword">)</span>
+<span class="keyword">val</span> s2tb_viewt0ype<span class="keyword">:</span> <span class="staexp">s2rtbas</span> <span class="keyword">=</span>
+  S2RTBASimp <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_VIEWT0YPE<span class="keyword">,</span> 1<span class="keyword">,</span> 1<span class="keyword">)</span>
+<span class="keyword">val</span> s2tb_types<span class="keyword">:</span> <span class="staexp">s2rtbas</span> <span class="keyword">=</span> <span class="comment">(* it is like [t@ype] *)</span>
+  S2RTBASimp <span class="keyword">(</span>$Sym<span class="keyword">.</span>symbol_TYPES<span class="keyword">,</span> 1<span class="keyword">,</span> 0<span class="keyword">)</span>
+
+<span class="keyword">implement</span> s2rt_prop <span class="keyword">=</span> S2RTbas s2tb_prop
+<span class="keyword">implement</span> s2rt_type <span class="keyword">=</span> S2RTbas s2tb_type
+<span class="keyword">implement</span> s2rt_t0ype <span class="keyword">=</span> S2RTbas s2tb_t0ype
+<span class="keyword">implement</span> s2rt_types <span class="keyword">=</span> S2RTbas s2tb_types
+<span class="keyword">implement</span> s2rt_view <span class="keyword">=</span> S2RTbas s2tb_view
+<span class="keyword">implement</span> s2rt_viewtype <span class="keyword">=</span> S2RTbas s2tb_viewtype
+<span class="keyword">implement</span> s2rt_viewt0ype <span class="keyword">=</span> S2RTbas s2tb_viewt0ype
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2rt_linearize
+  <span class="keyword">(</span>s2t<span class="keyword">:</span> <span class="staexp">s2rt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2rt</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> s2t<span class="keyword">:</span> <span class="staexp">s2rt</span> <span class="keyword">=</span> s2t<span class="keyword">;</span> <span class="keyword">var</span> err<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> 0
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> s2t <span class="keyword">of</span>
+    <span class="keyword">|</span> S2RTbas s2tb <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2tb <span class="keyword">of</span>
+      <span class="keyword">|</span> S2RTBASimp <span class="keyword">(</span>name<span class="keyword">,</span> prf<span class="keyword">,</span> lin<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          s2t := S2RTbas <span class="keyword">(</span>S2RTBASimp <span class="keyword">(</span>name<span class="keyword">,</span> prf<span class="keyword">,</span> 1<span class="keyword">)</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [S2RTBASimp]
+</span>      <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> err := 1
+      <span class="keyword">end</span> <span class="comment">// end of [S2RTbas]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> err := 1
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> err <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+    prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+    prerr ": s2rt_linearize: s2t = "<span class="keyword">;</span> prerr s2t<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+    $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  s2t
+<span class="keyword">end</span> <span class="comment">// end of [s2rt_linearize]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="4472"><span class="stacstdec">s2rtdat_struct <span class="keyword">=</span> <span class="keyword">@{</span>
+  s2rtdat_sym<span class="keyword">=</span> sym_t <span class="comment">// name
+</span><span class="keyword">,</span> s2rtdat_conlst<span class="keyword">=</span> s2cstlst
+<span class="keyword">,</span> s2rtdat_stamp<span class="keyword">=</span> stamp_t <span class="comment">// unique stamp
+</span><span class="keyword">}</span></span></a></span> <span class="comment">// end of [s2rtdat_struct]
+</span>
+<span class="keyword">local</span>
+
+<span class="keyword">assume</span> <span class="staexp">s2rtdat_t <span class="keyword">=</span> <span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>vbox <span class="keyword">(</span>s2rtdat_struct @ l<span class="keyword">)</span> <span class="keyword">|</span> ptr l<span class="keyword">)</span></span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> s2rtdat_make <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> stamp <span class="keyword">=</span> $Stamp<span class="keyword">.</span>s2rtdat_stamp_make <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_gc</span><span class="keyword">,</span> <span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span>
+    ptr_alloc_tsz <span class="staexp"><span class="keyword">{</span>s2rtdat_struct<span class="keyword">}</span></span> <span class="keyword">(</span>sizeof&lt;<span class="staexp">s2rtdat_struct</span><span class="keyword">&gt;</span><span class="keyword">)</span>
+  <span class="comment">// end of [val]
+</span>  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> free_gc_elim <span class="staexp"><span class="keyword">{</span>s2rtdat_struct<span class="keyword">}</span></span> <span class="keyword">(</span>pf_gc<span class="keyword">)</span></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>s2rtdat_sym := id
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>s2rtdat_conlst := S2CSTLSTnil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> p<span class="keyword">-&gt;</span>s2rtdat_stamp := stamp
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pfbox</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> vbox_make_view_ptr <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="comment">// in of [let]
+</span>  <span class="keyword">(</span><span class="prfexp">pfbox</span> <span class="keyword">|</span> p<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2rtdat_make]
+</span>
+<span class="keyword">implement</span> s2rtdat_sym_get <span class="keyword">(</span>s2td<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> s2td <span class="keyword">in</span> p<span class="keyword">-&gt;</span>s2rtdat_sym <span class="keyword">end</span>
+<span class="comment">// end of [s2rtdat_sym_get]
+</span>
+<span class="keyword">implement</span> s2rtdat_conlst_get <span class="keyword">(</span>s2td<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> s2td <span class="keyword">in</span> p<span class="keyword">-&gt;</span>s2rtdat_conlst <span class="keyword">end</span>
+<span class="comment">// end of [s2rtdat_conlst_get]
+</span>
+<span class="keyword">implement</span> s2rtdat_conlst_set <span class="keyword">(</span>s2td<span class="keyword">,</span> s2cs<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> s2td <span class="keyword">in</span> p<span class="keyword">-&gt;</span>s2rtdat_conlst := s2cs <span class="keyword">end</span>
+<span class="comment">// end of [s2rtdat_conlst_set]
+</span>
+<span class="keyword">implement</span> s2rtdat_stamp_get <span class="keyword">(</span>s2td<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> s2td <span class="keyword">in</span> p<span class="keyword">-&gt;</span>s2rtdat_stamp <span class="keyword">end</span>
+<span class="comment">// end of [s2rtdat_stamp_get]
+</span>
+<span class="keyword">implement</span> eq_s2rtdat_s2rtdat <span class="keyword">(</span>s2td1<span class="keyword">,</span> s2td2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> stamp1 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf1</span> <span class="keyword">|</span> p1<span class="keyword">)</span> <span class="keyword">=</span> s2td1 <span class="keyword">in</span> p1<span class="keyword">-&gt;</span>s2rtdat_stamp <span class="keyword">end</span>
+  <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> stamp2 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf2</span> <span class="keyword">|</span> p2<span class="keyword">)</span> <span class="keyword">=</span> s2td2 <span class="keyword">in</span> p2<span class="keyword">-&gt;</span>s2rtdat_stamp <span class="keyword">end</span>
+  <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  stamp1 <span class="keyword">=</span> stamp2
+<span class="keyword">end</span> <span class="comment">// end of [eq_s2rtdat_s2rtdat]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2rt_fun
+  <span class="keyword">(</span>s2ts_arg<span class="keyword">,</span> s2t_res<span class="keyword">)</span> <span class="keyword">=</span>  S2RTfun <span class="keyword">(</span>s2ts_arg<span class="keyword">,</span> s2t_res<span class="keyword">)</span>
+<span class="comment">// end of [s2rt_fun]
+</span>
+<span class="keyword">implement</span> s2rt_tup <span class="keyword">(</span>s2ts_elt<span class="keyword">)</span> <span class="keyword">=</span> S2RTtup s2ts_elt
+
+<span class="keyword">implement</span> un_s2rt_fun <span class="keyword">(</span>s2t<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> s2t <span class="keyword">of</span>
+  <span class="keyword">|</span> S2RTfun <span class="keyword">(</span>s2ts<span class="keyword">,</span> s2t<span class="keyword">)</span> <span class="keyword">=&gt;</span> Some_vt <span class="keyword">@(</span>s2ts<span class="keyword">,</span> s2t<span class="keyword">)</span> <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [un_s2rt_fun]
+</span>
+<span class="keyword">implement</span> un_s2rt_tup <span class="keyword">(</span>s2t<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> s2t <span class="keyword">of</span>
+  <span class="keyword">|</span> S2RTtup s2ts <span class="keyword">=&gt;</span> Some_vt <span class="keyword">(</span>s2ts<span class="keyword">)</span> <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [un_s2rt_tup]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2arg_make <span class="keyword">(</span>loc<span class="keyword">,</span> id<span class="keyword">,</span> os2t<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2arg_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s2arg_sym<span class="keyword">=</span> id<span class="keyword">,</span> s2arg_srt<span class="keyword">=</span> os2t
+<span class="keyword">}</span> <span class="comment">// end of [s2arg_make]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> sp2at_con <span class="keyword">(</span>loc<span class="keyword">,</span> s2c<span class="keyword">,</span> s2vs_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2e_pat <span class="keyword">=</span> s2exp_cstapp <span class="keyword">(</span>s2c<span class="keyword">,</span> s2es_arg<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">val</span> s2es_arg <span class="keyword">=</span> $Lst<span class="keyword">.</span>list_map_fun <span class="keyword">(</span>s2vs_arg<span class="keyword">,</span> s2exp_var<span class="keyword">)</span>
+  <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> sp2t <span class="keyword">=</span> SP2Tcon <span class="keyword">(</span>s2c<span class="keyword">,</span> s2vs_arg<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  sp2at_loc<span class="keyword">=</span> loc<span class="keyword">,</span> sp2at_exp<span class="keyword">=</span> s2e_pat<span class="keyword">,</span> sp2at_node <span class="keyword">=</span> sp2t
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [sp2at_con]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2exp_app_srt
+  <span class="keyword">(</span>s2t<span class="keyword">,</span> s2e_fun<span class="keyword">,</span> s2es_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2t<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Eapp <span class="keyword">(</span>s2e_fun<span class="keyword">,</span> s2es_arg<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">(* end of [s2exp_app_srt] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2exp_app_wind <span class="keyword">(</span>s2e_fun<span class="keyword">,</span> s2ess_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="keyword">fun</span> loop <span class="keyword">(</span>s2t<span class="keyword">:</span> <span class="staexp">s2rt</span><span class="keyword">,</span> s2e<span class="keyword">:</span> <span class="staexp">s2exp</span><span class="keyword">,</span> s2ess<span class="keyword">:</span> <span class="staexp">s2explstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2exp</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> s2ess <span class="keyword">of</span>
+  <span class="keyword">|</span> s2es :: s2ess <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> un_s2rt_fun s2t <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">~</span>Some_vt s2ts_s2t <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> s2t <span class="keyword">=</span> s2ts_s2t<span class="keyword">.</span>1
+        <span class="keyword">val</span> s2e <span class="keyword">=</span> s2exp_app_srt <span class="keyword">(</span>s2t<span class="keyword">,</span> s2e<span class="keyword">,</span> s2es<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        loop <span class="keyword">(</span>s2t<span class="keyword">,</span> s2e<span class="keyword">,</span> s2ess<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>    <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span> prerr ": s2exp_app_wind"<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+        $Err<span class="keyword">.</span>abort <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>    <span class="keyword">end</span> <span class="comment">(* end of [::] *)</span>
+  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2e
+<span class="keyword">in</span>
+  loop <span class="keyword">(</span>s2e_fun<span class="keyword">.</span>s2exp_srt<span class="keyword">,</span> s2e_fun<span class="keyword">,</span> s2ess_arg<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [s2exp_app_wind]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2exp_char <span class="keyword">(</span>chr<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2rt_char<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Echar chr
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_char]
+</span>
+<span class="keyword">implement</span> s2exp_clo_srt <span class="keyword">(</span>s2t<span class="keyword">,</span> knd<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2t<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Eclo <span class="keyword">(</span>knd<span class="keyword">,</span> s2e<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_clo_srt]
+</span>
+<span class="keyword">implement</span> s2exp_confun <span class="keyword">(</span>npf<span class="keyword">,</span> s2es_arg<span class="keyword">,</span> s2e_res<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2rt_type
+<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Efun <span class="keyword">(</span>
+    $Syn<span class="keyword">.</span>FUNCLOfun <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> 0<span class="comment">(*lin*)</span><span class="keyword">,</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> npf<span class="keyword">,</span> s2es_arg<span class="keyword">,</span> s2e_res
+  <span class="keyword">)</span> <span class="comment">// end of [S2Efun]
+</span><span class="keyword">}</span> <span class="comment">(* end of [s2exp_confun] *)</span>
+
+<span class="keyword">implement</span> s2exp_crypt <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2e<span class="keyword">.</span>s2exp_srt<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Ecrypt <span class="keyword">(</span>s2e<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_crypt]
+</span>
+<span class="keyword">implement</span> s2exp_cst <span class="keyword">(</span>s2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2cst_srt_get s2c<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Ecst s2c
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_cst]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+s2exp_cstapp
+  <span class="keyword">(</span>s2c_fun<span class="keyword">,</span> s2es_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2t_fun <span class="keyword">=</span> s2cst_srt_get s2c_fun
+  <span class="keyword">and</span> s2e_fun <span class="keyword">=</span> s2exp_cst s2c_fun
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> un_s2rt_fun s2t_fun <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>Some_vt s2ts_arg_s2t_res <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      s2exp_app_srt <span class="keyword">(</span>s2ts_arg_s2t_res<span class="keyword">.</span>1<span class="keyword">,</span> s2e_fun<span class="keyword">,</span> s2es_arg<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>  <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      prerr "s2exp_cstapp: the sort of the static constant ["<span class="keyword">;</span>
+      prerr s2c_fun<span class="keyword">;</span>
+      prerr "] is not functional: "<span class="keyword">;</span>
+      prerr s2t_fun<span class="keyword">;</span>
+      prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      $Err<span class="keyword">.</span>abort <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span><span class="keyword">end</span> <span class="comment">// end of [s2exp_cstapp]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+s2exp_datconptr <span class="keyword">(</span>d2c<span class="keyword">,</span> s2es_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> arity_real <span class="keyword">=</span> d2con_arity_real_get d2c<span class="keyword">;</span> <span class="keyword">val</span> s2t <span class="keyword">=</span>
+    <span class="keyword">(</span><span class="keyword">if</span> arity_real <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> s2rt_viewtype <span class="keyword">else</span> s2rt_type<span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2rt</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2t<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Edatconptr <span class="keyword">(</span>d2c<span class="keyword">,</span> s2es_arg<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [s2exp_datconptr]
+</span>
+<span class="comment">//
+</span><span class="comment">// HX: [s2es_arg] cannot be empty!
+</span><span class="comment">//
+</span><span class="keyword">implement</span>
+s2exp_datcontyp <span class="keyword">(</span>d2c<span class="keyword">,</span> s2es_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2rt_viewtype<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Edatcontyp <span class="keyword">(</span>d2c<span class="keyword">,</span> s2es_arg<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_datcontyp]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> s2exp_eff <span class="keyword">(</span>s2fe<span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2exp</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2rt_eff<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Eeff s2fe
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_eff]
+</span>
+<span class="keyword">implement</span>
+s2exp_eqeq <span class="keyword">(</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2rt_bool<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Eeqeq <span class="keyword">(</span>s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_eqeq]
+</span>
+<span class="keyword">implement</span>
+s2exp_exi
+  <span class="keyword">(</span>s2vs<span class="keyword">,</span> s2ps<span class="keyword">,</span> s2e_scope<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>s2vs<span class="keyword">,</span> s2ps<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2e_scope
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">'{</span>
+      s2exp_srt<span class="keyword">=</span> s2e_scope<span class="keyword">.</span>s2exp_srt
+    <span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Eexi <span class="keyword">(</span>s2vs<span class="keyword">,</span> s2ps<span class="keyword">,</span> s2e_scope<span class="keyword">)</span>
+    <span class="keyword">}</span> <span class="comment">// end of [s2exp_exi]
+</span><span class="keyword">end</span> <span class="comment">// end of [s2exp_exi]
+</span>
+<span class="keyword">implement</span>
+s2exp_extype_srt <span class="keyword">(</span>s2t<span class="keyword">,</span> name<span class="keyword">,</span> arglst<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2t<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Eextype <span class="keyword">(</span>name<span class="keyword">,</span> arglst<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_extype_srt]
+</span>
+<span class="keyword">implement</span> s2exp_fun_srt
+  <span class="keyword">(</span>s2t<span class="keyword">,</span> fc<span class="keyword">,</span> lin<span class="keyword">,</span> s2fe<span class="keyword">,</span> npf<span class="keyword">,</span> _arg<span class="keyword">,</span> _res<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2t<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Efun <span class="keyword">(</span>fc<span class="keyword">,</span> lin<span class="keyword">,</span> s2fe<span class="keyword">,</span> npf<span class="keyword">,</span> _arg<span class="keyword">,</span> _res<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_fun_srt]
+</span>
+<span class="keyword">implement</span> s2exp_int <span class="keyword">(</span>i<span class="comment">(*int*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2rt_int<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Eint i
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_int]
+</span>
+<span class="keyword">implement</span> s2exp_int_0 <span class="keyword">=</span> s2exp_int 0
+<span class="keyword">implement</span> s2exp_int_1 <span class="keyword">=</span> s2exp_int 1
+
+<span class="keyword">implement</span> s2exp_intinf <span class="keyword">(</span>i<span class="comment">(*intinf*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2rt_int<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Eintinf i
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_intinf]
+</span>
+<span class="keyword">implement</span> s2exp_lam_srt
+  <span class="keyword">(</span>s2t_fun<span class="keyword">,</span> s2vs_arg<span class="keyword">,</span> s2e_body<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2t_fun<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Elam <span class="keyword">(</span>s2vs_arg<span class="keyword">,</span> s2e_body<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_lam_srt]
+</span>
+<span class="keyword">implement</span> s2exp_metfn
+  <span class="keyword">(</span>d2vopt<span class="comment">(*stamp*)</span><span class="keyword">,</span> met<span class="keyword">,</span> s2e_fun<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2e_fun<span class="keyword">.</span>s2exp_srt
+<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Emetfn <span class="keyword">(</span>d2vopt<span class="keyword">,</span> met<span class="keyword">,</span> s2e_fun<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_metfn]
+</span>
+<span class="keyword">implement</span> s2exp_metlt <span class="keyword">(</span>s2es1<span class="keyword">,</span> s2es2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2rt_bool<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Emetlt <span class="keyword">(</span>s2es1<span class="keyword">,</span> s2es2<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_metlt]
+</span>
+<span class="comment">(*
+// HX-2010-12-04: inadequate design
+implement s2exp_named (s2t, name, s2e) = '{
+  s2exp_srt= s2t, s2exp_node= S2Enamed (name, s2e)
+} // end of [s2exp_named]
+*)</span>
+
+<span class="keyword">implement</span> s2exp_out <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2rt_t0ype<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Eout s2e
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_out]
+</span>
+<span class="keyword">implement</span> s2exp_proj <span class="keyword">(</span>s2e<span class="keyword">,</span> s2l<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2rt_addr<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Eproj <span class="keyword">(</span>s2e<span class="keyword">,</span> s2l<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_proj]
+</span>
+<span class="keyword">implement</span> s2exp_read <span class="keyword">(</span>s2e_v<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2t<span class="keyword">:</span> <span class="staexp">s2rt</span> <span class="keyword">=</span> s2rt_readize <span class="keyword">(</span>s2e<span class="keyword">.</span>s2exp_srt<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2t<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Eread <span class="keyword">(</span>s2e_v<span class="keyword">,</span> s2e<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [s2exp_read]
+</span>
+<span class="keyword">implement</span>
+s2exp_read_srt <span class="keyword">(</span>s2t<span class="keyword">,</span> s2e_v<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2t<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Eread <span class="keyword">(</span>s2e_v<span class="keyword">,</span> s2e<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_read_srt]
+</span>
+<span class="keyword">implement</span>
+un_s2exp_read <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> s2e<span class="keyword">.</span>s2exp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> S2Eread <span class="keyword">(</span>s2e_v<span class="keyword">,</span> s2e_vt<span class="keyword">)</span> <span class="keyword">=&gt;</span> Some_vt <span class="keyword">@(</span>s2e_v<span class="keyword">,</span> s2e_vt<span class="keyword">)</span>
+  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [un_s2exp_read]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+s2exp_refarg <span class="keyword">(</span>refval<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2e<span class="keyword">.</span>s2exp_srt<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Erefarg <span class="keyword">(</span>refval<span class="keyword">,</span> s2e<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_refarg]
+</span>
+<span class="keyword">implement</span>
+un_s2exp_refarg_arg <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> s2e<span class="keyword">.</span>s2exp_node <span class="keyword">of</span> S2Erefarg <span class="keyword">(</span>_<span class="keyword">,</span> s2e_arg<span class="keyword">)</span> <span class="keyword">=&gt;</span> s2e_arg <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> s2e
+<span class="comment">// end of [un_s2exp_refarg_arg]
+</span>
+<span class="keyword">implement</span>
+s2exp_sel_srt <span class="keyword">(</span>s2t<span class="keyword">,</span> s2e<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2t<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Esel <span class="keyword">(</span>s2e<span class="keyword">,</span> i<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_sel_srt]
+</span>
+<span class="keyword">implement</span>
+s2exp_size <span class="keyword">(</span>s2ze<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2rt_int<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Esize s2ze
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_size]
+</span>
+<span class="keyword">implement</span>
+s2exp_sizeof <span class="keyword">(</span>s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2rt_int<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Esizeof s2e
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_sizeof]
+</span>
+<span class="keyword">implement</span>
+s2exp_top_srt <span class="keyword">(</span>s2t<span class="keyword">,</span> knd<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2t<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Etop <span class="keyword">(</span>knd<span class="keyword">,</span> s2e<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_top_srt]
+</span>
+<span class="keyword">implement</span>
+s2exp_tup_srt <span class="keyword">(</span>s2t<span class="keyword">,</span> s2es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2t<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Etup s2es
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_tup_srt]
+</span>
+<span class="keyword">implement</span>
+s2exp_tyarr <span class="keyword">(</span>s2e_elt<span class="keyword">,</span> s2ess_dim<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2t<span class="keyword">:</span> <span class="staexp">s2rt</span> <span class="keyword">=</span>
+    <span class="keyword">if</span> s2exp_is_linear s2e_elt <span class="keyword">then</span> s2rt_viewt0ype <span class="keyword">else</span> s2rt_t0ype
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2t<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Etyarr <span class="keyword">(</span>s2e_elt<span class="keyword">,</span> s2ess_dim<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [s2exp_tyarr]
+</span>
+<span class="keyword">implement</span>
+s2exp_tyleq <span class="keyword">(</span>knd<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2rt_bool<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Etyleq <span class="keyword">(</span>knd<span class="keyword">,</span> s2e1<span class="keyword">,</span> s2e2<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_tyleq]
+</span>
+<span class="comment">(* s2exp_list: [s2es] consists of types (not viewtypes) *)</span>
+<span class="keyword">implement</span>
+s2exp_tylst <span class="keyword">(</span>s2es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2rt_types<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Etylst s2es
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_tylst]
+</span>
+<span class="keyword">implement</span>
+s2exp_tyrec_srt
+  <span class="keyword">(</span>s2t<span class="keyword">,</span> k<span class="keyword">,</span> npf<span class="keyword">,</span> ls2es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2t<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Etyrec <span class="keyword">(</span>k<span class="keyword">,</span> npf<span class="keyword">,</span> ls2es<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_tyrec_srt]
+</span>
+<span class="keyword">implement</span>
+s2exp_uni
+  <span class="keyword">(</span>s2vs<span class="keyword">,</span> s2ps<span class="keyword">,</span> s2e_scope<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> <span class="keyword">(</span>s2vs<span class="keyword">,</span> s2ps<span class="keyword">)</span> <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">(</span>nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2e_scope
+  <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">'{</span>
+      s2exp_srt<span class="keyword">=</span> s2e_scope<span class="keyword">.</span>s2exp_srt
+    <span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Euni <span class="keyword">(</span>s2vs<span class="keyword">,</span> s2ps<span class="keyword">,</span> s2e_scope<span class="keyword">)</span>
+    <span class="keyword">}</span> <span class="comment">// end of [s2exp_uni]
+</span><span class="keyword">end</span> <span class="comment">// end of [s2exp_uni]
+</span>
+<span class="keyword">implement</span>
+s2exp_union_srt <span class="keyword">(</span>s2t<span class="keyword">,</span> stamp<span class="keyword">,</span> s2i<span class="keyword">,</span> ls2es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2t<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Eunion <span class="keyword">(</span>stamp<span class="keyword">,</span> s2i<span class="keyword">,</span> ls2es<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_union_srt]
+</span>
+<span class="keyword">implement</span>
+s2exp_Var <span class="keyword">(</span>s2V<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2Var_srt_get s2V<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2EVar s2V
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_Var]
+</span>
+<span class="keyword">implement</span>
+s2exp_var <span class="keyword">(</span>s2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2var_srt_get s2v<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Evar s2v
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_var]
+</span>
+<span class="keyword">implement</span>
+s2exp_vararg <span class="keyword">(</span>s2e_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2rt_t0ype<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Evararg s2e_arg
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_vararg]
+</span>
+<span class="keyword">implement</span>
+s2exp_wth <span class="keyword">(</span>s2e<span class="keyword">,</span> wths2es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exp_srt<span class="keyword">=</span> s2e<span class="keyword">.</span>s2exp_srt<span class="keyword">,</span> s2exp_node<span class="keyword">=</span> S2Ewth <span class="keyword">(</span>s2e<span class="keyword">,</span> wths2es<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exp_wth]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+s2exparg_one <span class="keyword">(</span>loc<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exparg_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s2exparg_node<span class="keyword">=</span> S2EXPARGone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exparg_one]
+</span>
+<span class="keyword">implement</span>
+s2exparg_all <span class="keyword">(</span>loc<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exparg_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s2exparg_node<span class="keyword">=</span> S2EXPARGall <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exparg_all]
+</span>
+<span class="keyword">implement</span>
+s2exparg_seq <span class="keyword">(</span>loc<span class="keyword">,</span> s2es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  s2exparg_loc<span class="keyword">=</span> loc<span class="keyword">,</span> s2exparg_node<span class="keyword">=</span> S2EXPARGseq <span class="keyword">(</span>s2es<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [s2exparg_seq]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">typedef</span> <span class="staexp">"s2exp_t" <span class="keyword">=</span> s2exp</span>
+
+<span class="extern">%{$
+//
+ats_void_type
+atsopt_s2exp_srt_set
+  (ats_ptr_type s2e, ats_ptr_type s2t) {
+  ((s2exp_t)s2e)-&gt;atslab_s2exp_srt = s2t ; return ;
+} /* end of [atsopt_s2exp_srt_set] */
+//
+ats_bool_type
+atsopt_eqref_s2exp_s2exp
+  (ats_ptr_type s2e1, ats_ptr_type s2e2) {
+  return (s2e1 == s2e2 ? ats_true_bool : ats_false_bool) ;
+} /* end of [atsopt_eqref_s2exp_s2exp] */
+//
+%}</span> <span class="comment">// end of [%{$]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_staexp2.dats] *)</span>
+</pre>
+</body>
+</html>

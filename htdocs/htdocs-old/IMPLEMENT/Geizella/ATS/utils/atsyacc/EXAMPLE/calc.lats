@@ -1,0 +1,188 @@
+(***********************************************************************)
+(*                                                                     *)
+(*                         Applied Type System                         *)
+(*                                                                     *)
+(*                              Hongwei Xi                             *)
+(*                                                                     *)
+(***********************************************************************)
+
+(*
+ * ATS - Unleashing the Power of Types!
+ *
+ * Copyright (C) 2002-2007 Hongwei Xi, Boston University
+ *
+ * All rights reserved
+ *
+ * ATS is  free software;  you can redistribute it and/or modify it under
+ * the  terms of the  GNU General Public License as published by the Free
+ * Software Foundation; either version 2.1, or (at your option) any later
+ * version.
+ * 
+ * ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+ * for more details.
+ * 
+ * You  should  have  received  a  copy of the GNU General Public License
+ * along  with  ATS;  see  the  file  COPYING.  If not, write to the Free
+ * Software Foundation, 51  Franklin  Street,  Fifth  Floor,  Boston,  MA
+ * 02110-1301, USA.
+ *
+ *)
+
+(* ****** ****** *)
+
+// July 2007
+// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+
+(* ****** ****** *)
+
+(*
+ *
+ * A simple calculator for evaluating arithmetic expressions.
+ * This example shows how lexical analysis can be done in ATS.
+ * Also, it shows some typical uses of dataviewtypes, a.k.a.
+ * linear datatypes.
+ *
+ *)
+
+(*
+
+The formats of supported commands:
+
+[var] = [exp]
+print [exp]
+quit
+
+Here is a session:
+
+./calc
+<< x = 1 + 2
+<< y = x + x
+<< print x
+>> 3
+<< print y
+>> 6
+<< quit
+
+*)
+
+%{
+
+%{^
+
+#include "calc_yats.h"
+
+%}
+
+// preamble
+
+staload "libc/SATS/stdio.sats"
+staload "utils/atslex/lexing.sats"
+
+(* ****** ****** *)
+
+exception UncloseCommentException
+
+fun comment_is_unclosed (): void = begin
+  exit_errmsg {void} (1, "unclosed comment\n") ;
+end
+
+//
+
+abst@ype token_t = $extype "ats_int_type"
+
+macdef IDE = $extval (token_t, "IDE")
+macdef INT = $extval (token_t, "INT")
+
+macdef ADD = $extval (token_t, "ADD")
+macdef SUB = $extval (token_t, "SUB")
+macdef MUL = $extval (token_t, "MUL")
+macdef DIV = $extval (token_t, "DIV")
+
+macdef LPAREN = $extval (token_t, "LPAREN")
+macdef RPAREN = $extval (token_t, "RPAREN")
+
+macdef EQ = $extval (token_t, "EQ")
+macdef PRINT = $extval (token_t, "PRINT")
+macdef QUIT = $extval (token_t, "QUIT")
+
+macdef EOF = $extval (token_t, "EOF")
+
+extern fun TOKEN (): token_t = "TOKEN"
+fn TOKEN_lexing_error () = lexing_error ()
+
+extern fun COMMENT (level: int): void
+fn COMMENT_lexing_error (level: int) = lexing_error ()
+
+extern fun COMMENT_LINE (): void
+fn COMMENT_LINE_lexing_error () = lexing_error ()
+
+extern fun COMMENT_REST (): void
+fn COMMENT_REST_lexing_error () = lexing_error ()
+
+extern fun token_int_set (i: int): void = "token_int_set"
+extern fun token_ide_set (s: string): void = "token_ide_set"
+
+(* ****** ****** *)
+
+%}
+
+// definition of constants of regular expressions
+
+(* 011: \t; \014: \f; \015: \r *)
+blank = [ '\f' '\r' '\t' ' ' ] +
+
+xdigit = [ '0'-'9' 'a'-'f' 'A'-'F' ]
+
+ident_fst = [ 'A'-'Z' 'a'-'z' '_' ]
+ident_rst = [ '0'-'9' 'A'-'Z' 'a'-'z' '_' '\'' ]
+
+ident = $ident_fst $ident_rst *
+
+sgn = ['+' '-']?
+int8 = $sgn '0' ['0'-'7']*
+int10 = $sgn ['1'-'9'] ['0'-'9']*
+int16 = $sgn '0' [ 'x' 'X'] $xdigit+
+
+newline = '\n'
+
+%%
+
+TOKEN =
+  | $blank { TOKEN () }
+  | $newline { TOKEN () }
+  | "(*" { COMMENT (0); TOKEN () }
+  | "//" { COMMENT_LINE (); TOKEN () }
+  | "////" { COMMENT_REST (); EOF }
+  | "print" { PRINT }
+  | "quit" { QUIT }
+  | $ident { token_ide_set (lexeme_string ()) ; IDE }
+  | $int8 { token_int_set (lexeme_int (8)); INT }
+  | $int10 { token_int_set (lexeme_int (10)); INT }
+  | $int16 { token_int_set (lexeme_int (16)); INT }
+  | '=' { EQ }
+  | '+' { ADD }
+  | '-' { SUB }
+  | '*' { MUL }
+  | '/' { DIV }
+  | '(' { LPAREN }
+  | ')' { RPAREN }
+  | $EOF { EOF }
+
+COMMENT (level) =
+  | "(*" { COMMENT (level+1) }
+  | "*)" { if level > 0 then COMMENT (level-1) else () }
+  | $newline { COMMENT (level) }
+  | $EOF { comment_is_unclosed () }
+  | [^] { COMMENT (level) }
+
+COMMENT_LINE =
+  | [^ '\n']* { () }
+
+COMMENT_REST =
+  | [^]* { () }
+
+%%
+
+(* end of [calc.lats] *)

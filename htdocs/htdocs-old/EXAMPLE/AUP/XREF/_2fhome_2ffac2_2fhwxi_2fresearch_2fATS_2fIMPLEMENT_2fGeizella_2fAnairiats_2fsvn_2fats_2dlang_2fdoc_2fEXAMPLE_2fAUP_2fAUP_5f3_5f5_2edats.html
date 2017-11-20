@@ -1,0 +1,307 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: September, 2010
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// book: AUP (2nd edition), pages 147 - 158
+</span><span class="comment">// section 3.5: Accessing and Displaying File Metadata
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// implementing a command [longls], which is kind of like [ls -l]
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">UNSAFE <span class="keyword">=</span> "prelude/SATS/unsafe.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/errno.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/grp.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/pwd.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/time.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/unistd.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/stat.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/types.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> print_mode <span class="staexp"><span class="keyword">.&lt;&gt;.</span></span>
+  <span class="keyword">(</span>st<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>stat</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> mode <span class="keyword">=</span> st<span class="keyword">.</span>st_mode
+<span class="comment">//
+</span>  <span class="keyword">macdef</span> <span class="neuexp">TYPE<span class="keyword">(</span>b<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">,(</span>b<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>mode land S_IFMT<span class="keyword">)</span></span>
+  <span class="keyword">macdef</span> <span class="neuexp">MODE<span class="keyword">(</span>b<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">,(</span>b<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>mode land <span class="keyword">,(</span>b<span class="keyword">)</span><span class="keyword">)</span></span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+    <span class="keyword">|</span> _ <span class="keyword">when</span> TYPE<span class="keyword">(</span>S_IFBLK<span class="keyword">)</span> <span class="keyword">=&gt;</span> print 'b'
+    <span class="keyword">|</span> _ <span class="keyword">when</span> TYPE<span class="keyword">(</span>S_IFCHR<span class="keyword">)</span> <span class="keyword">=&gt;</span> print 'c'
+    <span class="keyword">|</span> _ <span class="keyword">when</span> TYPE<span class="keyword">(</span>S_IFDIR<span class="keyword">)</span> <span class="keyword">=&gt;</span> print 'd'
+    <span class="keyword">|</span> _ <span class="keyword">when</span> TYPE<span class="keyword">(</span>S_IFIFO<span class="keyword">)</span> <span class="keyword">=&gt;</span> print 'p'
+    <span class="keyword">|</span> _ <span class="keyword">when</span> TYPE<span class="keyword">(</span>S_IFLNK<span class="keyword">)</span> <span class="keyword">=&gt;</span> print 'l'
+    <span class="keyword">|</span> _ <span class="keyword">when</span> TYPE<span class="keyword">(</span>S_IFREG<span class="keyword">)</span> <span class="keyword">=&gt;</span> print '-'
+    <span class="keyword">|</span> _ <span class="keyword">when</span> TYPE<span class="keyword">(</span>S_IFSOCK<span class="keyword">)</span> <span class="keyword">=&gt;</span> print 's'
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> print '?'
+  <span class="comment">// end of [val]
+</span><span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> MODE<span class="keyword">(</span>S_IRUSR<span class="keyword">)</span> <span class="keyword">then</span> print 'r' <span class="keyword">else</span> print '-'
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> MODE<span class="keyword">(</span>S_IWUSR<span class="keyword">)</span> <span class="keyword">then</span> print 'w' <span class="keyword">else</span> print '-'
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+    <span class="keyword">|</span> _ <span class="keyword">when</span> MODE<span class="keyword">(</span>S_ISUID<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+       <span class="keyword">if</span> MODE<span class="keyword">(</span>S_IXUSR<span class="keyword">)</span> <span class="keyword">then</span> print 's' <span class="keyword">else</span> print 'S'
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> 
+       <span class="keyword">if</span> MODE<span class="keyword">(</span>S_IXUSR<span class="keyword">)</span> <span class="keyword">then</span> print 'x' <span class="keyword">else</span> print '-'
+  <span class="comment">// end of [val]
+</span><span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> MODE<span class="keyword">(</span>S_IRGRP<span class="keyword">)</span> <span class="keyword">then</span> print 'r' <span class="keyword">else</span> print '-'
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> MODE<span class="keyword">(</span>S_IWGRP<span class="keyword">)</span> <span class="keyword">then</span> print 'w' <span class="keyword">else</span> print '-'
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+    <span class="keyword">|</span> _ <span class="keyword">when</span> MODE<span class="keyword">(</span>S_ISGID<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+       <span class="keyword">if</span> MODE<span class="keyword">(</span>S_IXGRP<span class="keyword">)</span> <span class="keyword">then</span> print 's' <span class="keyword">else</span> print 'S'
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> 
+       <span class="keyword">if</span> MODE<span class="keyword">(</span>S_IXGRP<span class="keyword">)</span> <span class="keyword">then</span> print 'x' <span class="keyword">else</span> print '-'
+   <span class="comment">// end of [val]
+</span><span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> MODE<span class="keyword">(</span>S_IROTH<span class="keyword">)</span> <span class="keyword">then</span> print 'r' <span class="keyword">else</span> print '-'
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> MODE<span class="keyword">(</span>S_IWOTH<span class="keyword">)</span> <span class="keyword">then</span> print 'w' <span class="keyword">else</span> print '-'
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+    <span class="keyword">|</span> _ <span class="keyword">when</span> MODE<span class="keyword">(</span>S_IFDIR<span class="keyword">)</span> andalso MODE<span class="keyword">(</span>S_ISVTX<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+       <span class="keyword">if</span> MODE<span class="keyword">(</span>S_IXOTH<span class="keyword">)</span> <span class="keyword">then</span> print 't' <span class="keyword">else</span> print 'T'
+    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> 
+       <span class="keyword">if</span> MODE<span class="keyword">(</span>S_IXOTH<span class="keyword">)</span> <span class="keyword">then</span> print 'x' <span class="keyword">else</span> print '-'
+  <span class="comment">// end of [val]
+</span><span class="comment">//
+</span><span class="keyword">in</span>
+  <span class="comment">// nothing
+</span><span class="keyword">end</span> <span class="comment">// end of [print_mode]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> print_nlink <span class="staexp"><span class="keyword">.&lt;&gt;.</span></span>
+  <span class="keyword">(</span>st<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>stat</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> nlink <span class="keyword">=</span> st<span class="keyword">.</span>st_nlink
+  <span class="keyword">val</span> nlink <span class="keyword">=</span> lint_of_nlink <span class="keyword">(</span>nlink<span class="keyword">)</span>
+<span class="keyword">in</span>
+  printf <span class="keyword">(</span>"%5ld"<span class="keyword">,</span> <span class="keyword">@(</span>nlink<span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [print_nlink]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> print_owner <span class="staexp"><span class="keyword">.&lt;&gt;.</span></span>
+  <span class="keyword">(</span>st<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>stat</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> uid <span class="keyword">=</span> st<span class="keyword">.</span>st_uid
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pfopt</span><span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> getpwuid <span class="keyword">(</span>uid<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> p <span class="keyword">&gt;</span> null <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">Some_v <span class="keyword">@(</span>pf<span class="keyword">,</span> fpf<span class="keyword">)</span> <span class="keyword">=</span> pfopt</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">fpf_x</span> <span class="keyword">|</span> x<span class="keyword">)</span> <span class="keyword">=</span> passwd_get_pw_name <span class="keyword">(</span><span class="keyword">!</span>p<span class="keyword">)</span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fpf <span class="keyword">(</span>pf<span class="keyword">)</span></span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert_errmsg <span class="keyword">(</span>strptr_isnot_null x<span class="keyword">,</span> <span class="keyword">#LOCATION</span><span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> printf <span class="keyword">(</span>" %-8s"<span class="keyword">,</span> <span class="keyword">@(</span>__cast x<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+      <span class="keyword">extern</span> <span class="keyword">castfn</span> <a name="2707"><span class="dyncstdec">__cast <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>strptr l</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">string</span></span></a>
+    <span class="keyword">}</span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fpf_x <span class="keyword">(</span>x<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="comment">// nothing
+</span>  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">None_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pfopt</span>
+    <span class="keyword">val</span> uid <span class="keyword">=</span> lint_of_uid <span class="keyword">(</span>uid<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    printf <span class="keyword">(</span>" %-8ld"<span class="keyword">,</span> <span class="keyword">@(</span>uid<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">(* end of [print_owner] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> print_group <span class="staexp"><span class="keyword">.&lt;&gt;.</span></span>
+  <span class="keyword">(</span>st<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>stat</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> gid <span class="keyword">=</span> st<span class="keyword">.</span>st_gid
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pfopt</span><span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> getgrgid <span class="keyword">(</span>gid<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> p <span class="keyword">&gt;</span> null <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">Some_v <span class="keyword">@(</span>pf<span class="keyword">,</span> fpf<span class="keyword">)</span> <span class="keyword">=</span> pfopt</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">fpf_x</span> <span class="keyword">|</span> x<span class="keyword">)</span> <span class="keyword">=</span> group_get_gr_name <span class="keyword">(</span><span class="keyword">!</span>p<span class="keyword">)</span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fpf <span class="keyword">(</span>pf<span class="keyword">)</span></span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert_errmsg <span class="keyword">(</span>strptr_isnot_null x<span class="keyword">,</span> <span class="keyword">#LOCATION</span><span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> printf <span class="keyword">(</span>" %-8s"<span class="keyword">,</span> <span class="keyword">@(</span>__cast x<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+      <span class="keyword">extern</span> <span class="keyword">castfn</span> <a name="3348"><span class="dyncstdec">__cast <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>strptr l</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">string</span></span></a>
+    <span class="keyword">}</span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fpf_x <span class="keyword">(</span>x<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="comment">// nothing
+</span>  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">None_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pfopt</span>
+    <span class="keyword">val</span> gid <span class="keyword">=</span> lint_of_gid <span class="keyword">(</span>gid<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    printf <span class="keyword">(</span>" %-8ld"<span class="keyword">,</span> <span class="keyword">@(</span>gid<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">(* end of [print_group] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> print_size <span class="staexp"><span class="keyword">.&lt;&gt;.</span></span>
+  <span class="keyword">(</span>st<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>stat</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> mode <span class="keyword">=</span> st<span class="keyword">.</span>st_mode
+<span class="comment">//
+</span>  <span class="keyword">macdef</span> <span class="neuexp">TYPE<span class="keyword">(</span>b<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">,(</span>b<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>mode land S_IFMT<span class="keyword">)</span></span>
+  <span class="keyword">macdef</span> <span class="neuexp">MODE<span class="keyword">(</span>b<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">,(</span>b<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>mode land <span class="keyword">,(</span>b<span class="keyword">)</span><span class="keyword">)</span></span>
+<span class="comment">//
+</span><span class="keyword">in</span>
+  <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+  <span class="keyword">|</span> _ <span class="keyword">when</span> <span class="keyword">(</span>TYPE<span class="keyword">(</span>S_IFCHR<span class="keyword">)</span> orelse TYPE<span class="keyword">(</span>S_IFBLK<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> rdev <span class="keyword">=</span> st<span class="keyword">.</span>st_rdev
+      <span class="keyword">val</span> rdev <span class="keyword">=</span> uint_of_dev <span class="keyword">(</span>rdev<span class="keyword">)</span>
+      <span class="keyword">val</span> u1 <span class="keyword">=</span> rdev &gt;&gt; 8
+      <span class="keyword">val</span> u2 <span class="keyword">=</span> rdev land 0xFFU
+    <span class="keyword">in</span>
+      printf <span class="keyword">(</span>"%4u,%4u"<span class="keyword">,</span> <span class="keyword">@(</span>u1<span class="keyword">,</span> u2<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_ when ...]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> off <span class="keyword">=</span> st<span class="keyword">.</span>st_size
+      <span class="keyword">val</span> off <span class="keyword">=</span> lint_of_off <span class="keyword">(</span>off<span class="keyword">)</span>
+      <span class="keyword">val</span> off <span class="keyword">=</span> ulint_of <span class="keyword">(</span>off<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      printf <span class="keyword">(</span>"%9lu"<span class="keyword">,</span> <span class="keyword">@(</span>off<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">(* end of [_] *)</span>
+<span class="keyword">end</span> <span class="comment">// end of [print_size]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> print_date <span class="staexp"><span class="keyword">.&lt;&gt;.</span></span>
+  <span class="keyword">(</span>st<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>stat</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> now <span class="keyword">=</span> time_get <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+<span class="comment">//
+</span><span class="keyword">if</span> <span class="keyword">(</span>lint_of_time<span class="keyword">)</span>now &gt;= 0L <span class="keyword">then</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> diff <span class="keyword">=</span> difftime <span class="keyword">(</span>now<span class="keyword">,</span> st<span class="keyword">.</span>st_mtime<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pfopt</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> localtime <span class="keyword">(</span>st<span class="keyword">.</span>st_mtime<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert_errmsg <span class="keyword">(</span>p <span class="keyword">&gt;</span> null<span class="keyword">,</span> <span class="keyword">#LOCATION</span><span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp">Some_v <span class="keyword">@(</span>pf<span class="keyword">,</span> fpf<span class="keyword">)</span> <span class="keyword">=</span> pfopt</span>
+  <span class="keyword">var</span> <span class="keyword">!</span>p_buf <span class="keyword">with</span> <span class="prfexp">pf_buf</span> <span class="keyword">=</span> <span class="keyword">@[</span><span class="staexp">byte</span><span class="keyword">]</span><span class="keyword">[</span>64<span class="keyword">]</span><span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> fmt <span class="keyword">=</span> <span class="keyword">(</span>
+    <span class="keyword">if</span> <span class="keyword">(</span>diff <span class="keyword">&lt;</span> 0.0 orelse diff <span class="keyword">&gt;</span> 60*60*24*182.5 <span class="comment">(*6months*)</span><span class="keyword">)</span> <span class="keyword">then</span> "%b %e  %Y" <span class="keyword">else</span> "%b %e %H:%M"
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">string</span>
+  <span class="keyword">val</span> _n <span class="keyword">=</span> strftime <span class="keyword">(</span><span class="prfexp">pf_buf</span> <span class="keyword">|</span> p_buf<span class="keyword">,</span> 64<span class="keyword">,</span> fmt<span class="keyword">,</span> <span class="keyword">!</span>p<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fpf <span class="keyword">(</span>pf<span class="keyword">)</span></span>
+  <span class="keyword">val</span> str <span class="keyword">=</span> __cast <span class="keyword">(</span>p_buf<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">extern</span> <span class="keyword">castfn</span> <a name="4837"><span class="dyncstdec">__cast <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">ptr</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">string</span></span></a> <span class="comment">// cutting a corner
+</span>  <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_buf := bytes_v_of_strbuf_v <span class="keyword">(</span>pf_buf<span class="keyword">)</span></span>
+<span class="keyword">in</span>
+  printf <span class="keyword">(</span>" %s"<span class="keyword">,</span> <span class="keyword">@(</span>str<span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+  printf <span class="keyword">(</span>" ????????????"<span class="keyword">,</span> <span class="keyword">@(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="comment">//
+</span><span class="keyword">end</span> <span class="comment">// end of [print_date]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> print_name <span class="staexp"><span class="keyword">.&lt;&gt;.</span></span>
+  <span class="keyword">(</span>st<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>stat</span><span class="keyword">,</span> name<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>READ<span class="keyword">(</span>string<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="comment">// nothing
+</span><span class="keyword">in</span>
+  <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+  <span class="keyword">|</span> _ <span class="keyword">when</span> S_ISLNK
+      <span class="keyword">(</span>st<span class="keyword">.</span>st_mode<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> n <span class="keyword">=</span> lint_of_off <span class="keyword">(</span>st<span class="keyword">.</span>st_size<span class="keyword">)</span>
+      <span class="keyword">val</span> n <span class="keyword">=</span> n + 1L
+      <span class="keyword">val</span> n <span class="keyword">=</span> size_of_lint <span class="keyword">(</span>n<span class="keyword">)</span>
+      <span class="keyword">val</span> n <span class="keyword">=</span> size1_of_size <span class="keyword">(</span>n<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pfgc</span><span class="keyword">,</span> <span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> malloc_gc <span class="keyword">(</span>n<span class="keyword">)</span>
+      <span class="keyword">val</span> n1 <span class="keyword">=</span> readlink <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> name<span class="keyword">,</span> p<span class="keyword">,</span> n<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> <span class="keyword">(</span>n1 &gt;= 0<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> n1 <span class="keyword">=</span> size1_of_ssize1 <span class="keyword">(</span>n1<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert_errmsg <span class="keyword">(</span>n1 <span class="keyword">&lt;</span> n<span class="keyword">,</span> <span class="keyword">#LOCATION</span><span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> bytes_strbuf_trans <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">,</span> n1<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> printf <span class="keyword">(</span>" %s -&gt; %s"<span class="keyword">,</span> <span class="keyword">@(</span>$UNSAFE<span class="keyword">.</span>castvwtp1<span class="staexp"><span class="keyword">{</span>string<span class="keyword">}</span></span><span class="keyword">(</span>name<span class="keyword">)</span><span class="keyword">,</span> __cast p<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+          <span class="keyword">extern</span> <span class="keyword">castfn</span> <a name="5737"><span class="dyncstdec">__cast <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">ptr</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">string</span></span></a> <span class="comment">// cutting a corner
+</span>        <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>        <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf := bytes_v_of_strbuf_v <span class="keyword">(</span>pf<span class="keyword">)</span></span>
+      <span class="keyword">in</span>
+        <span class="comment">// nothing
+</span>      <span class="keyword">end</span> <span class="keyword">else</span>
+        printf <span class="keyword">(</span>" %s -&gt; [can't read link]"<span class="keyword">,</span> <span class="keyword">@(</span>$UNSAFE<span class="keyword">.</span>castvwtp1<span class="staexp"><span class="keyword">{</span>string<span class="keyword">}</span></span><span class="keyword">(</span>name<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+      <span class="comment">// end of [val]
+</span>    <span class="keyword">in</span>
+      free_gc <span class="keyword">(</span><span class="prfexp">pfgc</span><span class="keyword">,</span> <span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [_ when ...]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> printf <span class="keyword">(</span>" %s"<span class="keyword">,</span> <span class="keyword">@(</span>$UNSAFE<span class="keyword">.</span>castvwtp1<span class="staexp"><span class="keyword">{</span>string<span class="keyword">}</span></span><span class="keyword">(</span>name<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [print_name]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> longls <span class="staexp"><span class="keyword">.&lt;&gt;.</span></span>
+  <span class="keyword">(</span>st<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>stat</span><span class="keyword">,</span> path<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> print_mode <span class="keyword">(</span>st<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> print_nlink <span class="keyword">(</span>st<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> print_owner <span class="keyword">(</span>st<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> print_group <span class="keyword">(</span>st<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> print_size <span class="keyword">(</span>st<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> print_date <span class="keyword">(</span>st<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> print_name <span class="keyword">(</span>st<span class="keyword">,</span> path<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> print_newline <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// nothing
+</span><span class="keyword">end</span> <span class="comment">// end of [longls]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+main <span class="staexp"><span class="keyword">{</span>n<span class="keyword">}</span></span> <span class="keyword">(</span>argc<span class="keyword">,</span> argv<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+<span class="comment">//
+</span>  <span class="keyword">var</span> i<span class="keyword">:</span> <span class="staexp">natLte n</span>
+  <span class="keyword">var</span> st<span class="keyword">:</span> <span class="staexp">stat?</span> <span class="comment">// uninitialized
+</span><span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">for</span>
+    <span class="keyword">(</span>i := 1<span class="keyword">;</span> i <span class="keyword">&lt;</span> argc<span class="keyword">;</span> i := i+1<span class="keyword">)</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> path <span class="keyword">=</span> argv<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">i</span><span class="keyword">]</span>
+    <span class="keyword">val</span> _err <span class="keyword">=</span> lstat_err <span class="keyword">(</span>path<span class="keyword">,</span> st<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> _err &gt;= 0 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> opt_unsome <span class="staexp"><span class="keyword">{</span>stat<span class="keyword">}</span></span> <span class="keyword">(</span>st<span class="keyword">)</span></span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> longls <span class="keyword">(</span>st<span class="keyword">,</span> path<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="comment">// nothing
+</span>    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> opt_unnone <span class="staexp"><span class="keyword">{</span>stat<span class="keyword">}</span></span> <span class="keyword">(</span>st<span class="keyword">)</span></span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> printf <span class="keyword">(</span>"longls: cannot access [%s]: No such file or directory\n"<span class="keyword">,</span> <span class="keyword">@(</span>path<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="comment">// nothing
+</span>    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">in</span>
+    <span class="comment">// nothing
+</span>  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="comment">//
+</span><span class="keyword">}</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [AUP_3_5.dats] *)</span>
+</pre>
+</body>
+</html>

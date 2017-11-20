@@ -1,0 +1,153 @@
+<HTML>
+<HEAD>
+<STYLE TYPE="text/css">
+span.comment {color:787878;font-style:italic}
+span.extern  {color:A52A2A}
+span.keyword {color:000000;font-weight:bold}
+span.neuexp  {color:800080}
+span.staexp  {color:0000FF}
+span.dynexp  {color:E80000}
+span.prfexp  {color:009000}
+span.stacstdec  {text-decoration:none}
+span.stacstuse  {color:0000CF;text-decoration:underline}
+span.dyncstdec  {text-decoration:none}
+span.dyncstimp  {color:B80000;text-decoration:underline}
+span.dyncstuse  {color:B80000;text-decoration:underline}
+</STYLE>
+</HEAD>
+
+<BODY BGCOLOR="#E0E0E0" TEXT="#E80000">
+<PRE>
+<span class="comment">// Some examples in the following paper:
+</span><span class="comment">// Implementing typeful program transformations
+</span><span class="comment">// by Chiyan Chen and Rui Shi and Hongwei Xi
+</span>
+<span class="comment">// February 2007:
+</span><span class="comment">// It is ported to ATS/Geizella by Hongwei Xi
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="neuexp"><span class="keyword">infixr</span> -&gt;&gt; ::</span>
+
+<span class="keyword">datasort</span> <span class="staexp">ty <span class="keyword">=</span> int <span class="keyword">|</span> -&gt;&gt; <span class="keyword">of</span> <span class="keyword">(</span>ty<span class="keyword">,</span> ty<span class="keyword">)</span> <span class="keyword">|</span> forall <span class="keyword">of</span> <span class="keyword">(</span>ty <span class="keyword">-&gt;</span> ty<span class="keyword">)</span></span>
+<span class="keyword">datasort</span> <span class="staexp">env <span class="keyword">=</span> nil <span class="keyword">|</span> :: <span class="keyword">of</span> <span class="keyword">(</span>ty<span class="keyword">,</span> env<span class="keyword">)</span></span>
+
+<span class="keyword">datatype</span> <span class="staexp"><A name="342"><span class="stacstdec">VAR <span class="keyword">(</span>env<span class="keyword">,</span> ty<span class="keyword">)</span></span></span></A> <span class="keyword">=</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">G<span class="keyword">:</span>env</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">t<span class="keyword">:</span>ty</span><span class="keyword">}</span> VARone <span class="staexp"><span class="keyword">(</span>t :: G<span class="keyword">,</span> t<span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">G<span class="keyword">:</span>env</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">t1<span class="keyword">,</span>t2<span class="keyword">:</span>ty</span><span class="keyword">}</span> VARshi <span class="staexp"><span class="keyword">(</span>t2 :: G<span class="keyword">,</span> t1<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">VAR <span class="keyword">(</span>G<span class="keyword">,</span> t1<span class="keyword">)</span></span>
+
+<span class="keyword">datatype</span> <span class="staexp"><A name="465"><span class="stacstdec">EXP <span class="keyword">(</span>env<span class="keyword">,</span> ty<span class="keyword">)</span></span></span></A> <span class="keyword">=</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">G<span class="keyword">:</span>env</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">t<span class="keyword">:</span>ty</span><span class="keyword">}</span> EXPvar <span class="staexp"><span class="keyword">(</span>G<span class="keyword">,</span> t<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">VAR <span class="keyword">(</span>G<span class="keyword">,</span> t<span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">G<span class="keyword">:</span>env</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">t1<span class="keyword">,</span>t2<span class="keyword">:</span>ty</span><span class="keyword">}</span> EXPlam <span class="staexp"><span class="keyword">(</span>G<span class="keyword">,</span> t1 -&gt;&gt; t2<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp">EXP <span class="keyword">(</span>t1 :: G<span class="keyword">,</span> t2<span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">G<span class="keyword">:</span>env</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">t1<span class="keyword">,</span>t2<span class="keyword">:</span>ty</span><span class="keyword">}</span> EXPapp <span class="staexp"><span class="keyword">(</span>G<span class="keyword">,</span> t2<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>EXP <span class="keyword">(</span>G<span class="keyword">,</span> t1 -&gt;&gt; t2<span class="keyword">)</span><span class="keyword">,</span> EXP <span class="keyword">(</span>G<span class="keyword">,</span> t1<span class="keyword">)</span><span class="keyword">)</span></span>
+<span class="comment">(*
+  | {G:env} {f:ty-&gt;ty} EXPtlam (G, forall f) of ({t:ty} EXP (G, f t))
+  | {G:env} {f:ty-&gt;ty;t:ty} EXPtapp (G, f t) of EXP (G, forall f)
+*)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><A name="820"><span class="stacstdec">SUB <span class="keyword">(</span>G1<span class="keyword">:</span>env<span class="keyword">,</span> G2<span class="keyword">:</span>env<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">{</span>t<span class="keyword">:</span>ty<span class="keyword">}</span> VAR<span class="keyword">(</span>G1<span class="keyword">,</span>t<span class="keyword">)</span> <span class="keyword">-&gt;</span> EXP<span class="keyword">(</span>G2<span class="keyword">,</span>t<span class="keyword">)</span></span></span></A>
+
+<span class="comment">// implementing some substitution functions
+</span>
+<span class="keyword">val</span> idSub <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">lam</span> x <span class="keyword">=&gt;</span> EXPvar x<span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">{</span>G<span class="keyword">:</span>env<span class="keyword">}</span> SUB <span class="keyword">(</span>G<span class="keyword">,</span> G<span class="keyword">)</span></span>
+
+<span class="keyword">val</span> shiSub <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">lam</span> x <span class="keyword">=&gt;</span> EXPvar <span class="keyword">(</span>VARshi x<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">{</span>G<span class="keyword">:</span>env<span class="keyword">}</span> <span class="keyword">{</span>t<span class="keyword">:</span>ty<span class="keyword">}</span> SUB <span class="keyword">(</span>G<span class="keyword">,</span> t :: G<span class="keyword">)</span></span>
+
+<span class="keyword">fun</span> subst <span class="staexp"><span class="keyword">{</span>G1<span class="keyword">,</span>G2<span class="keyword">:</span>env<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>t<span class="keyword">:</span>ty<span class="keyword">}</span></span>
+  <span class="keyword">(</span>sub<span class="keyword">:</span> <span class="staexp">SUB<span class="keyword">(</span>G1<span class="keyword">,</span>G2<span class="keyword">)</span></span><span class="keyword">)</span> <span class="keyword">(</span>e<span class="keyword">:</span> <span class="staexp">EXP<span class="keyword">(</span>G1<span class="keyword">,</span>t<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">EXP<span class="keyword">(</span>G2<span class="keyword">,</span>t<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> e <span class="keyword">of</span>
+  <span class="keyword">|</span> EXPvar x <span class="keyword">=&gt;</span> sub <span class="keyword">(</span>x<span class="keyword">)</span>
+  <span class="keyword">|</span> EXPlam e <span class="keyword">=&gt;</span> EXPlam <span class="keyword">(</span>subst <span class="keyword">(</span>subLam sub<span class="keyword">)</span> e<span class="keyword">)</span>
+  <span class="keyword">|</span> EXPapp <span class="keyword">(</span>e1<span class="keyword">,</span> e2<span class="keyword">)</span> <span class="keyword">=&gt;</span> EXPapp <span class="keyword">(</span>subst sub e1<span class="keyword">,</span> subst sub e2<span class="keyword">)</span>
+<span class="comment">(*
+  | EXPtlam {G1} {f} e =&gt; EXPtlam {G2} {f} (lam {t:ty} =&gt; subst sub (e {t}))
+  | EXPtapp e =&gt; EXPtapp (subst sub e)
+*)</span>
+<span class="keyword">end</span> <span class="comment">// end of [subst]
+</span>
+<span class="keyword">and</span> subLam <span class="staexp"><span class="keyword">{</span>G1<span class="keyword">,</span>G2<span class="keyword">:</span>env<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>t<span class="keyword">:</span>ty<span class="keyword">}</span></span>
+  <span class="keyword">(</span>sub<span class="keyword">:</span> <span class="staexp">SUB <span class="keyword">(</span>G1<span class="keyword">,</span>G2<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">SUB <span class="keyword">(</span>t::G1<span class="keyword">,</span>t::G2<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">lam</span> v <span class="keyword">=&gt;</span> <span class="keyword">case+</span> v <span class="keyword">of</span>
+    <span class="keyword">|</span> VARone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> EXPvar <span class="keyword">(</span>VARone<span class="keyword">)</span>
+    <span class="keyword">|</span> VARshi x' <span class="keyword">=&gt;</span> subst <span class="keyword">(</span>shiSub <span class="staexp"><span class="keyword">{</span><span class="keyword">..</span><span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span><span class="keyword">..</span><span class="keyword">}</span></span><span class="keyword">)</span> <span class="keyword">(</span>sub x'<span class="keyword">)</span> 
+<span class="keyword">end</span> <span class="comment">// end of [subLam]
+</span>
+<span class="keyword">fun</span> subPre <span class="staexp"><span class="keyword">{</span>G1<span class="keyword">,</span>G2<span class="keyword">:</span>env<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>t<span class="keyword">:</span>ty<span class="keyword">}</span></span> <span class="keyword">(</span>sub<span class="keyword">:</span> <span class="staexp">SUB<span class="keyword">(</span>G1<span class="keyword">,</span> G2<span class="keyword">)</span></span><span class="keyword">)</span> <span class="keyword">(</span>e<span class="keyword">:</span> <span class="staexp">EXP <span class="keyword">(</span>G2<span class="keyword">,</span> t<span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">SUB <span class="keyword">(</span>t :: G1<span class="keyword">,</span> G2<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">lam</span> x <span class="keyword">=&gt;</span> <span class="keyword">case+</span> x <span class="keyword">of</span> VARone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> e <span class="keyword">|</span> VARshi x <span class="keyword">=&gt;</span> sub x
+<span class="keyword">end</span> <span class="comment">// end of [subPre]
+</span>  
+<span class="keyword">fun</span> subComp <span class="staexp"><span class="keyword">{</span>G1<span class="keyword">,</span>G2<span class="keyword">,</span>G3<span class="keyword">:</span>env<span class="keyword">}</span></span> <span class="keyword">(</span>sub1<span class="keyword">:</span> <span class="staexp">SUB <span class="keyword">(</span>G1<span class="keyword">,</span>G2<span class="keyword">)</span></span><span class="keyword">)</span> <span class="keyword">(</span>sub2<span class="keyword">:</span> <span class="staexp">SUB <span class="keyword">(</span>G2<span class="keyword">,</span>G3<span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">SUB <span class="keyword">(</span>G1<span class="keyword">,</span> G3<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">lam</span> x <span class="keyword">=&gt;</span> subst sub2 <span class="keyword">(</span>sub1 x<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [subComp]
+</span>
+<span class="comment">// implementing the normalization function for simply typed lambda-calculus
+</span>
+<span class="keyword">fun</span> nf <span class="staexp"><span class="keyword">{</span>G<span class="keyword">:</span>env<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>t<span class="keyword">:</span>ty<span class="keyword">}</span></span> <span class="keyword">(</span>e<span class="keyword">:</span> <span class="staexp">EXP<span class="keyword">(</span>G<span class="keyword">,</span> t<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">EXP <span class="keyword">(</span>G<span class="keyword">,</span> t<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> e <span class="keyword">of</span>
+  <span class="keyword">|</span> EXPvar _ <span class="keyword">=&gt;</span> e
+  <span class="keyword">|</span> EXPlam e <span class="keyword">=&gt;</span> EXPlam <span class="keyword">(</span>nf e<span class="keyword">)</span>
+  <span class="keyword">|</span> EXPapp <span class="keyword">(</span>e1<span class="keyword">,</span> e2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> nf e1 <span class="keyword">of</span>
+    <span class="keyword">|</span> EXPlam e <span class="keyword">=&gt;</span> nf <span class="keyword">(</span>subst <span class="keyword">(</span>subPre idSub e2<span class="keyword">)</span> e<span class="keyword">)</span>
+    <span class="keyword">|</span> e1 <span class="keyword">=&gt;</span> EXPapp <span class="keyword">(</span>e1<span class="keyword">,</span> nf e2<span class="keyword">)</span>
+    <span class="keyword">end</span>
+<span class="comment">(*
+  | EXPtlam {G} {f} e =&gt; EXPtlam {G} {f} (lam {t:ty} =&gt; nf (e {t}))
+  | EXPtapp e =&gt; EXPtapp (nf e)
+*)</span>
+<span class="keyword">end</span> <span class="comment">// end of [nf]
+</span>
+<span class="comment">// implementing a call-by-value evaluator for simply typed lambda-calculus
+</span>
+<span class="keyword">datatype</span> <span class="staexp"><A name="2499"><span class="stacstdec">VAL <span class="keyword">(</span>ty<span class="keyword">)</span></span></span></A> <span class="keyword">=</span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">G<span class="keyword">:</span>env</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">t1<span class="keyword">,</span>t2<span class="keyword">:</span>ty</span><span class="keyword">}</span> VALclo <span class="staexp"><span class="keyword">(</span>t1 -&gt;&gt; t2<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>ENV G<span class="keyword">,</span> EXP <span class="keyword">(</span>t1 :: G<span class="keyword">,</span> t2<span class="keyword">)</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">G<span class="keyword">:</span>env</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">f<span class="keyword">:</span>ty<span class="keyword">-&gt;</span>ty</span><span class="keyword">}</span> VALtclo <span class="staexp"><span class="keyword">(</span>forall f<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>ENV G<span class="keyword">,</span> <span class="keyword">{</span>t<span class="keyword">:</span>ty<span class="keyword">}</span> EXP <span class="keyword">(</span>G<span class="keyword">,</span> f t<span class="keyword">)</span><span class="keyword">)</span></span>
+
+<span class="keyword">and</span> <span class="staexp"><A name="2661"><span class="stacstdec">ENV <span class="keyword">(</span>env<span class="keyword">)</span></span></span></A> <span class="keyword">=</span>
+  <span class="keyword">|</span> ENVnil <span class="staexp"><span class="keyword">(</span>nil<span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">G<span class="keyword">:</span>env</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">t<span class="keyword">:</span>ty</span><span class="keyword">}</span> ENVcons <span class="staexp"><span class="keyword">(</span>t :: G<span class="keyword">)</span></span> <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>VAL t<span class="keyword">,</span> ENV G<span class="keyword">)</span></span>
+
+<span class="keyword">fun</span> evalVar <span class="staexp"><span class="keyword">{</span>G<span class="keyword">:</span>env<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>t<span class="keyword">:</span>ty<span class="keyword">}</span></span>
+  <span class="keyword">(</span>env<span class="keyword">:</span> <span class="staexp">ENV G</span><span class="keyword">)</span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">VAR <span class="keyword">(</span>G<span class="keyword">,</span> t<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">VAL t</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> x <span class="keyword">of</span>
+  <span class="keyword">|</span> VARone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="keyword">val</span> ENVcons <span class="keyword">(</span>v<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=</span> env <span class="keyword">in</span> v <span class="keyword">end</span>
+  <span class="keyword">|</span> VARshi x <span class="keyword">=&gt;</span> <span class="keyword">let</span> <span class="keyword">val</span> ENVcons <span class="keyword">(</span>_<span class="keyword">,</span> env<span class="keyword">)</span> <span class="keyword">=</span> env <span class="keyword">in</span> evalVar env x <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [evalVar]
+</span>
+<span class="keyword">fun</span> eval <span class="staexp"><span class="keyword">{</span>G<span class="keyword">:</span>env<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>t<span class="keyword">:</span>ty<span class="keyword">}</span></span>
+  <span class="keyword">(</span>env<span class="keyword">:</span> <span class="staexp">ENV G</span><span class="keyword">)</span> <span class="keyword">(</span>e<span class="keyword">:</span> <span class="staexp">EXP <span class="keyword">(</span>G<span class="keyword">,</span> t<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">VAL t</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> e <span class="keyword">of</span>
+  <span class="keyword">|</span> EXPvar x <span class="keyword">=&gt;</span> evalVar env x
+  <span class="keyword">|</span> EXPlam <span class="keyword">(</span>e<span class="keyword">)</span> <span class="keyword">=&gt;</span> VALclo <span class="keyword">(</span>env<span class="keyword">,</span> e<span class="keyword">)</span>
+  <span class="keyword">|</span> EXPapp <span class="keyword">(</span>e1<span class="keyword">,</span> e2<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> VALclo <span class="keyword">(</span>env'<span class="keyword">,</span> body<span class="keyword">)</span> <span class="keyword">=</span> eval env e1
+      <span class="keyword">val</span> v <span class="keyword">=</span> eval env e2
+    <span class="keyword">in</span>
+      eval <span class="keyword">(</span>ENVcons <span class="keyword">(</span>v<span class="keyword">,</span> env'<span class="keyword">)</span><span class="keyword">)</span> body
+    <span class="keyword">end</span>
+<span class="comment">(*
+  | EXPtlam {G} {f} e =&gt; VALtclo {G} {f} (env, e)
+  | EXPtapp e =&gt; let
+      val VALtclo (env, body) = eval env e
+    in
+      eval env (body {...})
+    end
+*)</span>
+<span class="keyword">end</span> <span class="comment">// end of [eval]
+</span>
+<span class="keyword">fun</span> evaluate <span class="staexp"><span class="keyword">{</span>t<span class="keyword">:</span>ty<span class="keyword">}</span></span> <span class="keyword">(</span>e<span class="keyword">:</span> <span class="staexp">EXP <span class="keyword">(</span>nil<span class="keyword">,</span> t<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">VAL t</span> <span class="keyword">=</span> eval ENVnil e
+
+<span class="comment">// ------------------------ additional examples ------------------------
+</span>
+<span class="comment">// the example of CPS transformation can be found in CPS.ats in the same
+</span><span class="comment">// directory
+</span>
+<span class="comment">// the example of closure conversion can be found in ClosureConv.ats in
+</span><span class="comment">// the same directory
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ITPT.dats] *)</span>
+</PRE>
+</BODY>
+</HTML>

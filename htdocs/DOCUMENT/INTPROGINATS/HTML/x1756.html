@@ -1,0 +1,544 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>&#13;Static and Dynamic ATS Files
+</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+TITLE="Introduction to Programming in ATS"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Modularity"
+HREF="c1692.html"><LINK
+REL="PREVIOUS"
+TITLE="Modularity"
+HREF="c1692.html"><LINK
+REL="NEXT"
+TITLE="
+Generic Template Implementation
+"
+HREF="x1814.html"></HEAD
+><BODY
+CLASS="sect1"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>Introduction to Programming in ATS: </TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="c1692.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+>Modularity</TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="x1814.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="sect1"
+><H1
+CLASS="sect1"
+><A
+NAME="static_and_dynamic_ats_files"
+>Static and Dynamic ATS Files</A
+></H1
+><P
+>The first letters in the ATS filename extensions
+<I
+CLASS="emphasis"
+>sats</I
+> and <I
+CLASS="emphasis"
+>dats</I
+> refer to the words
+<I
+CLASS="emphasis"
+>static</I
+> and <I
+CLASS="emphasis"
+>dynamic</I
+>, respectively.
+For instance, <TT
+CLASS="filename"
+>foo.sats</TT
+> is a name for a static file
+while <TT
+CLASS="filename"
+>bar.dats</TT
+> for a dynamic one. A static file
+usually contains interface declarations for functions and values, datatype
+declarations, type definitions, etc. The primary purpose of such a file is
+for allowing its content to be shared among various other ATS files, either
+static or dynamic.
+</P
+><P
+>Let us now go through a simple example to see a typical use of
+static files. Suppose that we want to implement the Ackermann's function,
+which is famous for being recursive but not primitive recursive.  In a
+static file named <TT
+CLASS="filename"
+>acker.sats</TT
+> (or any other legal
+filename), we can declare the following function interface:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN1767"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun acker (m: int, n: int): int
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+Please note that we cannot use the keyword <FONT
+COLOR="RED"
+>extern</FONT
+> when
+declaring an interface for either a function or a value in a static file.
+Then in a dynamic file named <TT
+CLASS="filename"
+>acker.dats</TT
+> (or any other
+legal filename), we can give the following implementation:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN1771"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>staload "acker.sats"
+
+implement
+acker (m, n) =
+  if m &#62; 0 then
+    if n &#62; 0 then acker (m-1, acker (m, n-1))
+    else acker (m-1, 1)
+  else n+1
+// end of [acker]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+The keyword <FONT
+COLOR="RED"
+>staload</FONT
+> indicates to the ATS typechecker that the
+file following it is to be statically loaded. Essentially, statically
+loading a file means to put the content of the file in a namespace that can
+be accessed by the code that follows. It is important to note that static
+loading is different from plain file inclusion. The latter is also
+supported in ATS, and it is a feature I will cover elsewhere.
+</P
+><P
+>It is also possible to give the following implementation for the
+declared function <FONT
+COLOR="RED"
+>acker</FONT
+>:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN1776"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>staload ACKER = "acker.sats"
+
+implement $ACKER.acker
+  (m, n) = acker (m, n) where {
+  fun acker (m: int, n:int): int = 
+    if m &#62; 0 then
+      if n &#62; 0 then acker (m-1, acker (m, n-1))
+      else acker (m-1, 1)
+    else n+1
+} // end of [$ACKER.acker]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+In this case, the namespace for storing the content of the file
+<TT
+CLASS="filename"
+>acker.sats</TT
+> is given the name ACKER, and the prefix
+<FONT
+COLOR="RED"
+>$ACKER.</FONT
+> (the dollar sign followed by ACKER followed by the dot
+symbol) must be attached to any name that refers an entity (a function, a
+value, a datatype, the constructors associated with a datatype, a type
+definition, etc.) declared in <TT
+CLASS="filename"
+>acker.sats</TT
+>. When there
+are many static files to be loaded, it is often a good practice to assign
+names to the namespaces holding these files so that the original source of
+each declared entity can be readily tracked down.
+</P
+><P
+>In another file named <TT
+CLASS="filename"
+>test_acker.dats</TT
+>, let use
+write the following code:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN1783"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>staload "acker.sats"
+dynload "acker.dats"
+
+implement
+main () = () where {
+//
+// acker (3, 3) should return 61
+//
+  val () = assertloc (acker (3, 3) = 61)
+} // end of [main]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+The keyword <FONT
+COLOR="RED"
+>dynload</FONT
+> indicates to the ATS compiler to generate
+a call to the initializing function associated with the file
+<TT
+CLASS="filename"
+>acker.dats</TT
+>. This is mandatory as an error would
+otherwise be reported at link-time. Usually, calling the initializing
+function associated with a dynamic file is necessary only if there is a
+value implemented in the file. In this case, there is only a function
+implemented
+in <TT
+CLASS="filename"
+>acker.dats</TT
+>. If we include the following line somewhere
+inside <TT
+CLASS="filename"
+>acker.dats</TT
+>:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN1789"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>#define ATS_DYNLOADFLAG 0 // no need for dynloading at run-time
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+then the line starting with the keyword <FONT
+COLOR="RED"
+>dynload</FONT
+> in
+<TT
+CLASS="filename"
+>test_acker.dats</TT
+> is no longer needed. The function
+<FONT
+COLOR="RED"
+>assertloc</FONT
+> verifies at run-time that its argument evaluates to
+the boolean value <FONT
+COLOR="RED"
+>true</FONT
+>. In the case where the argument
+evaluates to <FONT
+COLOR="RED"
+>false</FONT
+>, the function call aborts and a message is
+reported that contains the name of the file, which is
+<TT
+CLASS="filename"
+>test_acker.dats</TT
+> in this example, and the location at
+which the source code of the call is found in the file. If this sounds a
+bit confusing, please try to execute a program that contains a call to
+<FONT
+COLOR="RED"
+>assertloc</FONT
+> on <FONT
+COLOR="RED"
+>false</FONT
+> and you will see clearly what
+happens.
+</P
+><P
+>The simplest way to compile the three files <FONT
+COLOR="RED"
+>acker.sats</FONT
+>,
+<FONT
+COLOR="RED"
+>acker.dats</FONT
+> and <FONT
+COLOR="RED"
+>test_acker.dats</FONT
+> is to issue the
+following command-line:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN1803"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>&#13;<B
+CLASS="command"
+>atscc</B
+> -o test_acker acker.sats acker.dats test_acker.dats
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+The generate excutable <TT
+CLASS="filename"
+>test_acker</TT
+> is in the current
+working directory.  The compilation can also be performed separately as is
+demonstrated below:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN1807"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>&#13;<B
+CLASS="command"
+>atscc</B
+> -c acker.sats
+<B
+CLASS="command"
+>atscc</B
+> -c acker.dats
+<B
+CLASS="command"
+>atscc</B
+> -c test_acker.dats
+<B
+CLASS="command"
+>atscc</B
+> -o test_acker acker_sats.o acker_dats.o test_acker_dats.o
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+This style of separate compilation works particularly well when it is
+employed by the <B
+CLASS="command"
+>make</B
+> utility.
+</P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="c1692.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="x1814.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Modularity</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="c1692.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Generic Template Implementation</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

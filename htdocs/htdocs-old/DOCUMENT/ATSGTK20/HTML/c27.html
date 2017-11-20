@@ -1,0 +1,505 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>ATS/GTK Basics</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+TITLE="ATS/GTK Tutorial"
+HREF="book1.html"><LINK
+REL="PREVIOUS"
+TITLE="ATS/GTK Tutorial"
+HREF="book1.html"></HEAD
+><BODY
+CLASS="chapter"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>ATS/GTK Tutorial: </TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="book1.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+>&nbsp;</TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="chapter"
+><H1
+><A
+NAME="gtk20_basics"
+></A
+>ATS/GTK Basics</H1
+><P
+>&#13;
+ATS is a rich programming language equipped with a highly expressive type
+system for specifying and enforcing program variants. Both dependent and
+linear types are available in ATS to support practical programming.
+ATS/GTK is the API in ATS for
+
+<A
+HREF="http://www.gtk.org"
+TARGET="_top"
+>GTK+</A
+>,
+
+a comprehensive toolkit for building graphical user interfaces. There are
+already many on-line tutorials on using GTK (e.g., <A
+HREF="http://library.gnome.org/devel/gtk-tutorial/stable/"
+TARGET="_top"
+>this
+one</A
+>), and the reader may want to use them as references when
+studying the current one, which focuses on using types in ATS to facilitate
+safe and reliable programming with GTK. In particular, the reader may find
+that linear types in ATS can do wonders in terms of tracking resource usage
+statically and significantly reducing, if not completely eliminating,
+memory leaks.
+
+</P
+><DIV
+CLASS="sect1"
+><H1
+CLASS="sect1"
+><A
+NAME="hello_world_example"
+>A Simple Example: Hello, world!</A
+></H1
+><P
+>&#13;The first program we present in this tutorial is given as follows:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="tutprog_hw"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>&#13;%{^
+extern
+ats_void_type mainats (ats_int_type argc, ats_ptr_type argv) ;
+%} // end of [%{^]
+
+(* ****** ****** *)
+
+staload "contrib/glib/SATS/glib.sats"
+staload "contrib/glib/SATS/glib-object.sats"
+
+(* ****** ****** *)
+
+staload "contrib/GTK/SATS/gtk.sats"
+staload "contrib/GTK/SATS/gtkclassdec.sats"
+
+(* ****** ****** *)
+
+extern
+fun gtk_window_set_title {l:agz}
+  (win: !gobjref (GtkWindow, l), title: string): void
+  = "mac#atsctrb_gtk_window_set_title"
+// end of [gtk_window_set_title]
+
+(* ****** ****** *)
+
+extern fun main1 (): void = "main1"
+implement main1 () = () where {
+//
+  val win = gtk_window_new (GTK_WINDOW_TOPLEVEL)
+  val () = gtk_window_set_title (win, "Hello, world!")
+  val () = gtk_widget_set_size_request (win, (gint)200, (gint)200)
+  val () = gtk_widget_show (win)
+  val _sid = g_signal_connect0
+    (win, (gsignal)"delete-event", G_CALLBACK(gtk_main_quit), (gpointer)null)
+  // end of [val]
+  val () = gtk_main ()
+//
+} // end of [main]
+
+(* ****** ****** *)
+
+implement main_dummy () = () // indicating that [main] is implemented externally
+
+(* ****** ****** *)
+
+%{$
+ats_void_type
+mainats (
+  ats_int_type argc, ats_ptr_type argv
+) {
+  gtk_init ((int*)&#38;argc, (char***)&#38;argv) ; main1 () ; return ;
+} // end of [mainats]
+%} // end of [%{$]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+The functions in the GTK package are declared in the file
+<A
+HREF="https://ats-lang.svn.sourceforge.net/svnroot/ats-lang/trunk/contrib/GTK/SATS/gtk.sats"
+TARGET="_top"
+>&#13;<TT
+CLASS="filename"
+>contrib/GTK/SATS/gtk.sats</TT
+>
+</A
+>,
+which contains many subfiles, and the GTK class hierachy is declared in the file
+<A
+HREF="https://ats-lang.svn.sourceforge.net/svnroot/ats-lang/trunk/contrib/GTK/SATS/gtkclassdec.sats"
+TARGET="_top"
+>&#13;<TT
+CLASS="filename"
+>contrib/GTK/SATS/gtkclassdec.sats</TT
+>
+</A
+>.
+
+Note that in this tutorial, a file name, if relative, is always relative to
+the ATS home directory (stored in the environment variable ATSHOME) unless
+it is specified otherwise.
+</P
+><P
+>&#13;The function
+<I
+CLASS="emphasis"
+>mainats</I
+> is the main function in ATS, which is called
+by the main function in C. For GTK+ programming in ATS, the function
+<I
+CLASS="emphasis"
+>mainats</I
+> is implemented externally as follows:
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="mainats"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>&#13;%{$
+ats_void_type
+mainats (
+  ats_int_type argc, ats_ptr_type argv
+) {
+  gtk_init ((int*)&#38;argc, (char***)&#38;argv) ; main1 () ; return ;
+} // end of [mainats]
+%} // end of [%{$]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+The function <I
+CLASS="emphasis"
+>main1</I
+>, which is implemented in ATS, plays
+the real role of the main function. The very reason for this design is due to
+the need to handle the fact that <I
+CLASS="emphasis"
+>gtk_init</I
+> may modify
+its arguments <I
+CLASS="emphasis"
+>argc</I
+> and <I
+CLASS="emphasis"
+>argv</I
+>.
+</P
+><P
+>&#13;We use <I
+CLASS="emphasis"
+>gobjref</I
+> for contructing types for g-objects,
+which is declared in the file
+<A
+HREF="https://ats-lang.svn.sourceforge.net/svnroot/ats-lang/trunk/contrib/glib/SATS/glib-object.sats"
+TARGET="_top"
+>&#13;<TT
+CLASS="filename"
+>contrib/glib/SATS/glib-object.sats</TT
+>
+</A
+>
+as follows:
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN54"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>&#13;absviewtype gobjref (c:cls, l:addr) // a (counted) reference to a g-object.
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+Given a class <I
+CLASS="emphasis"
+>C</I
+> and an address <I
+CLASS="emphasis"
+>L</I
+>,
+<I
+CLASS="emphasis"
+>gobject(C, L)</I
+> is for a g-object located at
+<I
+CLASS="emphasis"
+>L</I
+> that is of class <I
+CLASS="emphasis"
+>C</I
+>. Note that
+<I
+CLASS="emphasis"
+>gobject(C, L)</I
+> is a viewtype, that is, it is linear.
+</P
+><P
+>&#13;In the following declaration,
+<I
+CLASS="emphasis"
+>gtk_window_set_title</I
+> is declared to be an external
+function of the name <I
+CLASS="emphasis"
+>atsctrb_gtk_window_set_title</I
+>:
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN65"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>&#13;extern
+fun gtk_window_set_title {l:agz}
+  (win: !gobjref (GtkWindow, l), title: string): void = "mac#atsctrb_gtk_window_set_title"
+// end of [gtk_window_set_title]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+Note that <I
+CLASS="emphasis"
+>GtkWindow</I
+> is a class (or more precisely, a
+class name) declared elsewhere. Obviously, the type assigned to
+<I
+CLASS="emphasis"
+>gtk_window_set_title</I
+> indicates that this function
+takes two arguments and returns void; the first argument
+is a linear reference to a g-object located at some address that is
+of the class <I
+CLASS="emphasis"
+>GtkWindow</I
+>, and it is kept available
+after function call; the second argument is a string. In the file
+<A
+HREF="https://ats-lang.svn.sourceforge.net/svnroot/ats-lang/trunk/contrib/GTK/CATS/gtk.cats"
+TARGET="_top"
+>&#13;<TT
+CLASS="filename"
+>contrib/GTK/SATS/gtk.cats</TT
+>
+</A
+>,
+<I
+CLASS="emphasis"
+>atsctrb_gtk_window_set_title</I
+> is defined as follows:
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN73"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>&#13;#define atsctrb_gtk_window_set_title gtk_window_set_title
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+indicating that the function <I
+CLASS="emphasis"
+>gtk_window_set_title</I
+> in ATS is just the
+function of the same name in C. Of course, we could use
+<I
+CLASS="emphasis"
+>gtk_window_set_title</I
+> for
+<I
+CLASS="emphasis"
+>atsctrb_gtk_window_set_title</I
+> in the first
+place. However, the present style makes it more convenient for the sake
+of debugging.
+
+Please note that <I
+CLASS="emphasis"
+>gtk_window_set_title</I
+> is already
+declared in the API for GTK in ATS. The above declaration is presented
+solely for the purpose of illustraton.  If we ever need a GTK+ function
+that is not yet available in the API, we can just follow the example by
+declaring it on the spot. After all, ATS shares with C the very same data
+representation.
+
+</P
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="book1.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>&nbsp;</TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>ATS/GTK Tutorial</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+>&nbsp;</TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>&nbsp;</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

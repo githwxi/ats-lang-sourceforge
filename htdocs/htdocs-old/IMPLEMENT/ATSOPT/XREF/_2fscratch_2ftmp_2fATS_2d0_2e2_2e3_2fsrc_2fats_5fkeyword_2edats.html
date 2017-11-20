@@ -1,0 +1,373 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: July 2007
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* ats_keyword: handling keywords in ATS *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_lexer.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_keyword.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+
+#include "ats_grammar_yats.h"
+
+typedef
+struct {
+  char *key ; int val ;
+} keyval ;
+
+#define KEYWORD_TABLE_SIZE 1024
+keyval theKeywordTable[KEYWORD_TABLE_SIZE] = {0} ;
+
+static
+void
+keyval_insert (
+  char *key, int val
+) {
+  unsigned int hash_val ; int i ; keyval *itm ;
+//
+  hash_val = atspre_string_hash_33 ((char*)key) ;
+  i = hash_val % KEYWORD_TABLE_SIZE ; itm = &amp;theKeywordTable[i] ;
+//
+  while (itm-&gt;key) {
+    i += 1 ; if (i == KEYWORD_TABLE_SIZE) i = 0 ;
+    itm = &amp;theKeywordTable[i] ;
+  } // end of [while]
+//
+  itm-&gt;key = (char*)key ; itm-&gt;val = (int)val ;
+  return ;
+} // end of [keyval_insert]
+
+ats_int_type
+atsopt_keyword_search
+  (ats_ptr_type key) {
+  unsigned int hash_val ; int i ; keyval *itm ;
+//
+  hash_val = atspre_string_hash_33 (key) ;
+  i = hash_val % KEYWORD_TABLE_SIZE ; itm = &amp;theKeywordTable[i] ;
+//
+  while (itm-&gt;key) {
+    if (!strcmp((char*)key, itm-&gt;key))
+      return itm-&gt;val ;
+    i += 1 ; if (i == KEYWORD_TABLE_SIZE) i = 0 ;
+    itm = &amp;theKeywordTable[i] ;
+  } // end of [while]
+//
+  return -1 ;
+} // end of [atsopt_keyword_search]
+
+static
+ats_void_type
+atsopt_keyval_table_initialize (
+  // no argument for this function
+) {
+
+/*
+// HX: [theKeywordTable] is already initialized:
+memset (&amp;theKeywordTable[0], 0, sizeof(theKeywordTable)) ;
+*/
+
+//
+// HX: symbolic keywords
+//
+keyval_insert("&amp;", AMPERSAND) ;
+keyval_insert("`", BACKQUOTE) ;
+keyval_insert("!", BANG) ;
+keyval_insert("|", BAR) ;
+keyval_insert(":", COLON) ;
+keyval_insert("$", DOLLAR) ;
+keyval_insert(".", DOT) ;
+keyval_insert("=", EQ) ;
+keyval_insert("#", HASH) ;
+keyval_insert("~", TILDA) ;
+keyval_insert("..", DOTDOT) ;
+keyval_insert("...", DOTDOTDOT) ;
+keyval_insert("=&gt;", EQGT) ; // implication without decoration
+keyval_insert("=&lt;", EQLT) ; // implication decoration
+keyval_insert("=&lt;&gt;", EQLTGT) ; // implication with empty decoration
+keyval_insert("=/=&gt;", EQSLASHEQGT) ;
+keyval_insert("=&gt;&gt;", EQGTGT) ;
+keyval_insert("=/=&gt;&gt;", EQSLASHEQGTGT) ;
+keyval_insert("&lt;", LT) ;
+keyval_insert("&gt;", GT) ;
+keyval_insert("&gt;&lt;", GTLT) ;
+keyval_insert(".&lt;", DOTLT) ;
+keyval_insert("&gt;.", GTDOT) ; // .&lt;...&gt;. : metric
+keyval_insert(".&lt;&gt;.", DOTLTGTDOT) ;
+keyval_insert("-&gt;", MINUSGT) ; // implication
+keyval_insert("-&lt;", MINUSLT) ; // -&lt;...&gt; : decorated implication
+keyval_insert("-&lt;&gt;", MINUSLTGT) ;
+keyval_insert(":&lt;", COLONLT) ; // :&lt;...&gt; : decorated implication
+keyval_insert(":&lt;&gt;", COLONLTGT) ;
+//
+// HX: alphanumeric keywords
+//
+keyval_insert("absprop", ABSPROP) ;
+keyval_insert("abstype", ABSTYPE) ;
+keyval_insert("abst@ype", ABST0YPE) ;
+keyval_insert("absview", ABSVIEW) ;
+keyval_insert("absviewtype", ABSVIEWTYPE) ;
+keyval_insert("absviewt@ype", ABSVIEWT0YPE) ;
+keyval_insert("and", AND) ;
+keyval_insert("as", AS) ;
+keyval_insert("assume", ASSUME) ;
+keyval_insert("begin", BEGIN) ;
+keyval_insert("break", BREAK) ;
+keyval_insert("case", CASE) ;
+keyval_insert("castfn", CASTFN) ; // for casting functions
+keyval_insert("classdec", CLASSDEC) ;
+keyval_insert("continue", CONTINUE) ;
+keyval_insert("datasort", DATASORT) ;
+keyval_insert("dataparasort", DATAPARASORT) ;
+keyval_insert("dataprop", DATAPROP) ;
+keyval_insert("datatype", DATATYPE) ;
+keyval_insert("dataview", DATAVIEW) ;
+keyval_insert("dataviewtype", DATAVIEWTYPE) ;
+keyval_insert("do", DO) ;
+keyval_insert("dyn", DYN) ;
+keyval_insert("dynload", DYNLOAD) ;
+keyval_insert("else", ELSE) ;
+keyval_insert("end", END) ;
+keyval_insert("exception", EXCEPTION) ;
+keyval_insert("extern", EXTERN) ;
+keyval_insert("fix", FIX) ;
+keyval_insert("fn", FN) ;
+keyval_insert("for", FOR) ;
+keyval_insert("fun", FUN) ;
+keyval_insert("if", IF) ;
+keyval_insert("implement", IMPLEMENT) ;
+keyval_insert("in", IN) ;
+keyval_insert("infix", INFIX) ;
+keyval_insert("infixl", INFIXL) ;
+keyval_insert("infixr", INFIXR) ;
+keyval_insert("lam", LAM) ;
+keyval_insert("let", LET) ;
+keyval_insert("llam", LLAM) ;
+keyval_insert("local", LOCAL) ;
+keyval_insert("macdef", MACDEF) ;
+keyval_insert("macrodef", MACRODEF) ;
+/*
+keyval_insert("method", METHOD) ;
+keyval_insert("modcls", MODCLS) ;
+*/
+keyval_insert("nonfix", NONFIX) ;
+keyval_insert("overload", OVERLOAD) ;
+keyval_insert("par", PAR) ;
+keyval_insert("postfix", POSTFIX) ;
+keyval_insert("praxi", PRAXI) ;
+keyval_insert("prefix", PREFIX) ;
+keyval_insert("prfn", PRFN) ;
+keyval_insert("prfun", PRFUN) ;
+keyval_insert("prval", PRVAL) ;
+keyval_insert("of", OF) ;
+keyval_insert("op", OP) ;
+keyval_insert("propdef", PROPDEF) ;
+keyval_insert("rec", REC) ;
+keyval_insert("scase", SCASE) ;
+keyval_insert("sif", SIF) ;
+keyval_insert("sortdef", SORTDEF) ;
+keyval_insert("sta", STA) ;
+keyval_insert("stadef", STADEF) ;
+keyval_insert("staif", STAIF) ;
+keyval_insert("staload", STALOAD) ;
+keyval_insert("stavar", STAVAR) ;
+/*
+keyval_insert("struct", STRUCT) ;
+keyval_insert("super", SUPER) ;
+*/
+keyval_insert("symelim", SYMELIM) ;
+keyval_insert("symintr", SYMINTR) ;
+keyval_insert("then", THEN) ;
+keyval_insert("try", TRY) ;
+keyval_insert("typedef", TYPEDEF) ;
+/*
+keyval_insert("union", UNION) ;
+*/
+keyval_insert("val", VAL) ;
+keyval_insert("var", VAR) ;
+keyval_insert("viewdef", VIEWDEF) ;
+keyval_insert("viewtypedef", VIEWTYPEDEF) ;
+keyval_insert("when", WHEN) ;
+keyval_insert("where", WHERE) ;
+keyval_insert("while", WHILE) ;
+keyval_insert("with", WITH) ;
+keyval_insert("withprop", WITHPROP) ;
+keyval_insert("withtype", WITHTYPE) ;
+keyval_insert("withview", WITHVIEW) ;
+keyval_insert("withviewtype", WITHVIEWTYPE) ;
+//
+keyval_insert("$arrsz", DLRARRSZ) ;
+keyval_insert("$decrypt", DLRDECRYPT) ;
+keyval_insert("$delay", DLRDELAY) ; // $delay
+keyval_insert("$dynload", DLRDYNLOAD) ;
+/*
+keyval_insert("$exec", DLREXEC) ;
+*/
+keyval_insert("$effmask_all", DLREFFMASK_ALL) ;
+keyval_insert("$effmask_exn", DLREFFMASK_EXN) ;
+keyval_insert("$effmask_ntm", DLREFFMASK_NTM) ;
+keyval_insert("$effmask_ref", DLREFFMASK_REF) ;
+keyval_insert("$extern", DLREXTERN) ;
+keyval_insert("$extval", DLREXTVAL) ;
+keyval_insert("$extype", DLREXTYPE) ;
+keyval_insert("$extype_struct", DLREXTYPE_STRUCT) ;
+keyval_insert("$encrypt", DLRENCRYPT) ;
+/*
+keyval_insert("$fold", DLRFOLD) ;
+*/
+keyval_insert("$ldelay", DLRLDELAY) ; // linear $delay
+keyval_insert("$lst", DLRLST_T) ;
+keyval_insert("$lst_t", DLRLST_T) ;
+keyval_insert("$lst_vt", DLRLST_VT) ;
+keyval_insert("$raise", DLRRAISE) ;
+keyval_insert("$rec_t", DLRREC_T) ;
+keyval_insert("$rec_vt", DLRREC_VT) ;
+keyval_insert("$tup_t", DLRTUP_T) ;
+keyval_insert("$tup_vt", DLRTUP_VT) ;
+keyval_insert("$typeof", DLRTYPEOF) ;
+keyval_insert("$unfold", DLRUNFOLD) ;
+//
+keyval_insert("#assert", SRPASSERT) ;
+keyval_insert("#define", SRPDEFINE) ;
+keyval_insert("#elif", SRPELIF) ;
+keyval_insert("#elifdef", SRPELIFDEF) ;
+keyval_insert("#elifndef", SRPELIFNDEF) ;
+keyval_insert("#else", SRPELSE) ;
+keyval_insert("#endif", SRPENDIF) ;
+keyval_insert("#error", SRPERROR) ;
+keyval_insert("#if", SRPIF) ;
+keyval_insert("#ifdef", SRPIFDEF) ;
+keyval_insert("#ifndef", SRPIFNDEF) ;
+keyval_insert("#include", SRPINCLUDE) ;
+keyval_insert("#print", SRPPRINT) ;
+keyval_insert("#then", SRPTHEN) ;
+keyval_insert("#undef", SRPUNDEF) ;
+//
+keyval_insert("#FILENAME", SRPFILENAME) ;
+keyval_insert("#LOCATION", SRPLOCATION) ;
+keyval_insert("#CHARCOUNT", SRPCHARCOUNT) ;
+keyval_insert("#LINECOUNT", SRPLINECOUNT) ;
+/*
+//
+// HX: these keywords are hard-wired into [ats_lexer.lats]:
+//
+keyval_insert("fn*", FNSTAR)
+keyval_insert("for*", FORSTAR)
+keyval_insert("while*", WHILESTAR)
+//
+keyval_insert("@lam", ATLAM) ;
+keyval_insert("@llam", ATLLAM) ;
+keyval_insert("@fix", ATFIX) ;
+//
+keyval_insert("fold@", FOLDAT) ;
+keyval_insert("free@", FREEAT) ;
+keyval_insert("view@", VIEWAT) ;
+//
+keyval_insert("r@ead", R0EAD) ;
+//
+keyval_insert("val+", VALPLUS) ;
+keyval_insert("val-", VALMINUS) ;
+keyval_insert("case+", CASEPLUS) ;
+keyval_insert("case-", CASEMINUS) ;
+//
+keyval_insert("prop+", PROPPLUS) ;
+keyval_insert("prop-", PROPMINUS) ;
+keyval_insert("type+", TYPEPLUS) ;
+keyval_insert("type-", TYPEMINUS) ;
+keyval_insert("view+", VIEWPLUS) ;
+keyval_insert("view-", VIEWMINUS) ;
+keyval_insert("viewtype+", VIEWTYPEPLUS) ;
+keyval_insert("viewt@ype-", VIEWTYPEMINUS) ;
+//
+keyval_insert("abst@ype", ABST0YPE) ;
+keyval_insert("absviewt@ype", ABSVIEWT0YPE) ;
+//
+keyval_insert("t@ype", T0YPE) ;
+keyval_insert("t@ype+", T0YPEPLUS) ;
+keyval_insert("t@ype-", T0YPEMINUS) ;
+keyval_insert("viewt@ype", VIEWT0YPE) ;
+keyval_insert("viewt@ype+", VIEWT0YPEPLUS) ;
+keyval_insert("viewt@ype-", VIEWT0YPEMINUS) ;
+*/
+return ;
+} // end of [atsopt_keyval_table_initialize]
+
+%}</span> <span class="comment">// end of [%{^]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> initialize <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">extern</span> <span class="keyword">fun</span> <a name="10158"><span class="dyncstdec">initialize <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "atsopt_keyval_table_initialize"
+<span class="keyword">}</span> <span class="comment">// initializing the keyword table
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_keyword.dats] *)</span>
+</pre>
+</body>
+</html>

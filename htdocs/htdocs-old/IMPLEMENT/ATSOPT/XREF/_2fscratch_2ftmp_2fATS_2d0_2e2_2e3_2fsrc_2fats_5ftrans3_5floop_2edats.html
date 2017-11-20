@@ -1,0 +1,285 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// March 2008
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Err <span class="keyword">=</span> "ats_error.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Loc <span class="keyword">=</span> "ats_location.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Lst <span class="keyword">=</span> "ats_list.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_stadyncst2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp3.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_trans3.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_trans3_env.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> i2nvarg_subst
+  <span class="keyword">(</span>sub<span class="keyword">:</span> <span class="staexp">stasub_t</span><span class="keyword">,</span> arg<span class="keyword">:</span> <span class="staexp">i2nvarg</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">i2nvarg</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> d2v <span class="keyword">=</span> arg<span class="keyword">.</span>i2nvarg_var
+  <span class="keyword">val</span> os2e <span class="keyword">=</span> <span class="keyword">(</span>
+    <span class="keyword">case+</span> arg<span class="keyword">.</span>i2nvarg_typ <span class="keyword">of</span>
+    <span class="keyword">|</span> Some s2e <span class="keyword">=&gt;</span> Some <span class="keyword">(</span>s2exp_subst <span class="keyword">(</span>sub<span class="keyword">,</span> s2e<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> None <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">s2expopt</span>
+<span class="keyword">in</span>
+  i2nvarg_make <span class="keyword">(</span>d2v<span class="keyword">,</span> os2e<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [i2nvarg_subst]
+</span>
+<span class="keyword">fn</span> i2nvarglst_subst
+  <span class="keyword">(</span>sub<span class="keyword">:</span> <span class="staexp">stasub_t</span><span class="keyword">,</span> args<span class="keyword">:</span> <span class="staexp">i2nvarglst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">i2nvarglst</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  $Lst<span class="keyword">.</span>list_map_cloptr <span class="keyword">(</span>
+    args<span class="keyword">,</span> <span class="keyword">lam</span> arg <span class="keyword">=&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> i2nvarg_subst <span class="keyword">(</span>sub<span class="keyword">,</span> arg<span class="keyword">)</span>
+  <span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [i2nvarglst_subst]
+</span>
+<span class="keyword">fn</span> d2exp_loopinv_tr
+  <span class="keyword">(</span>i2nv<span class="keyword">:</span> <span class="staexp">loopi2nv</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">@(</span>s2explstopt<span class="keyword">,</span> i2nvresstate<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> loc0 <span class="keyword">=</span> i2nv<span class="keyword">.</span>loopi2nv_loc
+  <span class="keyword">val</span> i2nv_arg <span class="keyword">=</span> i2nv<span class="keyword">.</span>loopi2nv_arg
+  <span class="keyword">val</span> i2nv_res <span class="keyword">=</span> i2nv<span class="keyword">.</span>loopi2nv_res
+  <span class="keyword">val</span> i2nv_res_svs <span class="keyword">=</span> i2nv_res<span class="keyword">.</span>i2nvresstate_svs
+  <span class="keyword">val</span> i2nv_res_gua <span class="keyword">=</span> i2nv_res<span class="keyword">.</span>i2nvresstate_gua
+<span class="comment">(*
+  // this is already done by [staftscstr_stbefitemlst_update]
+  val () = trans3_env_add_svarlst i2nv_res_svs
+  val () = trans3_env_hypo_add_proplst (loc0, i2nv_res_gua)
+*)</span>
+  <span class="keyword">val</span> i2nv_met <span class="keyword">=</span> os2es <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">val</span> os2es <span class="keyword">=</span> i2nv<span class="keyword">.</span>loopi2nv_met
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> os2es <span class="keyword">of</span>
+      <span class="keyword">|</span> Some s2es <span class="keyword">=&gt;</span> metric_nat_check <span class="keyword">(</span>loc0<span class="keyword">,</span> s2es<span class="keyword">)</span> <span class="keyword">|</span> None _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="comment">// end of [val]
+</span>  <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> res_exit <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> i2nv_res_arg <span class="keyword">=</span> i2nv_res<span class="keyword">.</span>i2nvresstate_arg
+    <span class="comment">// [i2nv_res_arg] must be ahead of [i2nv_arg]
+</span>    <span class="keyword">val</span> i2nv_res_arg_new <span class="keyword">=</span> $Lst<span class="keyword">.</span>list_append <span class="keyword">(</span>i2nv_res_arg<span class="keyword">,</span> i2nv_arg<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    i2nvresstate_make <span class="keyword">(</span>i2nv_res_svs<span class="keyword">,</span> i2nv_res_gua<span class="keyword">,</span> i2nv_res_arg_new<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">fn</span> aux <span class="keyword">(</span>arg<span class="keyword">:</span> <span class="staexp">i2nvarg</span><span class="keyword">)</span>
+      <span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> d2v <span class="keyword">=</span> arg<span class="keyword">.</span>i2nvarg_var
+    <span class="keyword">in</span>
+      <span class="keyword">case+</span> arg<span class="keyword">.</span>i2nvarg_typ <span class="keyword">of</span>
+      <span class="keyword">|</span> Some s2e <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+          <span class="keyword">val</span> s2e <span class="keyword">=</span> s2exp_opnexi_and_add <span class="keyword">(</span>loc0<span class="keyword">,</span> s2e<span class="keyword">)</span>
+        <span class="keyword">in</span>
+          d2var_typ_set <span class="keyword">(</span>d2v<span class="keyword">,</span> Some s2e<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [Some]
+</span>      <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> d2var_typ_set <span class="keyword">(</span>d2v<span class="keyword">,</span> None <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+     <span class="keyword">end</span> <span class="comment">// end of [aux]
+</span>  <span class="keyword">in</span>
+    $Lst<span class="keyword">.</span>list_foreach_cloptr <span class="keyword">(</span>i2nv_arg<span class="keyword">,</span> aux<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="keyword">@(</span>i2nv_met<span class="keyword">,</span> res_exit<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2exp_loopinv_tr]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d2exp_loop_tr_up
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> i2nv<span class="keyword">,</span> od2e_init<span class="keyword">,</span> d2e_test<span class="keyword">,</span> od2e_post<span class="keyword">,</span> d2e_body<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2e_void <span class="keyword">=</span> s2exp_void_t0ype <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> od3e_init <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> od2e_init <span class="keyword">of</span>
+    <span class="keyword">|</span> Some d2e <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">let</span> <span class="keyword">val</span> d3e <span class="keyword">=</span> d2exp_tr_dn <span class="keyword">(</span>d2e<span class="keyword">,</span> s2e_void<span class="keyword">)</span> <span class="keyword">in</span> Some d3e <span class="keyword">end</span>
+      <span class="keyword">end</span> <span class="comment">// end of [Some]
+</span>    <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> None <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">d3expopt</span>
+<span class="comment">//  
+</span>  <span class="keyword">val</span> i2nv <span class="keyword">=</span> loopi2nv_update <span class="keyword">(</span>i2nv<span class="keyword">)</span>
+  <span class="keyword">val</span> i2nv_met <span class="keyword">=</span> i2nv<span class="keyword">.</span>loopi2nv_met
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> i2nv_met <span class="keyword">of</span> <span class="comment">// ntm effect or not
+</span>    <span class="keyword">|</span> None _ <span class="keyword">=&gt;</span> the_effect_env_check_ntm <span class="keyword">(</span>loc0<span class="keyword">)</span> <span class="keyword">|</span> Some _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> res_init <span class="keyword">=</span> i2nvresstate_make_met
+    <span class="keyword">(</span>i2nv<span class="keyword">.</span>loopi2nv_svs<span class="keyword">,</span> i2nv<span class="keyword">.</span>loopi2nv_gua<span class="keyword">,</span> i2nv<span class="keyword">.</span>loopi2nv_arg<span class="keyword">,</span> i2nv_met<span class="keyword">)</span>
+  <span class="keyword">val</span> sbis <span class="keyword">=</span> the_d2varset_env_stbefitemlst_save <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_push_sta <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> d3e_test <span class="keyword">=</span> d2exp_tr_up d2e_test
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> d3exp_open_and_add d3e_test
+  <span class="keyword">val</span> s2e_test <span class="keyword">=</span> d3e_test<span class="keyword">.</span>d3exp_typ
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert_bool_tr_dn <span class="keyword">(</span>loc0<span class="keyword">,</span> true<span class="keyword">,</span> s2e_test<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_lamloop</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> the_lamloop_env_push_loop0 <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> d3e_body <span class="keyword">=</span> d2exp_tr_dn <span class="keyword">(</span>d2e_body<span class="keyword">,</span> s2e_void<span class="keyword">)</span>
+  <span class="keyword">val</span> od3e_post <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> od2e_post <span class="keyword">of</span>
+    <span class="keyword">|</span> Some d2e <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">let</span> <span class="keyword">val</span> d3e <span class="keyword">=</span> d2exp_tr_dn <span class="keyword">(</span>d2e<span class="keyword">,</span> s2e_void<span class="keyword">)</span> <span class="keyword">in</span> Some d3e <span class="keyword">end</span>
+      <span class="keyword">end</span> <span class="comment">// end of [Some]
+</span>    <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> None <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">d3expopt</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_lamloop_env_pop <span class="keyword">(</span><span class="prfexp">pf_lamloop</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_pop_sta_and_free <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> stbefitemlst_restore_typ <span class="keyword">(</span>sbis<span class="keyword">)</span> <span class="comment">// keep [lin]
+</span>  <span class="keyword">val</span> sac0_init <span class="keyword">=</span> staftscstr_initialize <span class="keyword">(</span>res_init<span class="keyword">,</span> sbis<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_push_sta <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> staftscstr_stbefitemlst_merge <span class="keyword">(</span>loc0<span class="keyword">,</span> sac0_init<span class="keyword">,</span> sbis<span class="keyword">)</span>
+  <span class="keyword">val</span> knd <span class="keyword">=</span> C3STRKINDloop 0<span class="comment">(*enter*)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_pop_sta_and_add <span class="keyword">(</span>loc0<span class="keyword">,</span> knd<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="comment">// checking that the loop invariant holds
+</span>  <span class="comment">// when the loop is entered for the first time
+</span>    staftscstr_stbefitemlst_check <span class="keyword">(</span>loc0<span class="keyword">,</span> sac0_init<span class="keyword">,</span> sbis<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_push_sta <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// loop checking begs
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+    <span class="comment">// updating the types of the modified variables
+</span>    <span class="comment">// according to the types given in the invariant
+</span>    staftscstr_stbefitemlst_update <span class="keyword">(</span>loc0<span class="keyword">,</span> sac0_init<span class="keyword">,</span> sbis<span class="keyword">)</span>
+  <span class="comment">(* end of [val] *)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> sac_init <span class="keyword">=</span> staftscstr_initialize <span class="keyword">(</span>res_init<span class="keyword">,</span> sbis<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> staftscstr_stbefitemlst_merge_skipmetck <span class="keyword">(</span>loc0<span class="keyword">,</span> sac_init<span class="keyword">,</span> sbis<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span>i2nv_met<span class="keyword">,</span> res_exit<span class="keyword">)</span> <span class="keyword">=</span> d2exp_loopinv_tr <span class="keyword">(</span>i2nv<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> staftscstr_met_set <span class="keyword">(</span>sac_init<span class="keyword">,</span> i2nv_met<span class="keyword">)</span>
+  <span class="keyword">val</span> sac_exit <span class="keyword">=</span> staftscstr_initialize <span class="keyword">(</span>res_exit<span class="keyword">,</span> sbis<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> d3e_test <span class="keyword">=</span> d2exp_tr_up d2e_test
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> d3exp_open_and_add d3e_test
+  <span class="keyword">val</span> s2e_test <span class="keyword">=</span> d3e_test<span class="keyword">.</span>d3exp_typ
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span> <span class="comment">(* loop exit *)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_push_sta <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert_bool_tr_dn <span class="keyword">(</span>loc0<span class="keyword">,</span> false<span class="keyword">,</span> s2e_test<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> staftscstr_stbefitemlst_merge <span class="keyword">(</span>loc0<span class="keyword">,</span> sac_exit<span class="keyword">,</span> sbis<span class="keyword">)</span>
+    <span class="keyword">val</span> knd <span class="keyword">=</span> C3STRKINDloop 1<span class="comment">(*exit*)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_pop_sta_and_add <span class="keyword">(</span>loc0<span class="keyword">,</span> knd<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="comment">// empty
+</span>  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="comment">//
+</span>  <span class="keyword">val</span> d3e_body <span class="keyword">=</span> <span class="keyword">let</span> <span class="comment">(* loop body *)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_push_sta <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert_bool_tr_dn <span class="keyword">(</span>loc0<span class="keyword">,</span> true<span class="keyword">,</span> s2e_test<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_lamloop</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+      the_lamloop_env_push_loop1 <span class="keyword">(</span>sbis<span class="keyword">,</span> sac_init<span class="keyword">,</span> sac_exit<span class="keyword">,</span> od2e_post<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>    <span class="keyword">val</span> d3e_body <span class="keyword">=</span> d2exp_tr_dn <span class="keyword">(</span>d2e_body<span class="keyword">,</span> s2e_void<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> od2e_post <span class="keyword">of</span>
+      <span class="keyword">|</span> Some d2e <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          <span class="keyword">let</span> <span class="keyword">val</span> _<span class="comment">(*d3e*)</span> <span class="keyword">=</span> d2exp_tr_dn <span class="keyword">(</span>d2e<span class="keyword">,</span> s2e_void<span class="keyword">)</span> <span class="keyword">in</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">end</span>
+        <span class="keyword">end</span> <span class="comment">// end of [Some]
+</span>      <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_lamloop_env_pop <span class="keyword">(</span><span class="prfexp">pf_lamloop</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> not <span class="keyword">(</span>d2exp_is_raised d2e_body<span class="keyword">)</span> <span class="keyword">then</span>
+      staftscstr_stbefitemlst_merge <span class="keyword">(</span>loc0<span class="keyword">,</span> sac_init<span class="keyword">,</span> sbis<span class="keyword">)</span>
+    <span class="comment">// end of [val]
+</span>    <span class="keyword">val</span> knd <span class="keyword">=</span> C3STRKINDloop 2<span class="comment">(*repeat*)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_pop_sta_and_add <span class="keyword">(</span>loc0<span class="keyword">,</span> knd<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    d3e_body
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> staftscstr_stbefitemlst_check <span class="keyword">(</span>loc0<span class="keyword">,</span> sac_init<span class="keyword">,</span> sbis<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> staftscstr_stbefitemlst_check <span class="keyword">(</span>loc0<span class="keyword">,</span> sac_exit<span class="keyword">,</span> sbis<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> trans3_env_pop_sta_and_add_none <span class="keyword">(</span>loc0<span class="keyword">)</span> <span class="comment">// loop checking ends
+</span><span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> staftscstr_stbefitemlst_update <span class="keyword">(</span>loc0<span class="keyword">,</span> sac_exit<span class="keyword">,</span> sbis<span class="keyword">)</span>
+<span class="keyword">in</span>
+  d3exp_loop <span class="keyword">(</span>loc0<span class="keyword">,</span> od3e_init<span class="keyword">,</span> d3e_test<span class="keyword">,</span> od3e_post<span class="keyword">,</span> d3e_body<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2exp_loop_tr_up]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// 0/1: break/continue
+</span><span class="keyword">implement</span> d2exp_loopexn_tr_up <span class="keyword">(</span>loc0<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> lmlp <span class="keyword">=</span> the_lamloop_env_top <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> lmlp <span class="keyword">of</span>
+    <span class="keyword">|</span> LMLPloop0 <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// skip it
+</span>    <span class="keyword">|</span> LMLPloop1 <span class="keyword">(</span>sbis<span class="keyword">,</span> sac_init<span class="keyword">,</span> sac_exit<span class="keyword">,</span> od2e_post<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> od2e_post <span class="keyword">of</span>
+          <span class="keyword">|</span> Some d2e <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+              <span class="keyword">let</span> <span class="keyword">val</span> _ <span class="keyword">=</span> d2exp_tr_dn <span class="keyword">(</span>d2e<span class="keyword">,</span> s2exp_void_t0ype <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">in</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">end</span>
+            <span class="keyword">end</span> <span class="comment">// end of [Some]
+</span>          <span class="keyword">|</span> None <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="comment">// end of [val]
+</span>      <span class="keyword">in</span>
+        <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span> <span class="comment">// continue
+</span>          staftscstr_stbefitemlst_merge <span class="keyword">(</span>loc0<span class="keyword">,</span> sac_init<span class="keyword">,</span> sbis<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span> <span class="comment">// break
+</span>          staftscstr_stbefitemlst_merge <span class="keyword">(</span>loc0<span class="keyword">,</span> sac_exit<span class="keyword">,</span> sbis<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>      <span class="keyword">end</span> <span class="comment">// end of [LMLPloop1]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        $Loc<span class="keyword">.</span>prerr_location loc0<span class="keyword">;</span>
+        prerr ": INTERNAL ERROR (ats_trans3_loop)"<span class="keyword">;</span>
+        prerr ": d2exp_loopexn_tr_up"<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+        $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>void<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [_]
+</span><span class="keyword">in</span>
+  d3exp_loopexn <span class="keyword">(</span>loc0<span class="keyword">,</span> i<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2exp_loopexn_tr_up]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_trans3_loop.dats] *)</span>
+</pre>
+</body>
+</html>

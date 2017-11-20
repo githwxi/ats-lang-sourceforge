@@ -1,0 +1,677 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>Introduction to Views and Viewtypes</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+TITLE="Introduction to Programming in ATS"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Linear Types for Programming"
+HREF="p3145.html"><LINK
+REL="PREVIOUS"
+TITLE="Linear Types for Programming"
+HREF="p3145.html"><LINK
+REL="NEXT"
+TITLE="Viewtypes as a Combination of Views and Types"
+HREF="x3227.html"></HEAD
+><BODY
+CLASS="chapter"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>Introduction to Programming in ATS: </TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="p3145.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="x3227.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="chapter"
+><H1
+><A
+NAME="introduction_to_views_and_viewtypes"
+></A
+>Introduction to Views and Viewtypes</H1
+><P
+>&#13;Probably the single most forceful motivation shaping the development of ATS
+is to make ATS a programming language that can be employed effectively to
+construct safe and reliable programs running in the kernels of operating
+systems. Instead of following seemingly natural approaches that often carve
+out a "safe" subset of C and/or put wrappers around "unsafe" programming
+features in C, ATS relies on the paradigm of programming with
+theorem-proving to prevent resources such as memory from being misused or
+mismanaged, advocating an approach to safety that is both general and
+flexible. For example, a well-typed program constructed in ATS cannot cause
+buffer overrun at run-time even though pointer arithmetic is fully
+supported in ATS. More specifically, if a pointer is to be dereferenced,
+ATS requires that a proof be given that attests to the safety of the
+dereferencing operation. Proofs of this kind are constructed to demonstrate
+the validity of linear propositions (for classifying resources as well as
+capabilities), which are referred to as views in ATS.
+
+</P
+><P
+>&#13;Please find <A
+HREF="http://www.ats-lang.org/DOCUMENT/INTPROGINATS/CODE/CHAPTER_VVTINTRO/"
+TARGET="_top"
+>on-line</A
+> the code presented
+for illustration in this chapter.
+
+</P
+><DIV
+CLASS="sect1"
+><H1
+CLASS="sect1"
+><A
+NAME="views_for_pointers"
+>Views for Memory Access through Pointers</A
+></H1
+><P
+>&#13;A view is a linear version of prop, where the word <I
+CLASS="emphasis"
+>linear</I
+> comes
+from <I
+CLASS="emphasis"
+>linear logic</I
+>, a resource-aware logic invented by Jean-Yves
+Girard. There is a built-in sort <FONT
+COLOR="RED"
+>view</FONT
+> for static terms
+representing views.  Given a type T and a memory location L, a view of the
+form T@L can be formed to indicate a value of the type T being stored in
+the memory at the location L, where <FONT
+COLOR="RED"
+>@</FONT
+> is a special infix operator.
+Views of this form are extremely common in practice, and they are often
+referred to as @-views (or at-views).  As an example, the following
+function templates <FONT
+COLOR="RED"
+>ptr_get0</FONT
+> and <FONT
+COLOR="RED"
+>ptr_set0</FONT
+>, which reads and
+writes through a given pointer, are assigned types containing @-views:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3161"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun{a:t@ype}
+ptr_get0 {l:addr} (pf: a @ l | p: ptr l): (a @ l | a)
+
+fun{a:t@ype}
+ptr_set0 {l:addr} (pf: a? @ l | p: ptr l, x: a): (a @ l | void)
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;Note that <FONT
+COLOR="RED"
+>ptr</FONT
+> is a type constructor that forms a type
+<FONT
+COLOR="RED"
+>ptr</FONT
+>(L) when applied to a static term L of the sort <FONT
+COLOR="RED"
+>addr</FONT
+>,
+and the only value of the type <FONT
+COLOR="RED"
+>ptr</FONT
+>(L) is the pointer that points
+to the location denoted by L.
+
+</P
+><P
+>&#13;Given a type T, the function <FONT
+COLOR="RED"
+>ptr_get0</FONT
+>&#60;T&#62; is assigned the
+following type:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3170"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>{l:addr} (T @ l | ptr (l)) -&#62; (T @ l | T)
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+This type indicates that the function <FONT
+COLOR="RED"
+>ptr_get0</FONT
+>&#60;T&#62; returns a
+proof of the view T@L and a value of the type T when applied to a proof of
+the view T@L and a pointer of the type <FONT
+COLOR="RED"
+>ptr</FONT
+>(L) for some
+L. Intuitively speaking, a proof of the view T@L, which is a form of
+resource as T@L is linear, is <I
+CLASS="emphasis"
+>consumed</I
+> when it is passed to
+<FONT
+COLOR="RED"
+>ptr_get0</FONT
+>&#60;T&#62;, and another proof of the view T@L is generated
+when <FONT
+COLOR="RED"
+>ptr_get0</FONT
+>&#60;T&#62; returns. Notice that a proof of the view
+T@L must be returned for otherwise subsequent accesses to the memory
+location L become impossible.
+
+</P
+><P
+>&#13;Similarly, the function <FONT
+COLOR="RED"
+>ptr_set0</FONT
+>&#60;T&#62; is
+assigned the following type:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3179"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>{l:addr} (T? @ l | ptr (l)) -&#62; (T @ l | void)
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;Note that T? is a type for values of size <FONT
+COLOR="RED"
+>sizeof</FONT
+>(T) that are
+assumed to be uninitialized.  The function <FONT
+COLOR="RED"
+>ptr_set0</FONT
+>&#60;T&#62;
+returns a proof of the view T@L when applied to a proof of the view
+T?@L, a pointer of the type <FONT
+COLOR="RED"
+>ptr</FONT
+>(L) and a value of the type T. The
+use of the view T?@L indicates that the memory location at L is assumed
+to be uninitialized when <FONT
+COLOR="RED"
+>ptr_set0</FONT
+>&#60;T&#62; is called.
+
+</P
+><P
+>&#13;A function template <FONT
+COLOR="RED"
+>swap0</FONT
+>
+is implemented as follows for swapping memory contents at two given
+locations:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3188"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fn{a:t@ype}
+swap0 {l1,l2:addr} (
+  pf1: a @ l1, pf2: a @ l2 | p1: ptr l1, p2: ptr l2
+) : (a @ l1, a @ l2 | void) = let
+  val (pf1 | tmp1) = ptr_get0&#60;a&#62; (pf1 | p1)
+  val (pf2 | tmp2) = ptr_get0&#60;a&#62; (pf2 | p2)
+  val (pf1 | ()) = ptr_set0&#60;a&#62; (pf1 | p1, tmp2)
+  val (pf2 | ()) = ptr_set0&#60;a&#62; (pf2 | p2, tmp1)
+in
+  (pf1, pf2 | ())
+end // end of [swap0]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;Compared to a corresponding implementation in C, the verbosity of this one
+in ATS is evident. In particular, the need for <I
+CLASS="emphasis"
+>threading</I
+> linear
+proofs through calls to functions that make use of resources can often
+result in a lot of <I
+CLASS="emphasis"
+>administrative</I
+> code to be written. I now
+present some special syntax to significantly alleviate the need for such
+administrative code.
+
+</P
+><P
+>&#13;The function templates <FONT
+COLOR="RED"
+>ptr_get1</FONT
+> and <FONT
+COLOR="RED"
+>ptr_set1</FONT
+> are given
+the following interfaces:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3196"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun{a:t@ype}
+ptr_get1 {l:addr} (pf: !a @ l &#62;&#62; a @ l | p: ptr l): a
+
+fun{a:t@ype}
+ptr_set1 {l:addr} (pf: !a? @ l &#62;&#62; a @ l | p: ptr l, x: a): void
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;Clearly, for each type T, the function
+<FONT
+COLOR="RED"
+>ptr_get1</FONT
+>&#60;T&#62; is assigned the following type:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3200"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>{l:addr} (!T @ l &#62;&#62; T @ l | ptr(l)) -&#62; T
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;Given a linear proof pf of the view T@L for some L and a pointer p of the
+type <FONT
+COLOR="RED"
+>ptr</FONT
+>(L), the function call <FONT
+COLOR="RED"
+>ptr_get1</FONT
+>&#60;T&#62;(pf, p)
+is expected to return a value of the type T. However, the proof pf is not
+consumed. Instead, it is still a proof of the view T@L after the function
+call. Similarly, the function <FONT
+COLOR="RED"
+>ptr_set1</FONT
+>&#60;T&#62; is assigned the
+following type:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3206"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>{l:addr} (!T? @ l &#62;&#62; T @ l | ptr(l), T) -&#62; void
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;Given a linear proof pf of the view T?@L for some L, a pointer p of the
+type <FONT
+COLOR="RED"
+>ptr</FONT
+>(L) and a value v of the type T, the function call
+<FONT
+COLOR="RED"
+>ptr_set1</FONT
+>&#60;T&#62;(pf, p, v) is expected to return the void value
+while changing the view of pf from T?@L to T@L.  In general, assume that f
+is given a type of the following form for some views V1 and V2:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3211"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>(...,!V1 &#62;&#62; V_2, ...) -&#62; ...
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;Then a function call f(..., pf, ...) on some proof variable pf of the view
+V1 is to change the view of pf into V2 upon its return.  In the case where
+V1 and V2 are the same, !V1 &#62;&#62; V2 can simply be written as !V1.  As an
+example, a function template <FONT
+COLOR="RED"
+>swap1</FONT
+> for swapping the contents at
+two given memory locations is implemented as follows:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3215"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fn{a:t@ype}
+swap1 {l1,l2:addr} (
+  pf1: !a @ l1, pf2: !a @ l2 | p1: ptr l1, p2: ptr l2
+) : void = let
+  val tmp = ptr_get1&#60;a&#62; (pf1 | p1)
+  val () = ptr_set1&#60;a&#62; (pf1 | p1, ptr_get1&#60;a&#62; (pf2 | p2))
+  val () = ptr_set1&#60;a&#62; (pf2 | p2, tmp)
+in
+  // nothing
+end // end of [swap1]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;Clearly, this implementation is considerably cleaner when compared to the
+above implementation of <FONT
+COLOR="RED"
+>swap0</FONT
+>.
+
+</P
+><P
+>&#13;A further simplied implementation of <FONT
+COLOR="RED"
+>swap1</FONT
+> is given as follows:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3221"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fn{a:t@ype}
+swap1 {l1,l2:addr} (
+  pf1: !a @ l1, pf2: !a @ l2 | p1: ptr l1, p2: ptr l2
+) : void = let
+  val tmp = !p1 in !p1 := !p2; !p2 := tmp
+end // end of [swap1]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;Given a pointer p of the type <FONT
+COLOR="RED"
+>ptr</FONT
+>(L) for some L, !p yields the
+value stored at the memory location L.  The typechecker first searches for
+a proof of the view T@L for some T among all the currently available proofs
+when typechecking !p; if such a proof pf is found, then !p is essentially
+elaborated into <FONT
+COLOR="RED"
+>ptr_get1</FONT
+>(pf | p) and then typechecked. As !p is a
+left-value, it can also be used to form an assignment like !p := v for some
+value v. The typechecker elaborates !p := v into <FONT
+COLOR="RED"
+>ptr_set1</FONT
+>(pf | p,
+v) for the sake of typechecking if a proof of the at-view T@L can be found
+for some type T among all the currently available proofs.
+
+</P
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="p3145.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="x3227.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Linear Types for Programming</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="p3145.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Viewtypes as a Combination of Views and Types</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

@@ -1,0 +1,386 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: November 2007
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+#include "ats_counter.cats" /* only needed for [ATS/Geizella] */
+%}</span> <span class="comment">// end of [%{^]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Lst <span class="keyword">=</span> "ats_list.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Stamp <span class="keyword">=</span> "ats_stamp.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Syn <span class="keyword">=</span> "ats_syntax.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_hiexp.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp2.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">nil list_nil</span>
+<span class="keyword">#define</span> <span class="neuexp">cons list_cons</span>
+<span class="keyword">#define</span> <span class="neuexp">:: list_cons</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="1967"><span class="stacstdec">d2cst_struct <span class="keyword">=</span> <span class="keyword">@{</span>
+  d2cst_loc<span class="keyword">=</span> loc_t
+<span class="keyword">,</span> d2cst_fil<span class="keyword">=</span> fil_t
+<span class="keyword">,</span> d2cst_sym<span class="keyword">=</span> sym_t
+<span class="keyword">,</span> d2cst_kind<span class="keyword">=</span> $Syn<span class="keyword">.</span>dcstkind
+<span class="keyword">,</span> d2cst_decarg<span class="keyword">=</span> s2qualst <span class="comment">// template arg
+</span><span class="keyword">,</span> d2cst_arilst<span class="keyword">=</span> List int <span class="comment">// arity
+</span><span class="keyword">,</span> d2cst_typ<span class="keyword">=</span> s2exp <span class="comment">// assigned type
+</span><span class="keyword">,</span> d2cst_extdef<span class="keyword">=</span> dcstextdef <span class="comment">// external dcst definition
+</span><span class="keyword">,</span> d2cst_def<span class="keyword">=</span> d2expopt <span class="comment">// definition
+</span><span class="keyword">,</span> d2cst_stamp<span class="keyword">=</span> stamp_t <span class="comment">// unique stamp
+</span><span class="keyword">,</span> d2cst_hityp<span class="keyword">=</span> Option <span class="keyword">(</span>hityp_t<span class="keyword">)</span> <span class="comment">// type erasure
+</span><span class="keyword">}</span></span></a></span> <span class="comment">// end of [d2cst_struct]
+</span>
+<span class="keyword">local</span>
+
+<span class="keyword">assume</span> <span class="staexp">d2cst_t <span class="keyword">=</span> <span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>vbox <span class="keyword">(</span>d2cst_struct @ l<span class="keyword">)</span> <span class="keyword">|</span> ptr l<span class="keyword">)</span></span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> d2cst_make
+  <span class="keyword">(</span>loc<span class="keyword">,</span> fil<span class="keyword">,</span> id<span class="keyword">,</span> dck<span class="keyword">,</span> decarg<span class="keyword">,</span> arilst<span class="keyword">,</span> typ<span class="keyword">,</span> extdef<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+
+<span class="keyword">val</span> stamp <span class="keyword">=</span> $Stamp<span class="keyword">.</span>d2cst_stamp_make <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_gc</span><span class="keyword">,</span> <span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> ptr_alloc_tsz <span class="staexp"><span class="keyword">{</span>d2cst_struct<span class="keyword">}</span></span> <span class="keyword">(</span>sizeof&lt;<span class="staexp">d2cst_struct</span><span class="keyword">&gt;</span><span class="keyword">)</span>
+<span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> free_gc_elim <span class="staexp"><span class="keyword">{</span>d2cst_struct<span class="keyword">}</span></span> <span class="keyword">(</span>pf_gc<span class="keyword">)</span></span>
+
+<span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+p<span class="keyword">-&gt;</span>d2cst_loc := loc<span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2cst_fil := fil<span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2cst_sym := id<span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2cst_kind := dck<span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2cst_decarg := decarg<span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2cst_arilst := arilst<span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2cst_typ := typ<span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2cst_extdef := extdef<span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2cst_def := None <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2cst_stamp := stamp<span class="keyword">;</span>
+p<span class="keyword">-&gt;</span>d2cst_hityp := None <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+<span class="keyword">end</span> <span class="comment">// end of [val]
+</span>
+<span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pfbox</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> vbox_make_view_ptr <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> p<span class="keyword">)</span>
+
+<span class="keyword">in</span>
+
+<span class="keyword">(</span><span class="prfexp">pfbox</span> <span class="keyword">|</span> p<span class="keyword">)</span>
+
+<span class="keyword">end</span> <span class="comment">// end of [d2cst_make]
+</span>
+<span class="keyword">implement</span> d2cst_loc_get <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_loc <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2cst_fil_get <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_fil <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2cst_sym_get <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_sym <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2cst_kind_get <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_kind <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2cst_arilst_get <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_arilst <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2cst_decarg_get <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_decarg <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2cst_decarg_set <span class="keyword">(</span>d2c<span class="keyword">,</span> decarg<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_decarg := decarg <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2cst_typ_get <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_typ <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2cst_extdef_get <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_extdef <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2cst_def_get <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_def <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2cst_def_set <span class="keyword">(</span>d2c<span class="keyword">,</span> def<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_def := def <span class="keyword">end</span>
+
+<span class="keyword">implement</span> d2cst_stamp_get <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_stamp <span class="keyword">end</span>
+
+<span class="comment">// [d2cst_hityp_get] is declared in [ats_hiexp.sats]
+</span><span class="keyword">implement</span> d2cst_hityp_get <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_hityp <span class="keyword">end</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> _lt_d2cst_d2cst
+  <span class="keyword">(</span>d2c1<span class="keyword">:</span> <span class="staexp">d2cst_t</span><span class="keyword">,</span> d2c2<span class="keyword">:</span> <span class="staexp">d2cst_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> stamp1 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf1</span> <span class="keyword">|</span> p1<span class="keyword">)</span> <span class="keyword">=</span> d2c1 <span class="keyword">in</span> p1<span class="keyword">-&gt;</span>d2cst_stamp <span class="keyword">end</span>
+  <span class="keyword">val</span> stamp2 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf2</span> <span class="keyword">|</span> p2<span class="keyword">)</span> <span class="keyword">=</span> d2c2 <span class="keyword">in</span> p2<span class="keyword">-&gt;</span>d2cst_stamp <span class="keyword">end</span>
+<span class="keyword">in</span>
+  $Stamp<span class="keyword">.</span>lt_stamp_stamp <span class="keyword">(</span>stamp1<span class="keyword">,</span> stamp2<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [_lt_d2cst_d2cst]
+</span>
+<span class="keyword">implement</span> lt_d2cst_d2cst <span class="keyword">(</span>d2c1<span class="keyword">,</span> d2c2<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">$effmask_all</span> <span class="keyword">(</span> _lt_d2cst_d2cst <span class="keyword">(</span>d2c1<span class="keyword">,</span> d2c2<span class="keyword">)</span> <span class="keyword">)</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">fn</span> _lte_d2cst_d2cst
+  <span class="keyword">(</span>d2c1<span class="keyword">:</span> <span class="staexp">d2cst_t</span><span class="keyword">,</span> d2c2<span class="keyword">:</span> <span class="staexp">d2cst_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> stamp1 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf1</span> <span class="keyword">|</span> p1<span class="keyword">)</span> <span class="keyword">=</span> d2c1 <span class="keyword">in</span> p1<span class="keyword">-&gt;</span>d2cst_stamp <span class="keyword">end</span>
+  <span class="keyword">val</span> stamp2 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf2</span> <span class="keyword">|</span> p2<span class="keyword">)</span> <span class="keyword">=</span> d2c2 <span class="keyword">in</span> p2<span class="keyword">-&gt;</span>d2cst_stamp <span class="keyword">end</span>
+<span class="keyword">in</span>
+  $Stamp<span class="keyword">.</span>lte_stamp_stamp <span class="keyword">(</span>stamp1<span class="keyword">,</span> stamp2<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [_lte_d2cst_d2cst]
+</span>
+<span class="keyword">implement</span> lte_d2cst_d2cst <span class="keyword">(</span>d2c1<span class="keyword">,</span> d2c2<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">$effmask_all</span> <span class="keyword">(</span> _lte_d2cst_d2cst <span class="keyword">(</span>d2c1<span class="keyword">,</span> d2c2<span class="keyword">)</span> <span class="keyword">)</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">fn</span> _eq_d2cst_d2cst
+  <span class="keyword">(</span>d2c1<span class="keyword">:</span> <span class="staexp">d2cst_t</span><span class="keyword">,</span> d2c2<span class="keyword">:</span> <span class="staexp">d2cst_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> stamp1 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf1</span> <span class="keyword">|</span> p1<span class="keyword">)</span> <span class="keyword">=</span> d2c1 <span class="keyword">in</span> p1<span class="keyword">-&gt;</span>d2cst_stamp <span class="keyword">end</span>
+  <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> stamp2 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf2</span> <span class="keyword">|</span> p2<span class="keyword">)</span> <span class="keyword">=</span> d2c2 <span class="keyword">in</span> p2<span class="keyword">-&gt;</span>d2cst_stamp <span class="keyword">end</span>
+  <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  $Stamp<span class="keyword">.</span>eq_stamp_stamp <span class="keyword">(</span>stamp1<span class="keyword">,</span> stamp2<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [_eq_d2cst_d2cst]
+</span>
+<span class="keyword">implement</span> eq_d2cst_d2cst <span class="keyword">(</span>d2c1<span class="keyword">,</span> d2c2<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">$effmask_all</span> <span class="keyword">(</span> _eq_d2cst_d2cst <span class="keyword">(</span>d2c1<span class="keyword">,</span> d2c2<span class="keyword">)</span> <span class="keyword">)</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">fn</span> _neq_d2cst_d2cst
+  <span class="keyword">(</span>d2c1<span class="keyword">:</span> <span class="staexp">d2cst_t</span><span class="keyword">,</span> d2c2<span class="keyword">:</span> <span class="staexp">d2cst_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> stamp1 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf1</span> <span class="keyword">|</span> p1<span class="keyword">)</span> <span class="keyword">=</span> d2c1 <span class="keyword">in</span> p1<span class="keyword">-&gt;</span>d2cst_stamp <span class="keyword">end</span>
+  <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> stamp2 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf2</span> <span class="keyword">|</span> p2<span class="keyword">)</span> <span class="keyword">=</span> d2c2 <span class="keyword">in</span> p2<span class="keyword">-&gt;</span>d2cst_stamp <span class="keyword">end</span>
+  <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  $Stamp<span class="keyword">.</span>neq_stamp_stamp <span class="keyword">(</span>stamp1<span class="keyword">,</span> stamp2<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [_neq_d2cst_d2cst]
+</span>
+<span class="keyword">implement</span> neq_d2cst_d2cst <span class="keyword">(</span>d2c1<span class="keyword">,</span> d2c2<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">$effmask_all</span> <span class="keyword">(</span> _neq_d2cst_d2cst <span class="keyword">(</span>d2c1<span class="keyword">,</span> d2c2<span class="keyword">)</span> <span class="keyword">)</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">fn</span> _compare_d2cst_d2cst
+  <span class="keyword">(</span>d2c1<span class="keyword">:</span> <span class="staexp">d2cst_t</span><span class="keyword">,</span> d2c2<span class="keyword">:</span> <span class="staexp">d2cst_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">Sgn</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> stamp1 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf1</span> <span class="keyword">|</span> p1<span class="keyword">)</span> <span class="keyword">=</span> d2c1 <span class="keyword">in</span> p1<span class="keyword">-&gt;</span>d2cst_stamp <span class="keyword">end</span>
+  <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> stamp2 <span class="keyword">=</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf2</span> <span class="keyword">|</span> p2<span class="keyword">)</span> <span class="keyword">=</span> d2c2 <span class="keyword">in</span> p2<span class="keyword">-&gt;</span>d2cst_stamp <span class="keyword">end</span>
+  <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  $Stamp<span class="keyword">.</span>compare_stamp_stamp <span class="keyword">(</span>stamp1<span class="keyword">,</span> stamp2<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [_compare_d2cst_d2cst]
+</span>
+<span class="keyword">implement</span> compare_d2cst_d2cst <span class="keyword">(</span>d2c1<span class="keyword">,</span> d2c2<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">$effmask_all</span> <span class="keyword">(</span> _compare_d2cst_d2cst <span class="keyword">(</span>d2c1<span class="keyword">,</span> d2c2<span class="keyword">)</span> <span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> d2cst_is_fun <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> knd <span class="keyword">=</span> <span class="keyword">$effmask_ref</span> <span class="keyword">(</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_kind <span class="keyword">end</span>
+  <span class="keyword">)</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  $Syn<span class="keyword">.</span>dcstkind_is_fun <span class="keyword">(</span>knd<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2cst_is_fun]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> d2cst_is_extmac <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> extdef <span class="keyword">=</span> <span class="keyword">$effmask_ref</span> <span class="keyword">(</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_extdef <span class="keyword">end</span>
+  <span class="keyword">)</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  $Syn<span class="keyword">.</span>dcstextdef_is_mac <span class="keyword">(</span>extdef<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2cst_is_callfn]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> d2cst_is_castfn <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> knd <span class="keyword">=</span> <span class="keyword">$effmask_ref</span> <span class="keyword">(</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_kind <span class="keyword">end</span>
+  <span class="keyword">)</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  $Syn<span class="keyword">.</span>dcstkind_is_castfn <span class="keyword">(</span>knd<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2cst_is_castfn]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> d2cst_is_praxi <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> knd <span class="keyword">=</span> <span class="keyword">$effmask_ref</span> <span class="keyword">(</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_kind <span class="keyword">end</span>
+  <span class="keyword">)</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  $Syn<span class="keyword">.</span>dcstkind_is_praxi <span class="keyword">(</span>knd<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2cst_is_praxi]
+</span>
+<span class="keyword">implement</span> d2cst_is_prfun <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> knd <span class="keyword">=</span> <span class="keyword">$effmask_ref</span> <span class="keyword">(</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_kind <span class="keyword">end</span>
+  <span class="keyword">)</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  $Syn<span class="keyword">.</span>dcstkind_is_prfun <span class="keyword">(</span>knd<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2cst_is_prfun]
+</span>
+<span class="keyword">implement</span> d2cst_is_prval <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> knd <span class="keyword">=</span> <span class="keyword">$effmask_ref</span> <span class="keyword">(</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_kind <span class="keyword">end</span>
+  <span class="keyword">)</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  $Syn<span class="keyword">.</span>dcstkind_is_prval <span class="keyword">(</span>knd<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2cst_is_prval]
+</span>
+<span class="keyword">implement</span> d2cst_is_proof <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> knd <span class="keyword">=</span> <span class="keyword">$effmask_ref</span> <span class="keyword">(</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_kind <span class="keyword">end</span>
+  <span class="keyword">)</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  $Syn<span class="keyword">.</span>dcstkind_is_proof <span class="keyword">(</span>knd<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2cst_is_proof]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> d2cst_is_temp <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> decarg <span class="keyword">=</span> <span class="keyword">$effmask_ref</span> <span class="keyword">(</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> d2c <span class="keyword">in</span> p<span class="keyword">-&gt;</span>d2cst_decarg <span class="keyword">end</span>
+  <span class="keyword">)</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="keyword">case+</span> decarg <span class="keyword">of</span> list_cons _ <span class="keyword">=&gt;</span> true <span class="keyword">|</span> list_nil _ <span class="keyword">=&gt;</span> false
+<span class="keyword">end</span> <span class="comment">// end of [d2cst_is_temp]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local] (for assuming d2cst_t)
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> fprint_d2cst <span class="keyword">(</span><span class="prfexp">pf_out</span> <span class="keyword">|</span> out<span class="keyword">,</span> d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  $Sym<span class="keyword">.</span>fprint_symbol <span class="keyword">(</span><span class="prfexp">pf_out</span> <span class="keyword">|</span> out<span class="keyword">,</span> d2cst_sym_get d2c<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [fprint_d2cst]
+</span>
+<span class="keyword">implement</span> fprint_d2cstlst <span class="staexp"><span class="keyword">{</span>m<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> d2cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> d2cs<span class="keyword">:</span> <span class="staexp">d2cstlst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> d2cs <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>d2c<span class="keyword">,</span> d2cs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> ", "<span class="keyword">)</span><span class="keyword">;</span>
+        fprint_d2cst <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> d2c<span class="keyword">)</span><span class="keyword">;</span> aux <span class="keyword">(</span>out<span class="keyword">,</span> i+1<span class="keyword">,</span> d2cs<span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  aux <span class="keyword">(</span>out<span class="keyword">,</span> 0<span class="keyword">,</span> d2cs<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [fprint_d2cstlst]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> print_d2cst <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span>fprint_d2cst<span class="keyword">,</span> d2c<span class="keyword">)</span>
+<span class="keyword">implement</span> prerr_d2cst <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span>fprint_d2cst<span class="keyword">,</span> d2c<span class="keyword">)</span>
+
+<span class="keyword">implement</span> print_d2cstlst <span class="keyword">(</span>d2cs<span class="keyword">)</span> <span class="keyword">=</span> print_mac <span class="keyword">(</span>fprint_d2cstlst<span class="keyword">,</span> d2cs<span class="keyword">)</span>
+<span class="keyword">implement</span> prerr_d2cstlst <span class="keyword">(</span>d2cs<span class="keyword">)</span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span>fprint_d2cstlst<span class="keyword">,</span> d2cs<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">//
+</span><span class="comment">// HX: [d2cst_hityp_set] is declared in [ats_hiexp.sats]
+</span><span class="comment">//
+</span>
+<span class="keyword">extern</span> <span class="keyword">typedef</span> <span class="staexp">"d2cst_struct" <span class="keyword">=</span> d2cst_struct</span>
+
+<span class="extern">%{$
+
+ats_void_type
+ats_dynexp2_d2cst_hityp_set (
+  ats_ptr_type d2c, ats_ptr_type ohit
+) {
+  ((d2cst_struct*)d2c)-&gt;atslab_d2cst_hityp = ohit ; return ;
+} /* end of [ats_dynexp2_d2cst_hityp_set] */
+
+%}</span> <span class="comment">// end of [%{$]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_dynexp2_dcst.dats] *)</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,131 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(*
+** This example is taken from Appel's book:
+** Modern Compiler Design and Implementation in ML
+*)</span>
+
+<span class="comment">(* A program to solve the 8-queens problem *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymous*)</span> <span class="keyword">=</span> "prelude/DATS/array.dats"</span>
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymous*)</span> <span class="keyword">=</span> "prelude/DATS/reference.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">N 8</span>
+<span class="keyword">#define</span> <span class="neuexp">N1 <span class="keyword">(</span>N - 1<span class="keyword">)</span></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">var</span> NSOL<span class="keyword">:</span> <span class="staexp">Nat</span> <span class="keyword">=</span> 0
+<span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pfbox_NSOL</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span>
+  vbox_make_view_ptr <span class="staexp"><span class="keyword">{</span>Nat<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">view@ NSOL</span> <span class="keyword">|</span> <span class="keyword">&amp;</span>NSOL<span class="keyword">)</span>
+<span class="comment">// end of [val]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">val</span> row <span class="keyword">=</span> array_make_elt&lt;<span class="staexp">int</span><span class="keyword">&gt;</span> <span class="keyword">(</span>N<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">val</span> col <span class="keyword">=</span> array_make_elt&lt;<span class="staexp">int</span><span class="keyword">&gt;</span> <span class="keyword">(</span>N<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">val</span> diag1 <span class="keyword">=</span> array_make_elt&lt;<span class="staexp">int</span><span class="keyword">&gt;</span> <span class="keyword">(</span>size1_of_int1 N+N1<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">val</span> diag2 <span class="keyword">=</span> array_make_elt&lt;<span class="staexp">int</span><span class="keyword">&gt;</span> <span class="keyword">(</span>size1_of_int1 N+N1<span class="keyword">,</span> 0<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+
+#include &lt;stdio.h&gt;
+
+// for efficiency
+ats_void_type
+  print_string (ats_ptr_type s) {
+  fputs ((char*)s, stdout) ; return ;
+}
+
+%}</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="834"><span class="dyncstdec">print_string <span class="keyword">(</span>str<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "print_string"
+
+<span class="keyword">fn</span> printboard <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> i<span class="keyword">:</span> <span class="staexp">natLte N</span> <span class="keyword">and</span> j<span class="keyword">:</span> <span class="staexp">natLte N</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">for*</span> <span class="keyword">(</span>j<span class="keyword">:</span> <span class="staexp">int?</span><span class="keyword">)</span> <span class="keyword">=&gt;</span>
+    <span class="keyword">(</span>i := 0<span class="keyword">;</span> i <span class="keyword">&lt;</span> N<span class="keyword">;</span> i := i + 1<span class="keyword">)</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">for*</span> <span class="keyword">(</span>i<span class="keyword">:</span> <span class="staexp">natLt N</span><span class="keyword">)</span> <span class="keyword">=&gt;</span>
+      <span class="keyword">(</span>j := 0<span class="keyword">;</span> j <span class="keyword">&lt;</span> N<span class="keyword">;</span> j := j + 1<span class="keyword">)</span> <span class="keyword">begin</span> print_string
+      <span class="keyword">(</span><span class="keyword">if</span> <span class="keyword">:</span><span class="keyword">(</span>j<span class="keyword">:</span> natLt N<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>col[<span class="prfexp">i</span><span class="keyword">]</span> <span class="keyword">=</span> j<span class="keyword">)</span> <span class="keyword">then</span> " Q" <span class="keyword">else</span> " ."<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">in</span>
+    print_string <span class="keyword">(</span>"\n"<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [for]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> print_string <span class="keyword">(</span>"\n"<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">(* end of [printboard] *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> _try <span class="keyword">(</span>c<span class="keyword">:</span> <span class="staexp">natLte N</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> <span class="keyword">(</span>c <span class="keyword">=</span> N<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+      <span class="keyword">prval</span> <span class="prfexp">vbox pf <span class="keyword">=</span> pfbox_NSOL</span> <span class="keyword">in</span> NSOL := NSOL + 1
+    <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">in</span>
+    printboard <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">var</span> r<span class="keyword">:</span> <span class="staexp">natLte N</span> <span class="comment">// unitialized
+</span>    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">for</span> <span class="keyword">(</span>r := 0<span class="keyword">;</span> r <span class="keyword">&lt;</span> N<span class="keyword">;</span> r := r+1<span class="keyword">)</span> <span class="keyword">(</span>
+      <span class="keyword">if</span> <span class="keyword">:</span><span class="keyword">(</span>r<span class="keyword">:</span> natLt N<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>row[<span class="prfexp">r</span><span class="keyword">]</span> <span class="keyword">=</span> 0<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> <span class="keyword">:</span><span class="keyword">(</span>r<span class="keyword">:</span> natLt N<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>diag1[<span class="prfexp">r+c</span><span class="keyword">]</span> <span class="keyword">=</span> 0<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">begin</span>
+          <span class="keyword">if</span> <span class="keyword">:</span><span class="keyword">(</span>r<span class="keyword">:</span> natLt N<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>diag2[<span class="prfexp">r+N1-c</span><span class="keyword">]</span> <span class="keyword">=</span> 0<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">begin</span>
+            row[<span class="prfexp">r</span><span class="keyword">]</span> := 1<span class="keyword">;</span> diag1[<span class="prfexp">r+c</span><span class="keyword">]</span> := 1<span class="keyword">;</span> diag2[<span class="prfexp">r+N1-c</span><span class="keyword">]</span> := 1<span class="keyword">;</span>
+            col[<span class="prfexp">c</span><span class="keyword">]</span> := r<span class="keyword">;</span> _try <span class="keyword">(</span>c+1<span class="keyword">)</span><span class="keyword">;</span>
+            row[<span class="prfexp">r</span><span class="keyword">]</span> := 0<span class="keyword">;</span> diag1[<span class="prfexp">r+c</span><span class="keyword">]</span> := 0<span class="keyword">;</span> diag2[<span class="prfexp">r+N1-c</span><span class="keyword">]</span> := 0<span class="keyword">;</span>
+          <span class="keyword">end</span> <span class="comment">(* end of [if] *)</span>
+        <span class="keyword">end</span> <span class="comment">(* end of [if] *)</span>
+      <span class="keyword">end</span> <span class="comment">(* end of [if] *)</span>
+    <span class="keyword">)</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">in</span>
+    <span class="comment">// empty
+</span>  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="comment">// end of [_try]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+	
+<span class="keyword">implement</span> main <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> _try <span class="keyword">(</span>0<span class="keyword">)</span>
+  <span class="keyword">val</span> n <span class="keyword">=</span> NSOL <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">prval</span> <span class="prfexp">vbox pf <span class="keyword">=</span> pfbox_NSOL</span>
+  <span class="keyword">}</span>
+<span class="keyword">in</span>
+  printf <span class="keyword">(</span>"The total number of solutions is [%i].\n"<span class="keyword">,</span><span class="keyword">@(</span>n<span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [queens_appel.dats] *)</span>
+</pre>
+</body>
+</html>

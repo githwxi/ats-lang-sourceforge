@@ -1,0 +1,324 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(*
+**
+** An implementation of KMP string search algorithm in ATS
+** 
+*)</span>
+
+<span class="comment">// Author: Hongwei Xi (* hwxi AT CS DOT BU DOT EDU *)
+</span><span class="comment">// Time: March 2007
+</span>
+<span class="comment">// In this implementation, both memory safety and termination
+</span><span class="comment">// of the algorithm are guaranteed with no use of run-time
+</span><span class="comment">// checks. Compared to a previous implementation in DML (1998),
+</span><span class="comment">// which requires run-time checks to ensure safe array access,
+</span><span class="comment">// the progress made during these years in support of dependent
+</span><span class="comment">// types for practical programming should be evident.
+</span>
+<span class="keyword">stadef</span> <span class="staexp"><a name="522"><span class="stacstdec">intsz<span class="keyword">:</span> int <span class="keyword">=</span> sizeof <span class="keyword">(</span>Int<span class="keyword">)</span></span></a></span>
+
+<span class="comment">// extern val intsz: int intsz = "ats_intsz"
+</span><span class="keyword">val</span> intsz <span class="keyword">=</span> sizeof&lt;<span class="staexp">Int</span><span class="keyword">&gt;</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="630"><span class="dyncstdec">ptr_get_t
+  <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>int i @ l</span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">int i</span></span></a>
+  <span class="keyword">=</span> "ats_ptr_get_t"
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="728"><span class="dyncstdec">ptr_set_t <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> 
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span><span class="keyword">(</span>int i<span class="keyword">)</span>? @ l &gt;&gt; int i @ l</span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "ats_ptr_set_t"
+  
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="857"><span class="dyncstdec">array_int_ptr_make <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>n<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>free_ngc_v l<span class="keyword">,</span> array_v <span class="keyword">(</span>Int?<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span> <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></span></a> 
+  <span class="keyword">=</span> "ats_array_int_ptr_make"
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="999"><span class="dyncstdec">array_int_ptr_free <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">_<span class="keyword">:</span> <span class="staexp">free_ngc_v l</span></span><span class="keyword">,</span> <span class="prfexp">_<span class="keyword">:</span> <span class="staexp">array_v <span class="keyword">(</span>Int?<span class="keyword">,</span> n<span class="keyword">,</span> l<span class="keyword">)</span></span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "ats_array_int_ptr_free"
+
+<span class="extern">%{^
+
+ats_int_type ats_intsz = sizeof(ats_int_type) ;
+
+static inline
+ats_int_type ats_ptr_get_t(ats_ptr_type arg) { 
+  return *((ats_int_type *)arg) ; 
+}
+
+static inline
+ats_void_type ats_ptr_set_t(ats_ptr_type arg1, ats_size_type arg2) {
+  *((ats_int_type *)arg1) = arg2;
+}
+
+static inline
+ats_ptr_type ats_array_int_ptr_make(ats_size_type n) {
+  return ats_calloc_ngc(n, sizeof(int)) ;
+}
+
+static inline
+ats_void_type ats_array_int_ptr_free (ats_ptr_type A) {
+  ats_free_ngc(A) ;
+}
+
+%}</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">dataview</span> <span class="prfexp"><span class="staexp"><a name="1627"><span class="stacstdec">kmp_v <span class="keyword">(</span>l<span class="keyword">:</span>addr<span class="keyword">,</span> int<span class="keyword">)</span></span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> kmp_v_none <span class="staexp"><span class="keyword">(</span>l<span class="keyword">,</span> 0<span class="keyword">)</span></span>
+  <span class="keyword">|</span> <span class="keyword">{</span><span class="staexp">n<span class="keyword">:</span>nat</span><span class="keyword">}</span> <span class="keyword">{</span><span class="staexp">ofs<span class="keyword">:</span>int</span><span class="keyword">}</span> kmp_v_more <span class="staexp"><span class="keyword">(</span>l<span class="keyword">,</span> n+1<span class="keyword">)</span></span> <span class="keyword">of</span>
+      <span class="staexp"><span class="keyword">(</span>MUL <span class="keyword">(</span>n+1<span class="keyword">,</span> intsz<span class="keyword">,</span> ofs<span class="keyword">)</span><span class="keyword">,</span> kmp_v <span class="keyword">(</span>l<span class="keyword">,</span> n<span class="keyword">)</span><span class="keyword">,</span> natLte n @ <span class="keyword">(</span>l + ofs<span class="keyword">)</span><span class="keyword">)</span></span></span>
+
+<span class="comment">//
+</span>
+<span class="keyword">prfun</span> <span class="prfexp">kmp_v_takeout
+   <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>i<span class="keyword">:</span>int <span class="keyword">|</span> 0 <span class="keyword">&lt;</span> i<span class="keyword">;</span> i &lt;= n<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>ofs<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n<span class="keyword">&gt;.</span></span>
+   <span class="keyword">(</span>pf0_mul<span class="keyword">:</span> <span class="staexp">MUL <span class="keyword">(</span>i<span class="keyword">,</span> intsz<span class="keyword">,</span> ofs<span class="keyword">)</span></span><span class="keyword">,</span> pf0_kmp<span class="keyword">:</span> <span class="staexp">kmp_v <span class="keyword">(</span>l<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>i1<span class="keyword">:</span>nat <span class="keyword">|</span> i1 <span class="keyword">&lt;</span> i<span class="keyword">]</span> <span class="keyword">(</span>
+    int i1 @ l + ofs<span class="keyword">,</span> int i1 @ l + ofs <span class="keyword">-&lt;</span>lin<span class="keyword">&gt;</span> kmp_v <span class="keyword">(</span>l<span class="keyword">,</span> n<span class="keyword">)</span>
+  <span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">kmp_v_more <span class="keyword">(</span>pf_mul<span class="keyword">,</span> pf_kmp<span class="keyword">,</span> pf_elt<span class="keyword">)</span> <span class="keyword">=</span> pf0_kmp</span>
+<span class="keyword">in</span>
+  <span class="keyword">sif</span> <span class="staexp">i == n</span> <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> mul_isfun <span class="keyword">(</span>pf0_mul<span class="keyword">,</span> pf_mul<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="staexp"><span class="keyword">#[</span><span class="keyword">..</span> <span class="keyword">|</span></span> <span class="keyword">(</span>pf_elt<span class="keyword">,</span> <span class="keyword">llam</span> pf_elt <span class="keyword">=&gt;</span> kmp_v_more <span class="keyword">(</span>pf_mul<span class="keyword">,</span> pf_kmp<span class="keyword">,</span> pf_elt<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">]</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span>pf1_elt<span class="keyword">,</span> pf1_rest<span class="keyword">)</span> <span class="keyword">=</span> kmp_v_takeout <span class="staexp"><span class="keyword">{</span>n-1<span class="keyword">,</span>i<span class="keyword">}</span></span> <span class="keyword">(</span>pf0_mul<span class="keyword">,</span> pf_kmp<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="staexp"><span class="keyword">#[</span><span class="keyword">..</span> <span class="keyword">|</span></span> <span class="keyword">(</span>pf1_elt<span class="keyword">,</span> <span class="keyword">llam</span> pf1_elt <span class="keyword">=&gt;</span> kmp_v_more <span class="keyword">(</span>pf_mul<span class="keyword">,</span> pf1_rest pf1_elt<span class="keyword">,</span> pf_elt<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">]</span>
+  <span class="keyword">end</span> <span class="comment">// end of [sif]
+</span><span class="keyword">end</span></span> <span class="comment">// end of [kmp_v_takeout]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">fn</span> kmp_sub <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>i<span class="keyword">:</span>int <span class="keyword">|</span> 0 <span class="keyword">&lt;</span> i<span class="keyword">;</span> i &lt;= n<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+   <span class="keyword">(</span><span class="prfexp">pf_kmp<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>kmp_v <span class="keyword">(</span>l<span class="keyword">,</span> n<span class="keyword">)</span></span></span> <span class="keyword">|</span> tbl<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>i1<span class="keyword">:</span>nat <span class="keyword">|</span> i1 <span class="keyword">&lt;</span> i<span class="keyword">]</span> int <span class="keyword">(</span>i1<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_mul</span> <span class="keyword">|</span> ofs<span class="keyword">)</span> <span class="keyword">=</span> i szmul2 intsz
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span>pf_elt<span class="keyword">,</span> pf_rest<span class="keyword">)</span> <span class="keyword">=</span> kmp_v_takeout <span class="keyword">(</span>pf_mul<span class="keyword">,</span> pf_kmp<span class="keyword">)</span></span>
+  <span class="keyword">val</span> i1 <span class="keyword">=</span> ptr_get_t <span class="keyword">(</span><span class="prfexp">pf_elt</span> <span class="keyword">|</span> tbl + ofs<span class="keyword">)</span>
+<span class="keyword">in</span>
+  pf_kmp := pf_rest pf_elt<span class="keyword">;</span> i1
+<span class="keyword">end</span> <span class="comment">// end of [kmp_sub]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="2794"><span class="dyncstdec">string1_get_char_at <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+  <span class="keyword">(</span>s<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">sizeLt n</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>c<span class="keyword">:</span>char <span class="keyword">|</span> c &lt;&gt; NUL<span class="keyword">]</span> char c</span></span></a>
+  <span class="keyword">=</span> "atspre_string_get_char_at"
+
+<span class="keyword">fun</span> kmp_table_make_aux
+   <span class="staexp"><span class="keyword">{</span>i<span class="keyword">,</span>j<span class="keyword">,</span>n<span class="keyword">:</span>int <span class="keyword">|</span> 0 &lt;= j<span class="keyword">;</span> j+1 <span class="keyword">&lt;</span> i<span class="keyword">;</span> i &lt;= n<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>ofs<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n-i<span class="keyword">,</span>j<span class="keyword">&gt;.</span></span>
+   <span class="keyword">(</span><span class="prfexp">pf_mul<span class="keyword">:</span> <span class="staexp">MUL <span class="keyword">(</span>i<span class="keyword">,</span> intsz<span class="keyword">,</span> ofs<span class="keyword">)</span></span></span><span class="keyword">,</span>
+    <span class="prfexp">pf_kmp<span class="keyword">:</span> <span class="staexp">kmp_v <span class="keyword">(</span>l<span class="keyword">,</span> i-1<span class="keyword">)</span></span></span><span class="keyword">,</span>
+    <span class="prfexp">pf_arr<span class="keyword">:</span> <span class="staexp">array_v <span class="keyword">(</span>Int?<span class="keyword">,</span> n-i<span class="keyword">,</span> l+ofs<span class="keyword">)</span></span></span> <span class="keyword">|</span>
+    w<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> tbl<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">,</span> j<span class="keyword">:</span> <span class="staexp">size_t j</span><span class="keyword">,</span> tbl_ofs<span class="keyword">:</span> <span class="staexp">ptr<span class="keyword">(</span>l+ofs<span class="keyword">)</span></span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">(</span>kmp_v <span class="keyword">(</span>l<span class="keyword">,</span> n-1<span class="keyword">)</span> <span class="keyword">|</span> void<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">if</span> i <span class="keyword">&lt;</span> n <span class="keyword">then</span>
+    <span class="keyword">if</span> w[<span class="prfexp">i-1</span><span class="keyword">]</span> <span class="keyword">=</span> w[<span class="prfexp">j</span><span class="keyword">]</span> <span class="keyword">then</span> <span class="keyword">let</span>
+       <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span>pf_elt<span class="keyword">,</span> pf_arr<span class="keyword">)</span> <span class="keyword">=</span> array_v_uncons <span class="staexp"><span class="keyword">{</span>Int?<span class="keyword">}</span></span> pf_arr</span>
+       <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> ptr_set_t <span class="keyword">(</span><span class="prfexp">pf_elt</span> <span class="keyword">|</span> tbl_ofs<span class="keyword">,</span> j+1<span class="keyword">)</span>
+       <span class="keyword">prval</span> <span class="prfexp">pf_kmp <span class="keyword">=</span> kmp_v_more <span class="keyword">(</span>pf_mul<span class="keyword">,</span> pf_kmp<span class="keyword">,</span> pf_elt<span class="keyword">)</span></span>
+       <span class="keyword">prval</span> <span class="prfexp">pf_mul <span class="keyword">=</span> mul_add_const <span class="staexp"><span class="keyword">{</span>1<span class="keyword">}</span></span> <span class="keyword">(</span>pf_mul<span class="keyword">)</span></span>
+    <span class="keyword">in</span>
+       kmp_table_make_aux
+         <span class="keyword">(</span><span class="prfexp">pf_mul</span><span class="keyword">,</span> <span class="prfexp">pf_kmp</span><span class="keyword">,</span> <span class="prfexp">pf_arr</span> <span class="keyword">|</span> w<span class="keyword">,</span> tbl<span class="keyword">,</span> n<span class="keyword">,</span> i+1<span class="keyword">,</span> j+1<span class="keyword">,</span> tbl_ofs+intsz<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">if</span> j <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> i1 <span class="keyword">=</span> kmp_sub <span class="keyword">(</span><span class="prfexp">pf_kmp</span> <span class="keyword">|</span> tbl<span class="keyword">,</span> j<span class="keyword">)</span><span class="keyword">;</span> <span class="keyword">val</span> i1 <span class="keyword">=</span> size1_of_int1 i1
+    <span class="keyword">in</span>
+      kmp_table_make_aux <span class="keyword">(</span><span class="prfexp">pf_mul</span><span class="keyword">,</span> <span class="prfexp">pf_kmp</span><span class="keyword">,</span> <span class="prfexp">pf_arr</span> <span class="keyword">|</span> w<span class="keyword">,</span> tbl<span class="keyword">,</span> n<span class="keyword">,</span> i<span class="keyword">,</span> i1<span class="keyword">,</span> tbl_ofs<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span>pf_elt<span class="keyword">,</span> pf_arr<span class="keyword">)</span> <span class="keyword">=</span> array_v_uncons <span class="staexp"><span class="keyword">{</span>Int?<span class="keyword">}</span></span> pf_arr</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> ptr_set_t <span class="keyword">(</span><span class="prfexp">pf_elt</span> <span class="keyword">|</span> tbl_ofs<span class="keyword">,</span> 0<span class="keyword">)</span>
+      <span class="keyword">prval</span> <span class="prfexp">pf_kmp <span class="keyword">=</span> kmp_v_more <span class="keyword">(</span>pf_mul<span class="keyword">,</span> pf_kmp<span class="keyword">,</span> pf_elt<span class="keyword">)</span></span>
+      <span class="keyword">prval</span> <span class="prfexp">pf_mul <span class="keyword">=</span> mul_add_const <span class="staexp"><span class="keyword">{</span>1<span class="keyword">}</span></span> <span class="keyword">(</span>pf_mul<span class="keyword">)</span></span>
+    <span class="keyword">in</span>
+      kmp_table_make_aux
+        <span class="keyword">(</span><span class="prfexp">pf_mul</span><span class="keyword">,</span> <span class="prfexp">pf_kmp</span><span class="keyword">,</span> <span class="prfexp">pf_arr</span> <span class="keyword">|</span> w<span class="keyword">,</span> tbl<span class="keyword">,</span> n<span class="keyword">,</span> i+1<span class="keyword">,</span> 0<span class="keyword">,</span> tbl_ofs+intsz<span class="keyword">)</span>
+    <span class="keyword">end</span>
+  <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> array_v_unnil pf_arr</span> <span class="keyword">in</span> <span class="keyword">(</span><span class="prfexp">pf_kmp</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">// end of [kmp_table_make_aux]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">fn</span> kmp_table_make <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>int <span class="keyword">|</span> n &gt;= 1<span class="keyword">}</span></span> <span class="keyword">(</span>w<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> n<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>free_ngc_v <span class="keyword">(</span>l+intsz<span class="keyword">)</span><span class="keyword">,</span> kmp_v <span class="keyword">(</span>l<span class="keyword">,</span> n-1<span class="keyword">)</span> <span class="keyword">|</span> ptr l<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> n <span class="keyword">=</span> string1_length w
+  <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">l<span class="keyword">:</span>addr</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pf_ngc</span><span class="keyword">,</span> <span class="prfexp">pf_arr</span> <span class="keyword">|</span> p_arr<span class="keyword">)</span> <span class="keyword">=</span> array_int_ptr_make <span class="keyword">(</span>n-1<span class="keyword">)</span>
+  <span class="keyword">val</span> tbl <span class="keyword">=</span> p_arr-intsz
+  <span class="keyword">prval</span> <span class="prfexp">pf_kmp <span class="keyword">=</span> kmp_v_none <span class="staexp"><span class="keyword">{</span>l-intsz<span class="keyword">}</span></span></span>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> n <span class="keyword">&gt;</span> 1 <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span>pf_elt<span class="keyword">,</span> pf_arr<span class="keyword">)</span> <span class="keyword">=</span> array_v_uncons <span class="staexp"><span class="keyword">{</span>Int?<span class="keyword">}</span></span> <span class="keyword">(</span>pf_arr<span class="keyword">)</span></span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> ptr_set_t <span class="keyword">(</span><span class="prfexp">pf_elt</span> <span class="keyword">|</span> p_arr<span class="keyword">,</span> 0<span class="keyword">)</span>
+    <span class="keyword">prval</span> <span class="prfexp">pf1_mul <span class="keyword">=</span> mul_istot <span class="staexp"><span class="keyword">{</span>1<span class="keyword">,</span>intsz<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span></span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> mul_elim <span class="keyword">(</span>pf1_mul<span class="keyword">)</span></span>
+    <span class="keyword">prval</span> <span class="prfexp">pf2_mul <span class="keyword">=</span> mul_istot <span class="staexp"><span class="keyword">{</span>2<span class="keyword">,</span>intsz<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span></span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> mul_elim <span class="keyword">(</span>pf2_mul<span class="keyword">)</span></span>
+    <span class="keyword">prval</span> <span class="prfexp">pf_kmp <span class="keyword">=</span> kmp_v_more <span class="staexp"><span class="keyword">{</span>l-intsz<span class="keyword">}</span></span> <span class="keyword">(</span>pf1_mul<span class="keyword">,</span> pf_kmp<span class="keyword">,</span> pf_elt<span class="keyword">)</span></span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_kmp</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> kmp_table_make_aux
+      <span class="keyword">(</span><span class="prfexp">pf2_mul</span><span class="keyword">,</span> <span class="prfexp">pf_kmp</span><span class="keyword">,</span> <span class="prfexp">pf_arr</span> <span class="keyword">|</span> w<span class="keyword">,</span> tbl<span class="keyword">,</span> n<span class="keyword">,</span> 2<span class="keyword">,</span> 0<span class="keyword">,</span> p_arr+intsz<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="keyword">(</span><span class="prfexp">pf_ngc</span><span class="keyword">,</span> <span class="prfexp">pf_kmp</span> <span class="keyword">|</span> tbl<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> array_v_unnil<span class="staexp"><span class="keyword">{</span>Int?<span class="keyword">}</span></span> <span class="keyword">(</span>pf_arr<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="keyword">(</span><span class="prfexp">pf_ngc</span><span class="keyword">,</span> <span class="prfexp">pf_kmp</span> <span class="keyword">|</span> tbl<span class="keyword">)</span>
+  <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [kmp_table_make]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">prfun</span> <span class="prfexp">array_v_of_kmp_v <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n<span class="keyword">&gt;.</span></span>
+  <span class="keyword">(</span>pf_kmp<span class="keyword">:</span> <span class="staexp">kmp_v <span class="keyword">(</span>l<span class="keyword">,</span> n<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">array_v <span class="keyword">(</span>Int?<span class="keyword">,</span> n<span class="keyword">,</span> l+intsz<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">sif</span> <span class="staexp">n == 0</span> <span class="keyword">then</span>
+    <span class="keyword">let</span> <span class="keyword">prval</span> <span class="prfexp">kmp_v_none <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_kmp</span> <span class="keyword">in</span> array_v_nil <span class="staexp"><span class="keyword">{</span>Int?<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">end</span>
+  <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp">kmp_v_more <span class="keyword">(</span>pf_mul<span class="keyword">,</span> pf_kmp<span class="keyword">,</span> pf_elt<span class="keyword">)</span> <span class="keyword">=</span> pf_kmp</span>
+    <span class="keyword">prval</span> <span class="prfexp">pf1_mul <span class="keyword">=</span> mul_add_const <span class="staexp"><span class="keyword">{</span>~1<span class="keyword">}</span></span> <span class="keyword">(</span>pf_mul<span class="keyword">)</span></span>
+    <span class="keyword">prval</span> <span class="prfexp">pf_arr <span class="keyword">=</span> array_v_of_kmp_v pf_kmp</span>
+  <span class="keyword">in</span>
+    array_v_extend <span class="staexp"><span class="keyword">{</span>Int?<span class="keyword">}</span></span> <span class="keyword">(</span>pf1_mul<span class="keyword">,</span> pf_arr<span class="keyword">,</span> pf_elt<span class="keyword">)</span>
+  <span class="keyword">end</span>
+<span class="keyword">end</span></span> <span class="comment">// end of [array_v_of_kmp_v]
+</span>
+<span class="keyword">fn</span> kmp_table_free <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf_ngc<span class="keyword">:</span> <span class="staexp">free_ngc_v <span class="keyword">(</span>l+intsz<span class="keyword">)</span></span></span><span class="keyword">,</span> <span class="prfexp">pf_kmp<span class="keyword">:</span> <span class="staexp">kmp_v <span class="keyword">(</span>l<span class="keyword">,</span> n<span class="keyword">)</span></span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span>
+  <span class="keyword">:&lt;&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">pf_arr <span class="keyword">=</span> array_v_of_kmp_v pf_kmp</span>
+<span class="keyword">in</span>
+  array_int_ptr_free <span class="keyword">(</span><span class="prfexp">pf_ngc</span><span class="keyword">,</span> <span class="prfexp">pf_arr</span> <span class="keyword">|</span> p+intsz<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [kmp_table_free]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">fn</span> kmp_search <span class="staexp"><span class="keyword">{</span>ns<span class="keyword">:</span>nat<span class="keyword">;</span> nw<span class="keyword">:</span>int <span class="keyword">|</span> nw &gt;= 1<span class="keyword">}</span></span>
+   <span class="keyword">(</span>s<span class="keyword">:</span> <span class="staexp">string ns</span><span class="keyword">,</span> w<span class="keyword">:</span> <span class="staexp">string nw</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp">intBtw <span class="keyword">(</span>~1<span class="keyword">,</span> ns<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> ns <span class="keyword">=</span> string1_length s<span class="keyword">;</span> <span class="keyword">val</span> nw <span class="keyword">=</span> string1_length w
+  <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">l<span class="keyword">:</span>addr</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pf_ngc</span><span class="keyword">,</span> <span class="prfexp">pf</span> <span class="keyword">|</span> tbl<span class="keyword">)</span> <span class="keyword">=</span> kmp_table_make <span class="keyword">(</span>w<span class="keyword">,</span> nw<span class="keyword">)</span>
+  <span class="keyword">val</span> ns <span class="keyword">=</span> int1_of_size1 ns<span class="keyword">;</span> <span class="keyword">val</span> nw <span class="keyword">=</span> int1_of_size1 nw
+  <span class="keyword">fun</span> loop <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> m+i &lt;= ns<span class="keyword">;</span> i &lt;= nw<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>ns-m-i<span class="keyword">,</span> i<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>kmp_v <span class="keyword">(</span>l<span class="keyword">,</span> nw-1<span class="keyword">)</span></span></span> <span class="keyword">|</span> m<span class="keyword">:</span> <span class="staexp">int m</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int i</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloptr</span><span class="keyword">&gt;</span> <span class="staexp">intBtw <span class="keyword">(</span>~1<span class="keyword">,</span> ns<span class="keyword">)</span></span> <span class="keyword">=</span>
+    <span class="keyword">if</span> i <span class="keyword">&lt;</span> nw <span class="keyword">then</span> <span class="keyword">begin</span>
+      <span class="keyword">if</span> m+i <span class="keyword">&lt;</span> ns <span class="keyword">then</span>
+        <span class="keyword">if</span> w[<span class="prfexp">i</span><span class="keyword">]</span> <span class="keyword">=</span> s[<span class="prfexp">m+i</span><span class="keyword">]</span> <span class="keyword">then</span> loop <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> m<span class="keyword">,</span> i+1<span class="keyword">)</span> <span class="keyword">else</span>
+          <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+            <span class="keyword">val</span> i1 <span class="keyword">=</span> kmp_sub <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> tbl<span class="keyword">,</span> size1_of_int1 i<span class="keyword">)</span>
+          <span class="keyword">in</span>
+            loop <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> m+i-i1<span class="keyword">,</span> i1<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+            loop <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> m+1<span class="keyword">,</span> 0<span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>        <span class="comment">(* end of [if] *)</span>
+      <span class="keyword">else</span> <span class="keyword">begin</span>
+        ~1 <span class="comment">(* loop exists *)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      m <span class="comment">// loop exits
+</span>    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">val</span> ans <span class="keyword">=</span> loop <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> 0<span class="keyword">,</span> 0<span class="keyword">)</span>
+<span class="keyword">in</span>
+  kmp_table_free <span class="keyword">(</span><span class="prfexp">pf_ngc</span><span class="keyword">,</span> <span class="prfexp">pf</span> <span class="keyword">|</span> tbl<span class="keyword">)</span><span class="keyword">;</span> ans
+<span class="keyword">end</span> <span class="comment">// end of [kmp_search]
+</span>
+<span class="comment">// some tests
+</span>
+<span class="keyword">implement</span> main <span class="keyword">(</span>argc<span class="keyword">,</span> argv<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  print "kmp_search(\"abcdefggfedcbabcdefg\", \"fggf\") = "<span class="keyword">;</span>
+  print <span class="keyword">(</span>kmp_search<span class="keyword">(</span>"abcdefggfedcbabcdefg"<span class="keyword">,</span> "fggf"<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+  print_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+
+  print "kmp_search(\"abcdefggfedcbabcdefg\", \"cbabc\") = "<span class="keyword">;</span>
+  print <span class="keyword">(</span>kmp_search<span class="keyword">(</span>"abcdefggfedcbabcdefg"<span class="keyword">,</span> "cbabc"<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+  print_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+
+  print "kmp_search(\"abcdefggfedcbabcdefg\", \"baba\") = "<span class="keyword">;</span>
+  print <span class="keyword">(</span>kmp_search<span class="keyword">(</span>"abcdefggfedcbabcdefg"<span class="keyword">,</span> "baba"<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+  print_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+
+  print "kmp_search(\"abcdefggfedcbabadefg\", \"baba\") = "<span class="keyword">;</span>
+  print <span class="keyword">(</span>kmp_search<span class="keyword">(</span>"abcdefggfedcbabadefg"<span class="keyword">,</span> "baba"<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+  print_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+<span class="keyword">end</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [kmp.dats] *)</span>
+
+<span class="comment">////
+
+// An (untested) implementation in C
+
+(*
+
+#include &lt;stdlib.h&gt;
+
+int main()
+{
+  unsigned int Fail[1024];
+  unsigned int M, K, R, i;
+  const char* P = "AAAABAABACA";
+
+  M = strlen(P);
+  K = 1;
+
+  Fail[K] = 0;
+
+  while (K &lt;= M) {
+    R = Fail[K];
+
+    while ((R &gt; 0) &amp;&amp; (P[R-1] != P[K-1]))
+      R = Fail[R];
+
+    Fail[K+1] = R+1;
+    K++;
+  }
+
+  /*
+  K = 1;
+  while (K &lt;= M) {
+    R = Fail[K];
+
+    if (P[K-1] == P[R-1])
+      Fail[K] = Fail[R];
+
+    K++;
+  }
+  */
+
+  for (i = 1; i &lt;= M+1; i++)
+    printf("Fail[%d] = %d\n", i, Fail[i]);
+
+  return 0;
+}
+
+*)
+</span></pre>
+</body>
+</html>

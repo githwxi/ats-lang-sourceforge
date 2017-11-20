@@ -1,0 +1,871 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: November, 2007
+</span><span class="comment">//
+</span><span class="comment">// Modification by Guillaume Brunerie (guillaume DOT brunerie AT gmail DOT com)
+</span><span class="comment">// for XHTML conformity
+</span><span class="comment">// Time: August, 2010
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+#include "libc/CATS/stdio.cats"
+#include "libc/CATS/stdlib.cats"
+%}</span> <span class="comment">// end of [%{^]
+</span>
+<span class="comment">// staload "libc/SATS/stdio.sats"
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="1787"><span class="dyncstdec">fopen_exn <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span>s<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> m<span class="keyword">:</span> <span class="staexp">file_mode m</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>FILE m @ l <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></span></a>
+  <span class="keyword">=</span> "atslib_fopen_exn"
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="1907"><span class="dyncstdec">fclose_exn <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">FILE m @ l</span></span> <span class="keyword">|</span> p<span class="keyword">:</span> <span class="staexp">ptr l</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="keyword">!</span><span class="staexp">exnref</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atslib_fclose_exn"
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="2022"><span class="dyncstdec">fgetc_err <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> r<span class="keyword">)</span></span></span> <span class="keyword">|</span> f<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span></span></a>
+  <span class="keyword">=</span> "atslib_fgetc_err"
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="2128"><span class="dyncstdec">fputc_exn <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>m<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> c<span class="keyword">:</span> <span class="staexp">char</span><span class="keyword">,</span> f<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE m</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a>
+  <span class="keyword">=</span> "atslib_fputc_exn"
+
+<span class="comment">//
+</span><span class="comment">// staload "libc/SATS/stdlib.sats"
+</span><span class="comment">//
+</span><span class="keyword">extern</span> <span class="keyword">fun</span> <a name="2285"><span class="dyncstdec">qsort <span class="staexp"><span class="keyword">{</span>a<span class="keyword">:</span>viewt@ype<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>f<span class="keyword">:</span>eff<span class="keyword">}</span></span> <span class="keyword">(</span>
+  base<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><span class="keyword">(</span><span class="keyword">@[</span>a<span class="keyword">]</span><span class="keyword">[</span>n<span class="keyword">]</span><span class="keyword">)</span></span><span class="keyword">,</span> nmemb<span class="keyword">:</span> <span class="staexp">size_t n</span><span class="keyword">,</span> size<span class="keyword">:</span> <span class="staexp">sizeof_t a</span><span class="keyword">,</span> compar<span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">&amp;</span>a<span class="keyword">,</span> <span class="keyword">&amp;</span>a<span class="keyword">)</span> <span class="keyword">-&lt;</span>f<span class="keyword">&gt;</span> int</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "#atslib_qsort"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Err <span class="keyword">=</span> "ats_error.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Fil <span class="keyword">=</span> "ats_filename.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Loc <span class="keyword">=</span> "ats_location.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Arr <span class="keyword">=</span> "ats_array.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymous*)</span> <span class="keyword">=</span> "ats_array.dats"</span>
+
+<span class="keyword">staload</span> <span class="staexp">Lst <span class="keyword">=</span> "ats_list.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymous*)</span> <span class="keyword">=</span> "ats_list.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_posmark.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_reference.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymous*)</span> <span class="keyword">=</span> "ats_reference.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="2896"><span class="stacstdec">posmark</span></a></span> <span class="keyword">=</span> <span class="comment">// 0/1 : begin/end
+</span>  <span class="keyword">|</span> PMnone
+  <span class="keyword">|</span> PMcomment <span class="keyword">of</span> <span class="staexp">int</span>
+  <span class="keyword">|</span> PMextern <span class="keyword">of</span> <span class="staexp">int</span>
+  <span class="keyword">|</span> PMkeyword <span class="keyword">of</span> <span class="staexp">int</span>
+  <span class="keyword">|</span> PMneuexp <span class="keyword">of</span> <span class="staexp">int</span>
+  <span class="keyword">|</span> PMstaexp <span class="keyword">of</span> <span class="staexp">int</span>
+  <span class="keyword">|</span> PMprfexp <span class="keyword">of</span> <span class="staexp">int</span>
+  <span class="keyword">|</span> PMstacstdec <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>int<span class="keyword">,</span> loc_t<span class="comment">(*dec*)</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> PMstacstuse <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>int<span class="keyword">,</span> loc_t<span class="comment">(*dec*)</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> PMdyncstdec <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>int<span class="keyword">,</span> loc_t<span class="comment">(*dec*)</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> PMdyncstimp <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>int<span class="keyword">,</span> loc_t<span class="comment">(*dec*)</span><span class="keyword">)</span></span>
+  <span class="keyword">|</span> PMdyncstuse <span class="keyword">of</span> <span class="staexp"><span class="keyword">(</span>int<span class="keyword">,</span> loc_t<span class="comment">(*dec*)</span><span class="keyword">)</span></span>
+<span class="comment">// end of [posmark]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">NPOSMARK1 100</span>
+<span class="comment">// please make sure that the values assigned to closing tags
+</span><span class="comment">// (i=1) are less than the values assigned to opening tags (i=0)
+</span><span class="keyword">fn</span> int_of_posmark <span class="keyword">(</span>pm<span class="keyword">:</span> <span class="staexp">posmark</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> pm <span class="keyword">of</span>
+  <span class="keyword">|</span> PMnone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> 0
+  <span class="keyword">|</span> PMcomment i <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> 1 <span class="keyword">else</span> NPOSMARK1-1
+  <span class="keyword">|</span> PMextern  i <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> 2 <span class="keyword">else</span> NPOSMARK1-2
+  <span class="keyword">|</span> PMkeyword i <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> 3 <span class="keyword">else</span> NPOSMARK1-3
+  <span class="keyword">|</span> PMneuexp  i <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> 4 <span class="keyword">else</span> NPOSMARK1-4
+  <span class="keyword">|</span> PMstacstdec <span class="keyword">(</span>i<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> 5 <span class="keyword">else</span> NPOSMARK1-5
+  <span class="keyword">|</span> PMstacstuse <span class="keyword">(</span>i<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> 6 <span class="keyword">else</span> NPOSMARK1-6
+  <span class="keyword">|</span> PMstaexp  i <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> 7 <span class="keyword">else</span> NPOSMARK1-7
+  <span class="keyword">|</span> PMprfexp  i <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> 8 <span class="keyword">else</span> NPOSMARK1-8
+  <span class="keyword">|</span> PMdyncstdec <span class="keyword">(</span>i<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> 20 <span class="keyword">else</span> NPOSMARK1-20
+  <span class="keyword">|</span> PMdyncstimp <span class="keyword">(</span>i<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> 21 <span class="keyword">else</span> NPOSMARK1-21
+  <span class="keyword">|</span> PMdyncstuse <span class="keyword">(</span>i<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> 22 <span class="keyword">else</span> NPOSMARK1-22
+<span class="comment">// end of [int_of_posmark]
+</span>
+<span class="keyword">fn</span> compare_posmark_posmark
+  <span class="keyword">(</span>pm1<span class="keyword">:</span> <span class="staexp">posmark</span><span class="keyword">,</span> pm2<span class="keyword">:</span> <span class="staexp">posmark</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">Sgn</span> <span class="keyword">=</span>
+  compare <span class="keyword">(</span>int_of_posmark pm1<span class="keyword">,</span> int_of_posmark pm2<span class="keyword">)</span>
+<span class="comment">// end of [compare_posmark_posmark]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="4338"><span class="stacstdec">lintposmark <span class="keyword">=</span> <span class="keyword">@(</span>lint<span class="keyword">,</span> posmark<span class="keyword">)</span></span></a></span>
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="4381"><span class="stacstdec">lintposmarklst <span class="keyword">=</span> List_vt lintposmark</span></a></span>
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="4430"><span class="stacstdec">lintposmarklstlst <span class="keyword">=</span> List_vt lintposmarklst</span></a></span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">val</span> the_posmark_flag <span class="keyword">=</span> ref_make_elt&lt;<span class="staexp">int</span><span class="keyword">&gt;</span> 0
+<span class="keyword">val</span> the_posmarklst <span class="keyword">=</span>
+  ref_make_elt&lt;<span class="staexp">lintposmarklst</span><span class="keyword">&gt;</span> <span class="keyword">(</span>list_vt_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">val</span> the_posmarklstlst <span class="keyword">=</span>
+  ref_make_elt&lt;<span class="staexp">lintposmarklstlst</span><span class="keyword">&gt;</span> <span class="keyword">(</span>list_vt_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> posmark_enable <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">!</span>the_posmark_flag := 1<span class="keyword">)</span>
+<span class="keyword">implement</span> posmark_disable <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">!</span>the_posmark_flag := 0<span class="keyword">)</span>
+
+<span class="keyword">implement</span> posmark_pause_get <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> flag <span class="keyword">=</span> <span class="keyword">!</span>the_posmark_flag <span class="keyword">in</span> <span class="keyword">!</span>the_posmark_flag := 0<span class="keyword">;</span> flag
+<span class="keyword">end</span> <span class="comment">// end of [posmark_pause_get]
+</span>
+<span class="keyword">implement</span> posmark_resume_set
+  <span class="keyword">(</span>flag<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>the_posmark_flag := flag
+<span class="comment">// end of [posmark_resume_set]
+</span>
+<span class="keyword">fn</span> the_posmarklst_get <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">lintposmarklst</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> ref_get_view_ptr <span class="keyword">(</span>the_posmarklst<span class="keyword">)</span>
+  <span class="keyword">val</span> xs <span class="keyword">=</span> <span class="keyword">!</span>p
+<span class="keyword">in</span>
+  <span class="keyword">!</span>p := list_vt_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span> xs
+<span class="keyword">end</span> <span class="comment">// end of [the_posmarklst_get]
+</span>
+<span class="keyword">fn</span> the_posmarklst_insert
+  <span class="keyword">(</span>p<span class="keyword">:</span> <span class="staexp">lint</span><span class="keyword">,</span> pm<span class="keyword">:</span> <span class="staexp">posmark</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+  <span class="keyword">if</span> <span class="keyword">!</span>the_posmark_flag <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p_ref<span class="keyword">)</span> <span class="keyword">=</span> ref_get_view_ptr <span class="keyword">(</span>the_posmarklst<span class="keyword">)</span> <span class="keyword">in</span>
+    <span class="keyword">!</span>p_ref := list_vt_cons <span class="keyword">(</span><span class="keyword">(</span>p<span class="keyword">,</span> pm<span class="keyword">)</span><span class="keyword">,</span> <span class="keyword">!</span>p_ref<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="comment">// (* end of [posmark_insert] *)
+</span>
+<span class="keyword">implement</span> posmark_pop <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> xs <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> ref_get_view_ptr <span class="keyword">(</span>the_posmarklstlst<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="keyword">case+</span> <span class="keyword">!</span>p <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">~</span>list_vt_cons <span class="keyword">(</span>xs<span class="keyword">,</span> xss<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">!</span>p := <span class="keyword">(</span>xss<span class="keyword">:</span> <span class="staexp">lintposmarklstlst</span><span class="keyword">)</span><span class="keyword">;</span> xs
+      <span class="keyword">end</span> <span class="comment">// end of [list_vt_cons]
+</span>    <span class="keyword">|</span> <span class="keyword">~</span>list_vt_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> xs <span class="keyword">=</span> <span class="keyword">$effmask_ref</span> <span class="keyword">begin</span>
+          prerr "INTERNAL ERROR (ats_posmark)"<span class="keyword">;</span>
+          prerr ": posmark_pop: empty stack"<span class="keyword">;</span> prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>lintposmarklst<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>      <span class="keyword">in</span>
+        <span class="keyword">!</span>p := list_vt_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span> xs
+      <span class="keyword">end</span> <span class="comment">// end of [list_vt_nil]
+</span>  <span class="keyword">end</span> <span class="keyword">:</span> <span class="staexp">lintposmarklst</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> ref_get_view_ptr <span class="keyword">(</span>the_posmarklst<span class="keyword">)</span>
+    <span class="keyword">val</span> xs1 <span class="keyword">=</span> <span class="keyword">!</span>p<span class="keyword">;</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>p := xs
+  <span class="keyword">in</span>
+    $Lst<span class="keyword">.</span>list_vt_free <span class="keyword">(</span>xs1<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [posmark_pop]
+</span>
+<span class="keyword">implement</span> posmark_push <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> xs <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> ref_get_view_ptr <span class="keyword">(</span>the_posmarklst<span class="keyword">)</span>
+    <span class="keyword">val</span> xs <span class="keyword">=</span> <span class="keyword">!</span>p
+  <span class="keyword">in</span>
+    <span class="keyword">!</span>p := list_vt_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span> xs
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> ref_get_view_ptr <span class="keyword">(</span>the_posmarklstlst<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="keyword">!</span>p := list_vt_cons <span class="keyword">(</span>xs<span class="keyword">,</span> <span class="keyword">!</span>p<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [posmark_push]
+</span>
+<span class="keyword">implement</span> posmark_push_dup <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> xs <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> ref_get_view_ptr <span class="keyword">(</span>the_posmarklst<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    $Lst<span class="keyword">.</span>list_vt_copy <span class="keyword">(</span><span class="keyword">!</span>p<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> ref_get_view_ptr <span class="keyword">(</span>the_posmarklstlst<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="keyword">!</span>p := list_vt_cons <span class="keyword">(</span>xs<span class="keyword">,</span> <span class="keyword">!</span>p<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [posmark_push]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+posmark_insert_comment_beg <span class="keyword">(</span>p<span class="keyword">)</span> <span class="keyword">=</span> the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMcomment 0<span class="keyword">)</span>
+<span class="keyword">implement</span>
+posmark_insert_comment_end <span class="keyword">(</span>p<span class="keyword">)</span> <span class="keyword">=</span> the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMcomment 1<span class="keyword">)</span>
+
+<span class="keyword">implement</span>
+posmark_insert_extern_beg <span class="keyword">(</span>p<span class="keyword">)</span> <span class="keyword">=</span> the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMextern 0<span class="keyword">)</span>
+<span class="keyword">implement</span>
+posmark_insert_extern_end <span class="keyword">(</span>p<span class="keyword">)</span> <span class="keyword">=</span> the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMextern 1<span class="keyword">)</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">implement</span>
+posmark_insert_keyword_beg <span class="keyword">(</span>p<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "posmark_insert_keyword_beg"; print_newline ()
+  end // end of [val]
+*)</span>
+<span class="keyword">in</span>
+  the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMkeyword 0<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [posmark_insert_keyword_beg]
+</span>
+<span class="keyword">implement</span>
+posmark_insert_keyword_end <span class="keyword">(</span>p<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "posmark_insert_keyword_end"; print_newline ()
+  end // end of [val]
+*)</span>
+<span class="keyword">in</span>
+  the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMkeyword 1<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [posmark_insert_keyword_end]
+</span>
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> posmark_insert_neuexp_beg <span class="keyword">(</span>p<span class="keyword">)</span> <span class="keyword">=</span>
+  the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMneuexp 0<span class="keyword">)</span>
+<span class="keyword">implement</span> posmark_insert_neuexp_end <span class="keyword">(</span>p<span class="keyword">)</span> <span class="keyword">=</span>
+  the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMneuexp 1<span class="keyword">)</span>
+
+<span class="keyword">implement</span> posmark_insert_staexp_beg <span class="keyword">(</span>p<span class="keyword">)</span> <span class="keyword">=</span>
+  the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMstaexp 0<span class="keyword">)</span>
+<span class="keyword">implement</span> posmark_insert_staexp_end <span class="keyword">(</span>p<span class="keyword">)</span> <span class="keyword">=</span>
+  the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMstaexp 1<span class="keyword">)</span>
+
+<span class="keyword">implement</span> posmark_insert_prfexp_beg <span class="keyword">(</span>p<span class="keyword">)</span> <span class="keyword">=</span>
+  the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMprfexp 0<span class="keyword">)</span>
+<span class="keyword">implement</span> posmark_insert_prfexp_end <span class="keyword">(</span>p<span class="keyword">)</span> <span class="keyword">=</span>
+  the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMprfexp 1<span class="keyword">)</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> posmark_insert_stacstdec_beg <span class="keyword">(</span>p<span class="keyword">,</span> loc<span class="keyword">)</span> <span class="keyword">=</span>
+  the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMstacstdec <span class="keyword">(</span>0<span class="keyword">,</span> loc<span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">implement</span> posmark_insert_stacstdec_end <span class="keyword">(</span>p<span class="keyword">,</span> loc<span class="keyword">)</span> <span class="keyword">=</span>
+  the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMstacstdec <span class="keyword">(</span>1<span class="keyword">,</span> loc<span class="keyword">)</span><span class="keyword">)</span>
+
+<span class="keyword">implement</span> posmark_insert_stacstuse_beg <span class="keyword">(</span>p<span class="keyword">,</span> loc<span class="keyword">)</span> <span class="keyword">=</span>
+  the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMstacstuse <span class="keyword">(</span>0<span class="keyword">,</span> loc<span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">implement</span> posmark_insert_stacstuse_end <span class="keyword">(</span>p<span class="keyword">,</span> loc<span class="keyword">)</span> <span class="keyword">=</span>
+  the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMstacstuse <span class="keyword">(</span>1<span class="keyword">,</span> loc<span class="keyword">)</span><span class="keyword">)</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">implement</span> posmark_insert_dyncstdec_beg <span class="keyword">(</span>p<span class="keyword">,</span> loc<span class="keyword">)</span> <span class="keyword">=</span>
+  the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMdyncstdec <span class="keyword">(</span>0<span class="keyword">,</span> loc<span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">implement</span> posmark_insert_dyncstdec_end <span class="keyword">(</span>p<span class="keyword">,</span> loc<span class="keyword">)</span> <span class="keyword">=</span>
+  the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMdyncstdec <span class="keyword">(</span>1<span class="keyword">,</span> loc<span class="keyword">)</span><span class="keyword">)</span>
+
+<span class="keyword">implement</span> posmark_insert_dyncstimp_beg <span class="keyword">(</span>p<span class="keyword">,</span> loc<span class="keyword">)</span> <span class="keyword">=</span>
+  the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMdyncstimp <span class="keyword">(</span>0<span class="keyword">,</span> loc<span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">implement</span> posmark_insert_dyncstimp_end <span class="keyword">(</span>p<span class="keyword">,</span> loc<span class="keyword">)</span> <span class="keyword">=</span>
+  the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMdyncstimp <span class="keyword">(</span>1<span class="keyword">,</span> loc<span class="keyword">)</span><span class="keyword">)</span>
+
+<span class="keyword">implement</span> posmark_insert_dyncstuse_beg <span class="keyword">(</span>p<span class="keyword">,</span> loc<span class="keyword">)</span> <span class="keyword">=</span>
+  the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMdyncstuse <span class="keyword">(</span>0<span class="keyword">,</span> loc<span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">implement</span> posmark_insert_dyncstuse_end <span class="keyword">(</span>p<span class="keyword">,</span> loc<span class="keyword">)</span> <span class="keyword">=</span>
+  the_posmarklst_insert <span class="keyword">(</span>p<span class="keyword">,</span> PMdyncstuse <span class="keyword">(</span>1<span class="keyword">,</span> loc<span class="keyword">)</span><span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">local</span>
+
+<span class="comment">// color= gray
+</span><span class="comment">// #define HTM_COMMENT_FONT_BEG "&lt;FONT COLOR=\"#787878\"&gt;"
+</span><span class="comment">// #define HTM_COMMENT_FONT_END "&lt;/FONT&gt;"
+</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_COMMENT_FONT_BEG "&lt;span class=\"comment\"&gt;"</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_COMMENT_FONT_END "&lt;/span&gt;"</span>
+
+<span class="comment">// color= brown
+</span><span class="comment">// #define HTM_EXTERN_FONT_BEG "&lt;FONT COLOR=\"#A52A2A\"&gt;"
+</span><span class="comment">// #define HTM_EXTERN_FONT_END "&lt;/FONT&gt;"
+</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_EXTERN_FONT_BEG "&lt;span class=\"extern\"&gt;"</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_EXTERN_FONT_END "&lt;/span&gt;"</span>
+
+<span class="comment">// color= black
+</span><span class="comment">// #define HTM_KEYWORD_FONT_BEG "&lt;FONT COLOR=\"#000000\"&gt;"
+</span><span class="comment">// #define HTM_KEYWORD_FONT_END "&lt;/FONT&gt;"
+</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_KEYWORD_FONT_BEG "&lt;span class=\"keyword\"&gt;"</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_KEYWORD_FONT_END "&lt;/span&gt;"</span>
+
+<span class="comment">// color= pink
+</span><span class="comment">// #define HTM_NEUEXP_FONT_BEG "&lt;FONT COLOR=\"#800080\"&gt;"
+</span><span class="comment">// #define HTM_NEUEXP_FONT_END "&lt;/FONT&gt;"
+</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_NEUEXP_FONT_BEG "&lt;span class=\"neuexp\"&gt;"</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_NEUEXP_FONT_END "&lt;/span&gt;"</span>
+
+<span class="comment">// color= blue
+</span><span class="comment">// #define HTM_STAEXP_FONT_BEG "&lt;FONT COLOR=\"#0000FF\"&gt;"
+</span><span class="comment">// #define HTM_STAEXP_FONT_END "&lt;/FONT&gt;"
+</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_STAEXP_FONT_BEG "&lt;span class=\"staexp\"&gt;"</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_STAEXP_FONT_END "&lt;/span&gt;"</span>
+
+<span class="comment">// color= red
+</span><span class="comment">// #define HTM_DYNEXP_FONT_BEG "&lt;FONT COLOR=\"#E80000\"&gt;"
+</span><span class="comment">// #define HTM_DYNEXP_FONT_END "&lt;/FONT&gt;"
+</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_DYNEXP_FONT_BEG "&lt;span class=\"dynexp\"&gt;"</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_DYNEXP_FONT_END "&lt;/span&gt;"</span>
+
+<span class="comment">// color= green
+</span><span class="comment">// #define HTM_PRFEXP_FONT_BEG "&lt;FONT COLOR=\"#009000\"&gt;"
+</span><span class="comment">// #define HTM_PRFEXP_FONT_END "&lt;/FONT&gt;"
+</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_PRFEXP_FONT_BEG "&lt;span class=\"prfexp\"&gt;"</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_PRFEXP_FONT_END "&lt;/span&gt;"</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_STACSTDEC_FONT_BEG "&lt;span class=\"stacstdec\"&gt;"</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_STACSTDEC_FONT_END "&lt;/span&gt;"</span>
+
+<span class="keyword">#define</span> <span class="neuexp">HTM_STACSTUSE_FONT_BEG "&lt;span class=\"stacstuse\"&gt;"</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_STACSTUSE_FONT_END "&lt;/span&gt;"</span>
+
+<span class="comment">//
+</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_DYNCSTDEC_FONT_BEG "&lt;span class=\"dyncstdec\"&gt;"</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_DYNCSTDEC_FONT_END "&lt;/span&gt;"</span>
+
+<span class="keyword">#define</span> <span class="neuexp">HTM_DYNCSTIMP_FONT_BEG "&lt;span class=\"dyncstimp\"&gt;"</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_DYNCSTIMP_FONT_END "&lt;/span&gt;"</span>
+
+<span class="keyword">#define</span> <span class="neuexp">HTM_DYNCSTUSE_FONT_BEG "&lt;span class=\"dyncstuse\"&gt;"</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_DYNCSTUSE_FONT_END "&lt;/span&gt;"</span>
+
+<span class="comment">//
+</span>
+<span class="comment">// color= light gray
+</span><span class="comment">// #define HTM_POSMARK_FILE_BEG "&lt;BODY BGCOLOR=\"#E0E0E0\" TEXT=\"#E80000\"&gt;&lt;PRE&gt;"
+</span><span class="comment">// #define HTM_POSMARK_FILE_END "&lt;/PRE&gt;&lt;/BODY&gt;"
+</span>
+<span class="keyword">#define</span> <span class="neuexp">HTM_POSMARK_FILE_BEG "\
+&lt;!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\"\n\
+\"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\"&gt;\n\
+&lt;html xmlns=\"http://www.w3.org/1999/xhtml\"&gt;\n\
+&lt;head&gt;\n\
+  &lt;title&gt;&lt;/title&gt;\n\
+  &lt;meta http-equiv=\"Content-Type\" content=\"text/html;charset=utf-8\"/&gt;\n\
+  &lt;style type=\"text/css\"&gt;\n\
+    span.comment {color:#787878;font-style:italic}\n\
+    span.extern  {color:#A52A2A}\n\
+    span.keyword {color:#000000;font-weight:bold}\n\
+    span.neuexp  {color:#800080}\n\
+    span.staexp  {color:#0000FF}\n\
+    span.dynexp  {color:#E80000}\n\
+    span.prfexp  {color:#009000}\n\
+    span.stacstdec  {text-decoration:none}\n\
+    span.stacstuse  {color:#0000CF;text-decoration:underline}\n\
+    span.dyncstdec  {text-decoration:none}\n\
+    span.dyncstimp  {color:#B80000;text-decoration:underline}\n\
+    span.dyncstuse  {color:#B80000;text-decoration:underline}\n\
+    body          {color:#E80000;background-color:#E0E0E0}\n\
+  &lt;/style&gt;\n\
+&lt;/head&gt;\n\
+&lt;body&gt;\n\
+&lt;pre&gt;\n\
+"</span>
+
+<span class="keyword">#define</span> <span class="neuexp">HTM_POSMARK_FILE_END "\
+&lt;/pre&gt;\n\
+&lt;/body&gt;\n\
+&lt;/html&gt;\n\
+"</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> posmarklst_sort
+  <span class="keyword">(</span>ppms<span class="keyword">:</span> <span class="staexp">lintposmarklst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">lintposmarklst</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">//
+</span>  <span class="keyword">typedef</span> <span class="staexp"><a name="12708"><span class="stacstdec">ppm <span class="keyword">=</span> lintposmark</span></a></span>
+<span class="comment">//
+</span>  <span class="keyword">fn</span> cmp
+    <span class="keyword">(</span>x1<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>ppm</span><span class="keyword">,</span> x2<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>ppm</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">Sgn</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> x10 <span class="keyword">=</span> x1<span class="keyword">.</span>0 <span class="keyword">and</span> x20 <span class="keyword">=</span> x2<span class="keyword">.</span>0 <span class="keyword">in</span>
+    <span class="keyword">if</span> x10 <span class="keyword">&lt;</span> x20 <span class="keyword">then</span> ~1 <span class="keyword">else</span> <span class="keyword">begin</span>
+      <span class="keyword">(</span><span class="keyword">if</span> x10 <span class="keyword">&gt;</span> x20 <span class="keyword">then</span> 1 <span class="keyword">else</span> compare_posmark_posmark <span class="keyword">(</span>x1<span class="keyword">.</span>1<span class="keyword">,</span> x2<span class="keyword">.</span>1<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">end</span> <span class="comment">// end of [cmp]
+</span><span class="comment">//
+</span>  <span class="keyword">fun</span> loop <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>i<span class="keyword">:</span>int <span class="keyword">|</span> 0 &lt;= i + 1<span class="keyword">;</span> i + 1 &lt;= n<span class="keyword">}</span></span>
+    <span class="keyword">(</span>A<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><span class="keyword">(</span><span class="keyword">@[</span>ppm<span class="keyword">]</span><span class="keyword">[</span>n<span class="keyword">]</span><span class="keyword">)</span></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">int i</span><span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp">list_vt <span class="keyword">(</span>ppm<span class="keyword">,</span> n-i-1<span class="keyword">)</span></span><span class="keyword">)</span>
+    <span class="keyword">:</span> <span class="staexp">list_vt <span class="keyword">(</span>ppm<span class="keyword">,</span> n<span class="keyword">)</span></span> <span class="keyword">=</span>
+    <span class="keyword">if</span> i &gt;= 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+      loop <span class="keyword">(</span>A<span class="keyword">,</span> i-1<span class="keyword">,</span> list_vt_cons <span class="keyword">(</span>A<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">i</span><span class="keyword">]</span><span class="keyword">,</span> res<span class="keyword">)</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      res <span class="comment">// return value
+</span>    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="comment">// end of [loop]
+</span><span class="comment">//
+</span>  <span class="keyword">val</span> n <span class="keyword">=</span> $Lst<span class="keyword">.</span>list_vt_length&lt;<span class="staexp">ppm</span><span class="keyword">&gt;</span> <span class="keyword">(</span>ppms<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_gc</span><span class="keyword">,</span> <span class="prfexp">pf_arr</span> <span class="keyword">|</span> p_arr<span class="keyword">)</span> <span class="keyword">=</span>
+    $Arr<span class="keyword">.</span>array_ptr_make_lst_vt&lt;<span class="staexp">ppm</span><span class="keyword">&gt;</span> <span class="keyword">(</span>n<span class="keyword">,</span> ppms<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> qsort <span class="staexp"><span class="keyword">{</span>ppm<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">!</span>p_arr<span class="keyword">,</span> size1_of_int1 n<span class="keyword">,</span> sizeof&lt;<span class="staexp">ppm</span><span class="keyword">&gt;</span><span class="keyword">,</span> cmp<span class="keyword">)</span>
+  <span class="keyword">val</span> res <span class="keyword">=</span> loop <span class="keyword">(</span><span class="keyword">!</span>p_arr<span class="keyword">,</span> n-1<span class="keyword">,</span> list_vt_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> array_ptr_free <span class="staexp"><span class="keyword">{</span>ppm<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf_gc</span><span class="keyword">,</span> <span class="prfexp">pf_arr</span> <span class="keyword">|</span> p_arr<span class="keyword">)</span>
+<span class="comment">//
+</span><span class="keyword">in</span>
+  res
+<span class="keyword">end</span> <span class="comment">// end of [posmarklst_sort]
+</span>  
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> posmark_file_file <span class="keyword">(</span>
+    proc<span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">&amp;</span>FILE w<span class="keyword">,</span> lint<span class="keyword">,</span> posmark<span class="keyword">)</span> <span class="keyword">-&lt;</span>fun1<span class="keyword">&gt;</span> void</span>
+  <span class="keyword">,</span> fputchr<span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span>char<span class="keyword">,</span> <span class="keyword">&amp;</span>FILE w<span class="keyword">)</span> <span class="keyword">-&lt;</span>fun1<span class="keyword">&gt;</span> void</span>
+  <span class="keyword">,</span> fil_s<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE r</span><span class="keyword">,</span> fil_d<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE w</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">//
+</span>  <span class="keyword">typedef</span> <span class="staexp"><a name="13793"><span class="stacstdec">ppm <span class="keyword">=</span>  lintposmark</span></a></span>
+<span class="comment">//
+</span>  <span class="keyword">fun</span> lpfin1 <span class="keyword">(</span>
+      fil_s<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE r</span>
+    <span class="keyword">,</span> fil_d<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE w</span>
+    <span class="keyword">,</span> p<span class="keyword">:</span> <span class="staexp">lint</span><span class="keyword">,</span> pm<span class="keyword">:</span> <span class="staexp">posmark</span>
+    <span class="keyword">,</span> ppms<span class="keyword">:</span> <span class="staexp">List_vt ppm</span>
+    <span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> proc <span class="keyword">(</span>fil_d<span class="keyword">,</span> p<span class="keyword">,</span> pm<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="keyword">case+</span> ppms <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">~</span>list_vt_cons <span class="keyword">(</span>ppm<span class="keyword">,</span> ppms<span class="keyword">)</span> <span class="keyword">=&gt;</span>
+        lpfin1 <span class="keyword">(</span>fil_s<span class="keyword">,</span> fil_d<span class="keyword">,</span> ppm<span class="keyword">.</span>0<span class="keyword">,</span> ppm<span class="keyword">.</span>1<span class="keyword">,</span> ppms<span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">~</span>list_vt_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [lpfin1]
+</span><span class="comment">//
+</span>  <span class="keyword">fun</span> lpfin2 <span class="keyword">(</span>fil_s<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE r</span><span class="keyword">,</span> fil_d<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE w</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> c <span class="keyword">=</span> fgetc_err <span class="keyword">(</span><span class="prfexp">file_mode_lte_r_r</span> <span class="keyword">|</span> fil_s<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="keyword">if</span> <span class="keyword">(</span>c &gt;= 0<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">begin</span>
+      fputchr <span class="keyword">(</span>char_of_int c<span class="keyword">,</span> fil_d<span class="keyword">)</span><span class="keyword">;</span> lpfin2 <span class="keyword">(</span>fil_s<span class="keyword">,</span> fil_d<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">end</span> <span class="comment">// end of [lpfin2]
+</span><span class="comment">//
+</span>  <span class="keyword">fn*</span> loop1
+    <span class="keyword">(</span>fil_s<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE r</span><span class="keyword">,</span> fil_d<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE w</span><span class="keyword">,</span>
+     i<span class="keyword">:</span> <span class="staexp">lint</span><span class="keyword">,</span> p<span class="keyword">:</span> <span class="staexp">lint</span><span class="keyword">,</span> pm<span class="keyword">:</span> <span class="staexp">posmark</span><span class="keyword">,</span> ppms<span class="keyword">:</span> <span class="staexp">List_vt ppm</span><span class="keyword">)</span>
+    <span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> c <span class="keyword">=</span> fgetc_err <span class="keyword">(</span><span class="prfexp">file_mode_lte_r_r</span> <span class="keyword">|</span> fil_s<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="keyword">if</span> <span class="keyword">(</span>c &gt;= 0<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">begin</span>
+      loop2 <span class="keyword">(</span>fil_s<span class="keyword">,</span> fil_d<span class="keyword">,</span> i<span class="keyword">,</span> p<span class="keyword">,</span> pm<span class="keyword">,</span> ppms<span class="keyword">,</span> c<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      lpfin1 <span class="keyword">(</span>fil_s<span class="keyword">,</span> fil_d<span class="keyword">,</span> p<span class="keyword">,</span> pm<span class="keyword">,</span> ppms<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">end</span> <span class="comment">(* end of [loop1] *)</span>
+<span class="comment">//
+</span>  <span class="keyword">and</span> loop2
+    <span class="keyword">(</span>fil_s<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE r</span><span class="keyword">,</span> fil_d<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE w</span><span class="keyword">,</span>
+     i<span class="keyword">:</span> <span class="staexp">lint</span><span class="keyword">,</span> p<span class="keyword">:</span> <span class="staexp">lint</span><span class="keyword">,</span> pm<span class="keyword">:</span> <span class="staexp">posmark</span><span class="keyword">,</span> ppms<span class="keyword">:</span> <span class="staexp">List_vt ppm</span><span class="keyword">,</span> c<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span>
+    <span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">if</span> i <span class="keyword">&lt;</span> p <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fputchr <span class="keyword">(</span>char_of_int c<span class="keyword">,</span> fil_d<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      loop1 <span class="keyword">(</span>fil_s<span class="keyword">,</span> fil_d<span class="keyword">,</span> succ i<span class="keyword">,</span> p<span class="keyword">,</span> pm<span class="keyword">,</span> ppms<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> proc <span class="keyword">(</span>fil_d<span class="keyword">,</span> p<span class="keyword">,</span> pm<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="keyword">case+</span> ppms <span class="keyword">of</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>list_vt_cons <span class="keyword">(</span>ppm<span class="keyword">,</span> ppms<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          loop2 <span class="keyword">(</span>fil_s<span class="keyword">,</span> fil_d<span class="keyword">,</span> i<span class="keyword">,</span> ppm<span class="keyword">.</span>0<span class="keyword">,</span> ppm<span class="keyword">.</span>1<span class="keyword">,</span> ppms<span class="keyword">,</span> c<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [list_vt_cons]
+</span>      <span class="keyword">|</span> <span class="keyword">~</span>list_vt_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          fputchr <span class="keyword">(</span>char_of_int c<span class="keyword">,</span> fil_d<span class="keyword">)</span><span class="keyword">;</span> lpfin2 <span class="keyword">(</span>fil_s<span class="keyword">,</span> fil_d<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [list_vt_nil]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">end</span> <span class="comment">(* end of [loop2] *)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> lint0 <span class="keyword">=</span> lint_of_int 0 <span class="comment">// 0L
+</span>  <span class="keyword">val</span> ppms <span class="keyword">=</span> posmarklst_sort <span class="keyword">(</span>the_posmarklst_get <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">prval</span> <span class="prfexp">pf_mod <span class="keyword">=</span> file_mode_lte_w_w</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_POSMARK_FILE_BEG<span class="keyword">)</span><span class="keyword">;</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> loop1 <span class="keyword">(</span>fil_s<span class="keyword">,</span> fil_d<span class="keyword">,</span> lint0<span class="keyword">,</span> lint0<span class="keyword">,</span> PMnone <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> ppms<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_POSMARK_FILE_END<span class="keyword">)</span><span class="keyword">;</span>
+<span class="comment">//
+</span><span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [posmark_file_file]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> posmark_process_htm
+  <span class="keyword">(</span>fil_d<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE w</span><span class="keyword">,</span> p<span class="keyword">:</span> <span class="staexp">lint</span><span class="keyword">,</span> pm<span class="keyword">:</span> <span class="staexp">posmark</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fn</span> fprint_stadyncstpos <span class="keyword">(</span>
+      <span class="prfexp">pf_mod<span class="keyword">:</span> <span class="staexp">file_mode_lte <span class="keyword">(</span>w<span class="keyword">,</span> w<span class="keyword">)</span></span></span> <span class="keyword">|</span> fil_d<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE w</span><span class="keyword">,</span> name<span class="keyword">:</span> <span class="staexp">string</span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> name <span class="keyword">=</span> string1_of_string <span class="keyword">(</span>name<span class="keyword">)</span>
+    <span class="keyword">fun</span> loop <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i &lt;= n<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n-i<span class="keyword">&gt;.</span></span>
+      <span class="keyword">(</span>fil_d<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE w</span><span class="keyword">,</span> name<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span>
+      <span class="keyword">if</span> string_isnot_at_end <span class="keyword">(</span>name<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> c <span class="keyword">=</span> name[<span class="prfexp">i</span><span class="keyword">]</span><span class="keyword">;</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> c <span class="keyword">of</span>
+          <span class="keyword">|</span> _ <span class="keyword">when</span> char_isalnum c <span class="keyword">=&gt;</span> fprint_char <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> c<span class="keyword">)</span>
+          <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+              <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint_char <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> '_'<span class="keyword">)</span>
+              <span class="keyword">val</span> u <span class="keyword">=</span> uint_of_char c
+              <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprintf1_exn <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> "%2x"<span class="keyword">,</span> <span class="keyword">@(</span>u<span class="keyword">)</span><span class="keyword">)</span>
+            <span class="keyword">in</span>
+              <span class="comment">// empty
+</span>            <span class="keyword">end</span> <span class="comment">// end of [_]
+</span>      <span class="keyword">in</span>
+        loop <span class="keyword">(</span>fil_d<span class="keyword">,</span> name<span class="keyword">,</span> i + 1<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+        fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> ".html"<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="comment">// end of [loop]
+</span>    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+      <span class="keyword">val</span> flag <span class="keyword">=</span> posmark_xref_flag_get <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span> <span class="keyword">extern</span> <span class="keyword">fun</span>
+        <a name="16828"><span class="dyncstdec">posmark_xref_flag_get <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">Stropt</span></span></a> <span class="keyword">=</span> "ats_posmark_xref_flag_get"
+      <span class="keyword">}</span> <span class="comment">// end of [flag]
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> stropt_is_some flag <span class="keyword">then</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> flag <span class="keyword">=</span> stropt_unsome <span class="keyword">(</span>flag<span class="keyword">)</span> <span class="keyword">in</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> flag<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>    <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> loop <span class="keyword">(</span>fil_d<span class="keyword">,</span> name<span class="keyword">,</span> 0<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="comment">// empty
+</span>  <span class="keyword">end</span> <span class="comment">// end of [fprint_dyncstpos]
+</span>  <span class="keyword">prval</span> <span class="prfexp">pf_mod <span class="keyword">=</span> file_mode_lte_w_w</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> pm <span class="keyword">of</span>
+  <span class="keyword">|</span> PMnone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> PMcomment i <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_COMMENT_FONT_BEG<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_COMMENT_FONT_END<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [PMcomment]
+</span>  <span class="keyword">|</span> PMextern i <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_EXTERN_FONT_BEG<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_EXTERN_FONT_END<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [PMextern]
+</span>  <span class="keyword">|</span> PMkeyword i <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_KEYWORD_FONT_BEG<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_KEYWORD_FONT_END<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [PMkeyword]
+</span>  <span class="keyword">|</span> PMneuexp i <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_NEUEXP_FONT_BEG<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_NEUEXP_FONT_END<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [PMneuexp]
+</span>  <span class="keyword">|</span> PMstaexp i <span class="keyword">=&gt;</span>  <span class="keyword">if</span> i <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_STAEXP_FONT_BEG<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_STAEXP_FONT_END<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [PMstaexp]
+</span>  <span class="keyword">|</span> PMprfexp i <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_PRFEXP_FONT_BEG<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_PRFEXP_FONT_END<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [PMprfexp]
+</span>  <span class="keyword">|</span> PMstacstdec <span class="keyword">(</span>i<span class="keyword">,</span> loc<span class="comment">(*dec*)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> "&lt;a name=\""<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_lint <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> ofs<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> ofs <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_begpos_toff <span class="keyword">(</span>loc<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> "\"&gt;"<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_STACSTDEC_FONT_BEG<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_STACSTDEC_FONT_END<span class="keyword">)</span><span class="keyword">;</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> "&lt;/a&gt;"<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [PMdyncstdec]
+</span>  <span class="keyword">|</span> PMstacstuse <span class="keyword">(</span>i<span class="keyword">,</span> loc<span class="comment">(*dec*)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> "&lt;a href=\""<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint_stadyncstpos <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> name<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> fil <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_get_filename loc
+        <span class="keyword">val</span> name <span class="keyword">=</span> $Fil<span class="keyword">.</span>filename_full <span class="keyword">(</span>fil<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> "#"<span class="keyword">)</span> 
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_lint <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> ofs<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> ofs <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_begpos_toff <span class="keyword">(</span>loc<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> "\"&gt;"<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_STACSTUSE_FONT_BEG<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_STACSTUSE_FONT_END<span class="keyword">)</span><span class="keyword">;</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> "&lt;/a&gt;"<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [PMstacstuse]
+</span>  <span class="keyword">|</span> PMdyncstdec <span class="keyword">(</span>i<span class="keyword">,</span> loc<span class="comment">(*dec*)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> "&lt;a name=\""<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_lint <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> ofs<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> ofs <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_begpos_toff <span class="keyword">(</span>loc<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> "\"&gt;"<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_DYNCSTDEC_FONT_BEG<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_DYNCSTDEC_FONT_END<span class="keyword">)</span><span class="keyword">;</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> "&lt;/a&gt;"<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [PMdyncstdec]
+</span>  <span class="keyword">|</span> PMdyncstimp <span class="keyword">(</span>i<span class="keyword">,</span> loc<span class="comment">(*dec*)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> "&lt;a href=\""<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint_stadyncstpos <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> name<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> fil <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_get_filename loc
+        <span class="keyword">val</span> name <span class="keyword">=</span> $Fil<span class="keyword">.</span>filename_full <span class="keyword">(</span>fil<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> "#"<span class="keyword">)</span>
+      <span class="keyword">val</span> ofs <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_begpos_toff <span class="keyword">(</span>loc<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_lint <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> ofs<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> "\"&gt;"<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_DYNCSTIMP_FONT_BEG<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_DYNCSTIMP_FONT_END<span class="keyword">)</span><span class="keyword">;</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> "&lt;/a&gt;"<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [PMdyncstimp]
+</span>  <span class="keyword">|</span> PMdyncstuse <span class="keyword">(</span>i<span class="keyword">,</span> loc<span class="comment">(*dec*)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">if</span> i <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> "&lt;a href=\""<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint_stadyncstpos <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> name<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> fil <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_get_filename loc
+        <span class="keyword">val</span> name <span class="keyword">=</span> $Fil<span class="keyword">.</span>filename_full <span class="keyword">(</span>fil<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> "#"<span class="keyword">)</span> 
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_lint <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> ofs<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> ofs <span class="keyword">=</span> $Loc<span class="keyword">.</span>location_begpos_toff <span class="keyword">(</span>loc<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> "\"&gt;"<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_DYNCSTUSE_FONT_BEG<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> HTM_DYNCSTUSE_FONT_END<span class="keyword">)</span><span class="keyword">;</span>
+      fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> fil_d<span class="keyword">,</span> "&lt;/a&gt;"<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [PMdyncstuse]
+</span><span class="keyword">end</span> <span class="comment">// end of [posmark_process_htm]
+</span>
+<span class="keyword">fn</span> fputchr_htm
+  <span class="keyword">(</span>c<span class="keyword">:</span> <span class="staexp">char</span><span class="keyword">,</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>FILE w</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">pf_mod <span class="keyword">=</span> file_mode_lte_w_w</span> <span class="keyword">in</span> <span class="keyword">case+</span> c <span class="keyword">of</span>
+  <span class="keyword">|</span> '&lt;' <span class="keyword">=&gt;</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> out<span class="keyword">,</span> "&amp;lt;"<span class="keyword">)</span>
+  <span class="keyword">|</span> '&gt;' <span class="keyword">=&gt;</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> out<span class="keyword">,</span> "&amp;gt;"<span class="keyword">)</span>
+  <span class="keyword">|</span> '&amp;' <span class="keyword">=&gt;</span> fprint1_string <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> out<span class="keyword">,</span> "&amp;amp;"<span class="keyword">)</span>
+  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> fputc_exn <span class="keyword">(</span><span class="prfexp">pf_mod</span> <span class="keyword">|</span> c<span class="keyword">,</span> out<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [fputchr_htm]
+</span>
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="22188"><span class="dyncstdec">posmark_htmlfilename_make <span class="keyword">(</span>basename<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">string</span></span></a>
+  <span class="keyword">=</span> "posmark_htmlfilename_make"
+
+<span class="keyword">implement</span> posmark_file_make_htm <span class="keyword">(</span>in_name<span class="keyword">,</span> out_name<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> file_mode_r <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span><span class="staexp">file_mode r</span><span class="keyword">,</span> "\"r\""<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_in</span> <span class="keyword">|</span> p_in<span class="keyword">)</span> <span class="keyword">=</span> fopen_exn <span class="keyword">(</span>in_name<span class="keyword">,</span> file_mode_r<span class="keyword">)</span>
+  <span class="keyword">val</span> file_mode_w <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span><span class="staexp">file_mode w</span><span class="keyword">,</span> "\"w\""<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> stropt_is_some out_name <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> out_name <span class="keyword">=</span> stropt_unsome <span class="keyword">(</span>out_name<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_out</span> <span class="keyword">|</span> p_out<span class="keyword">)</span> <span class="keyword">=</span> fopen_exn <span class="keyword">(</span>out_name<span class="keyword">,</span> file_mode_w<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> posmark_file_file <span class="keyword">(</span>posmark_process_htm<span class="keyword">,</span> fputchr_htm<span class="keyword">,</span> <span class="keyword">!</span>p_in<span class="keyword">,</span> <span class="keyword">!</span>p_out<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    fclose_exn <span class="keyword">(</span><span class="prfexp">pf_out</span> <span class="keyword">|</span> p_out<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_out</span> <span class="keyword">|</span> p_out<span class="keyword">)</span> <span class="keyword">=</span> stdout_get <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> posmark_file_file <span class="keyword">(</span>posmark_process_htm<span class="keyword">,</span> fputchr_htm<span class="keyword">,</span> <span class="keyword">!</span>p_in<span class="keyword">,</span> <span class="keyword">!</span>p_out<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    stdout_view_set <span class="keyword">(</span><span class="prfexp">pf_out</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+  <span class="keyword">end</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fclose_exn <span class="keyword">(</span><span class="prfexp">pf_in</span> <span class="keyword">|</span> p_in<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [posmark_file_make_htm]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_charlst.sats"</span>
+
+<span class="keyword">fn</span> char_of_xdigit <span class="keyword">(</span>i<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">char</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> i <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">if</span> i &gt;= 10 <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> a <span class="keyword">=</span> int_of_char 'a' <span class="keyword">in</span> int_of_char 'a' + i - 10
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+    int_of_char '0' + i
+  <span class="keyword">end</span><span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">int</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  char_of_int <span class="keyword">(</span>i<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [char_of_xdigit]
+</span>
+<span class="keyword">fun</span> posmark_xref_testnot
+  <span class="keyword">(</span>flag<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> name<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">Stropt</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> loop <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i &lt;= n<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">.&lt;</span>n-i<span class="keyword">&gt;.</span></span>
+    <span class="keyword">(</span>name<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp">size_t i</span><span class="keyword">,</span> cs<span class="keyword">:</span> <span class="staexp">Charlst_vt</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">Charlst_vt</span> <span class="keyword">=</span>
+    <span class="keyword">if</span> string_isnot_at_end <span class="keyword">(</span>name<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> c <span class="keyword">=</span> name[<span class="prfexp">i</span><span class="keyword">]</span>
+      <span class="keyword">val</span> cs <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> c <span class="keyword">of</span>
+        <span class="keyword">|</span> _ <span class="keyword">when</span> char_isalnum c <span class="keyword">=&gt;</span> CHARLSTcons <span class="keyword">(</span>c<span class="keyword">,</span> cs<span class="keyword">)</span>
+        <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+            <span class="keyword">val</span> cs <span class="keyword">=</span> CHARLSTcons <span class="keyword">(</span>'_'<span class="keyword">,</span> cs<span class="keyword">)</span>
+            <span class="keyword">val</span> i <span class="keyword">=</span> int_of_char <span class="keyword">(</span>c<span class="keyword">)</span>
+            <span class="keyword">val</span> i1 <span class="keyword">=</span> i / 16 <span class="keyword">and</span> i2 <span class="keyword">=</span> i mod 16
+            <span class="keyword">val</span> c1 <span class="keyword">=</span> char_of_xdigit i1 <span class="keyword">and</span> c2 <span class="keyword">=</span> char_of_xdigit i2
+          <span class="keyword">in</span>
+            CHARLSTcons <span class="keyword">(</span>c2<span class="keyword">,</span> CHARLSTcons <span class="keyword">(</span>c1<span class="keyword">,</span> cs<span class="keyword">)</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [_]
+</span>      <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">Charlst_vt</span>
+    <span class="keyword">in</span>
+      loop <span class="keyword">(</span>name<span class="keyword">,</span> i+1<span class="keyword">,</span> cs<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      charlst_add_string <span class="keyword">(</span>cs<span class="keyword">,</span> ".html"<span class="keyword">)</span> <span class="comment">// loop returns
+</span>    <span class="keyword">end</span> <span class="comment">(* end of [if] *)</span>
+  <span class="keyword">val</span> flag <span class="keyword">=</span> string1_of_string <span class="keyword">(</span>flag<span class="keyword">)</span>
+  <span class="keyword">val</span> cs <span class="keyword">=</span> charlst_add_string <span class="keyword">(</span>CHARLSTnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> flag<span class="keyword">)</span> <span class="comment">// [flag] ends with [dirsep]
+</span>  <span class="keyword">val</span> name <span class="keyword">=</span> string1_of_string <span class="keyword">(</span>name<span class="keyword">)</span>
+  <span class="keyword">val</span> cs <span class="keyword">=</span> loop <span class="keyword">(</span>name<span class="keyword">,</span> 0<span class="keyword">,</span> cs<span class="keyword">)</span>
+  <span class="keyword">val</span> name1 <span class="keyword">=</span> string_make_charlst_rev <span class="keyword">(</span>cs<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> test_file_exists <span class="keyword">(</span>name1<span class="keyword">)</span> <span class="keyword">then</span> stropt_none <span class="keyword">else</span> stropt_some <span class="keyword">(</span>name1<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [posmark_xref_testnot]
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="24499"><span class="dyncstdec">posmark_xref_flag_get <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">Stropt</span></span></a> <span class="keyword">=</span> "ats_posmark_xref_flag_get"
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> posmark_xref_testnot_if <span class="keyword">(</span>name<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> flag <span class="keyword">=</span> posmark_xref_flag_get <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> stropt_is_some flag <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> flag <span class="keyword">=</span> stropt_unsome <span class="keyword">(</span>flag<span class="keyword">)</span> <span class="keyword">in</span> posmark_xref_testnot <span class="keyword">(</span>flag<span class="keyword">,</span> name<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> stropt_none
+<span class="keyword">end</span> <span class="comment">// end of [posmark_xref_testnot_if]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> ats_posmark_initialize <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">extern</span> <span class="keyword">fun</span> <a name="24943"><span class="dyncstdec">ats_posmark_initialize <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span></span></a> <span class="keyword">=</span> "ats_posmark_initialize"
+<span class="keyword">}</span> <span class="comment">// end of [val]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{$
+
+ats_ptr_type
+posmark_htmlfilename_make (ats_ptr_type basename) {
+  int n ; char c, *s ;
+  n = strlen((char *)basename) ;
+  s = (char*)ATS_MALLOC (n+6) ;
+  s[n+5] = '\000' ;
+  s[n+4] = 'l'; s[n+3] = 'm' ; s[n+2] = 't' ; s[n+1] = 'h' ;
+  s[n] = '.' ; --n ;
+  while (n &gt;= 0) {
+    c = ((char *)basename)[n] ;
+    if (c == '.') { s[n] = '_' ; --n ; break ; }
+    s[n] = c ; --n ;
+  }
+  while (n &gt;= 0) { s[n] = ((char *)basename)[n] ; --n ; }
+  return s ;
+} /* posmark_htmlfilename_make */
+
+/* ****** ****** */
+
+static char* the_ats_posmark_xref_flag = 0 ;
+
+ats_ptr_type
+ats_posmark_xref_flag_get () { return the_ats_posmark_xref_flag ; }
+
+ats_void_type
+ats_posmark_xref_flag_set
+  (ats_ptr_type flag) {
+  the_ats_posmark_xref_flag = flag ; return ;
+} // end of [ats_posmark_xref_flag_set]
+
+ats_void_type
+ats_posmark_initialize () {
+  ATS_GC_MARKROOT (&amp;the_ats_posmark_xref_flag, sizeof(ats_ptr_type)) ;
+  return ;
+} // end of [ats_posmark_initialize]
+
+%}</span> <span class="comment">// end of [%{$]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_posmark.dats] *)</span>
+</pre>
+</body>
+</html>

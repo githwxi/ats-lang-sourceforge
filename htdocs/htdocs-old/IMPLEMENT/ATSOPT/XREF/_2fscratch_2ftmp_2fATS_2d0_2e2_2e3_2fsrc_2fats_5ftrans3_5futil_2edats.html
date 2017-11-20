@@ -1,0 +1,372 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: December 2007
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* Mainly for handling dynamic expressions during type-checking *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Err <span class="keyword">=</span> "ats_error.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Loc <span class="keyword">=</span> "ats_location.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Lst <span class="keyword">=</span> "ats_list.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Syn <span class="keyword">=</span> "ats_syntax.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp2.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_stadyncst2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_patcst2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp3.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_trans3_env.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_trans3.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">nil list_nil</span>
+<span class="keyword">#define</span> <span class="neuexp">cons list_cons</span>
+<span class="keyword">#define</span> <span class="neuexp">:: list_cons</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">THISFILENAME "ats_trans3_util.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">val</span> "FLOATKINDfloat" <span class="keyword">=</span> $Syn<span class="keyword">.</span>FLOATKINDfloat <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">extern</span> <span class="keyword">val</span> "FLOATKINDdouble" <span class="keyword">=</span> $Syn<span class="keyword">.</span>FLOATKINDdouble <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">extern</span> <span class="keyword">val</span> "FLOATKINDdouble_long" <span class="keyword">=</span> $Syn<span class="keyword">.</span>FLOATKINDdouble_long <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">extern</span> <span class="keyword">val</span> "FLOATKINDnone" <span class="keyword">=</span> $Syn<span class="keyword">.</span>FLOATKINDnone <span class="keyword">(</span><span class="keyword">)</span>
+
+<span class="keyword">extern</span> <span class="keyword">val</span> "INTKINDint" <span class="keyword">=</span> $Syn<span class="keyword">.</span>INTKINDint <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">extern</span> <span class="keyword">val</span> "INTKINDuint" <span class="keyword">=</span> $Syn<span class="keyword">.</span>INTKINDuint <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">extern</span> <span class="keyword">val</span> "INTKINDlint" <span class="keyword">=</span> $Syn<span class="keyword">.</span>INTKINDlint <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">extern</span> <span class="keyword">val</span> "INTKINDulint" <span class="keyword">=</span> $Syn<span class="keyword">.</span>INTKINDulint <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">extern</span> <span class="keyword">val</span> "INTKINDllint" <span class="keyword">=</span> $Syn<span class="keyword">.</span>INTKINDllint <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">extern</span> <span class="keyword">val</span> "INTKINDullint" <span class="keyword">=</span> $Syn<span class="keyword">.</span>INTKINDullint <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">extern</span> <span class="keyword">val</span> "INTKINDnone" <span class="keyword">=</span> $Syn<span class="keyword">.</span>INTKINDnone <span class="keyword">(</span><span class="keyword">)</span>
+
+<span class="extern">%{$
+
+ats_ptr_type
+ats_trans3_floatkind_eval (ats_ptr_type s0) {
+  char *s ;
+
+  s = s0 ; while (*s) { ++s ; } ; --s ;
+  switch (*s) {
+    case 'f': case 'F': return FLOATKINDfloat ;
+    case 'd': case 'D': return FLOATKINDdouble ;
+    case 'l': case 'L': return FLOATKINDdouble_long ;
+    default : ;
+  }
+  return FLOATKINDnone ;
+} // end of [ats_trans3_floatkind_eval]
+
+ats_ptr_type
+ats_trans3_intkind_eval
+  (ats_ptr_type s0) {
+  char c, *s ; int nL, nU ;
+  s = s0 ; nL = 0 ; nU = 0 ;
+  while (c = *s) {
+    s += 1 ; switch (c) {
+      case 'l': case 'L': ++nL ; break ;
+      case 'u': case 'U': ++nU ; break ;
+      default : break ;
+    } // end of [switch]
+  } /* end of [while] */
+//
+  if (nL == 0) {
+    if (nU == 0) return INTKINDint ; /* deadcode */
+    if (nU == 1) return INTKINDuint ; /* unsigned */
+  } // end of [if]
+//
+  if (nL == 1) {
+    if (nU == 0) return INTKINDlint ; /* long */
+    if (nU == 1) return INTKINDulint ; /* unsigned long */
+  } // end of [if]
+//
+  if (nL == 2) {
+    if (nU == 0) return INTKINDllint ; /* long long */
+    if (nU == 1) return INTKINDullint ; /* unsigned long long */
+  } // end of [if]
+//
+  return INTKINDnone ;
+} // end of [ats_trans3_intkind_eval]
+
+%}</span> <span class="comment">// end of [%{$]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> prerr_loc_error3
+  <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp">loc_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">(</span>
+  $Loc<span class="keyword">.</span>prerr_location loc<span class="keyword">;</span> prerr ": error(3)"
+<span class="keyword">)</span> <span class="comment">// end of [prerr_loc_error3]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// typedef funclo =  $Syn.funclo // declared in [ats_trans3.sats]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+d2exp_funclo_of_d2exp <span class="keyword">(</span>d2e0<span class="keyword">,</span> fc0<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> <span class="keyword">:</span><span class="keyword">(</span>fc0<span class="keyword">:</span> funclo<span class="keyword">)</span> <span class="keyword">=&gt;</span> d2e0<span class="keyword">.</span>d2exp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> D2Eann_funclo <span class="keyword">(</span>d2e<span class="keyword">,</span> fc<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>fc0 := fc<span class="keyword">;</span> d2e<span class="keyword">)</span> <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> d2e0
+<span class="comment">// end of [d2exp_funclo_of_d2exp]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+d2exp_s2eff_of_d2exp
+  <span class="keyword">(</span>d2e0<span class="keyword">,</span> s2fe0<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> <span class="keyword">:</span><span class="keyword">(</span>s2fe0<span class="keyword">:</span> s2eff<span class="keyword">)</span> <span class="keyword">=&gt;</span> d2e0<span class="keyword">.</span>d2exp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> D2Eann_seff <span class="keyword">(</span>d2e<span class="keyword">,</span> s2fe<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span>s2fe0 := s2fe<span class="keyword">;</span> d2e<span class="keyword">)</span>
+  <span class="keyword">|</span> D2Elam_dyn _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>s2fe0 := S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span> d2e0<span class="keyword">)</span>
+  <span class="keyword">|</span> D2Elaminit_dyn _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>s2fe0 := S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span> d2e0<span class="keyword">)</span>
+  <span class="keyword">|</span> D2Elam_sta _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>s2fe0 := S2EFFnil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span> d2e0<span class="keyword">)</span>
+  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>s2fe0 := S2EFFall <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span> d2e0<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2exp_s2eff_of_d2exp]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> s2eff_of_d2exp
+  <span class="keyword">(</span>d2e0<span class="keyword">:</span> <span class="staexp">d2exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2eff</span> <span class="keyword">=</span>
+  <span class="keyword">case+</span> d2e0<span class="keyword">.</span>d2exp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> D2Eann_seff <span class="keyword">(</span>_<span class="keyword">,</span> s2fe<span class="keyword">)</span> <span class="keyword">=&gt;</span> s2fe
+  <span class="keyword">|</span> D2Elam_dyn _ <span class="keyword">=&gt;</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> D2Elaminit_dyn _ <span class="keyword">=&gt;</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> D2Elam_sta _ <span class="keyword">=&gt;</span> S2EFFnil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> S2EFFall <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [s2eff_of_d2exp]
+</span>
+<span class="keyword">fn</span> d2exp_arg_body_typ_syn <span class="keyword">(</span>
+    d2e0<span class="keyword">:</span> <span class="staexp">d2exp</span>
+  <span class="keyword">,</span> fc0<span class="keyword">:</span> <span class="staexp">$Syn<span class="keyword">.</span>funclo</span>
+  <span class="keyword">,</span> lin<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> npf<span class="keyword">:</span> <span class="staexp">int</span>
+  <span class="keyword">,</span> p2ts_arg<span class="keyword">:</span> <span class="staexp">p2atlst</span><span class="keyword">,</span> d2e_body<span class="keyword">:</span> <span class="staexp">d2exp</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">s2exp</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "d2exp_arg_body_typ_syn: d2e_body = "; print d2e_body;
+    print_newline ()
+  end // end of [val]
+*)</span>
+  <span class="keyword">val</span> loc0 <span class="keyword">=</span> d2e0<span class="keyword">.</span>d2exp_loc
+  <span class="keyword">var</span> fc<span class="keyword">:</span> <span class="staexp">$Syn<span class="keyword">.</span>funclo</span> <span class="keyword">=</span> fc0
+  <span class="keyword">val</span> s2es_arg <span class="keyword">=</span> p2atlst_typ_syn p2ts_arg
+  <span class="keyword">val</span> s2e_res <span class="keyword">=</span> d2exp_typ_syn <span class="keyword">(</span>d2e_body<span class="keyword">)</span>
+  <span class="keyword">val</span> d2e_body <span class="keyword">=</span> d2exp_funclo_of_d2exp <span class="keyword">(</span>d2e_body<span class="keyword">,</span> fc<span class="keyword">)</span>
+  <span class="keyword">val</span> s2fe <span class="keyword">=</span> s2eff_of_d2exp d2e_body
+  <span class="keyword">val</span> isprf <span class="keyword">=</span> s2exp_is_proof s2e_res
+  <span class="keyword">val</span> islin <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">if</span> lin <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> true <span class="keyword">else</span> false<span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">bool</span>
+  <span class="keyword">val</span> s2t_fun<span class="keyword">:</span> <span class="staexp">s2rt</span> <span class="keyword">=</span> s2rt_prf_lin_fc <span class="keyword">(</span>loc0<span class="keyword">,</span> isprf<span class="keyword">,</span> islin<span class="keyword">,</span> fc<span class="keyword">)</span>
+  <span class="keyword">val</span> s2e_fun <span class="keyword">=</span> s2exp_fun_srt
+    <span class="keyword">(</span>s2t_fun<span class="keyword">,</span> fc<span class="keyword">,</span> lin<span class="keyword">,</span> s2fe<span class="keyword">,</span> npf<span class="keyword">,</span> s2es_arg<span class="keyword">,</span> s2e_res<span class="keyword">)</span>
+  <span class="comment">// end of [val]
+</span><span class="comment">(*
+  val () = begin
+    print "d2exp_arg_body_typ_syn: s2e_fun = "; print s2e_fun;
+    print_newline ()
+  end // end of [val]
+*)</span>
+<span class="keyword">in</span>
+  s2e_fun
+<span class="keyword">end</span> <span class="comment">// end of [d2exp_arg_body_typ_syn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+d2exp_cstsp_typ_syn
+  <span class="keyword">(</span>cst<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> cst <span class="keyword">of</span>
+  <span class="keyword">|</span> $Syn<span class="keyword">.</span>CSTSPfilename <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2exp_string_type <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> $Syn<span class="keyword">.</span>CSTSPlocation <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2exp_string_type <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [d2exp_cstsp_typ_syn]
+</span>
+<span class="keyword">implement</span>
+d2exp_seq_typ_syn <span class="keyword">(</span>d2es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux <span class="keyword">(</span>d2e<span class="keyword">:</span> <span class="staexp">d2exp</span><span class="keyword">,</span> d2es<span class="keyword">:</span> <span class="staexp">d2explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2exp</span> <span class="keyword">=</span> <span class="keyword">case+</span> d2es <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>d2e<span class="keyword">,</span> d2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> aux <span class="keyword">(</span>d2e<span class="keyword">,</span> d2es<span class="keyword">)</span> <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> d2exp_typ_syn d2e
+  <span class="comment">// end of [aux]
+</span><span class="keyword">in</span>
+  <span class="keyword">case+</span> d2es <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>d2e<span class="keyword">,</span> d2es<span class="keyword">)</span> <span class="keyword">=&gt;</span> aux <span class="keyword">(</span>d2e<span class="keyword">,</span> d2es<span class="keyword">)</span> <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2exp_void_t0ype <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2exp_seq_typ_syn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+d2exp_typ_syn <span class="keyword">(</span>d2e0<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> d2e0<span class="keyword">.</span>d2exp_node <span class="keyword">of</span>
+  <span class="keyword">|</span> D2Eann_type <span class="keyword">(</span>_<span class="keyword">,</span> s2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> s2e
+  <span class="keyword">|</span> D2Eann_seff <span class="keyword">(</span>d2e<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> d2exp_typ_syn <span class="keyword">(</span>d2e<span class="keyword">)</span>
+  <span class="keyword">|</span> D2Eann_funclo <span class="keyword">(</span>d2e<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> d2exp_typ_syn <span class="keyword">(</span>d2e<span class="keyword">)</span>
+  <span class="keyword">|</span> D2Eassgn _ <span class="keyword">=&gt;</span> s2exp_void_t0ype <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> D2Echar _ <span class="keyword">=&gt;</span> s2exp_char_t0ype <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> D2Ecst d2c <span class="keyword">=&gt;</span> d2cst_typ_get d2c
+  <span class="keyword">|</span> D2Ecstsp cst <span class="keyword">=&gt;</span> d2exp_cstsp_typ_syn <span class="keyword">(</span>cst<span class="keyword">)</span>
+  <span class="keyword">|</span> D2Eeffmask <span class="keyword">(</span>_<span class="keyword">,</span> d2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> d2exp_typ_syn <span class="keyword">(</span>d2e<span class="keyword">)</span>
+  <span class="keyword">|</span> D2Eempty <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2exp_void_t0ype <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> D2Efix <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">,</span> d2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> d2exp_typ_syn <span class="keyword">(</span>d2e<span class="keyword">)</span>
+  <span class="keyword">|</span> D2Efloat _ <span class="keyword">=&gt;</span> s2exp_double_t0ype <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> D2Efor _ <span class="keyword">=&gt;</span> s2exp_void_t0ype <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> D2Eint _ <span class="keyword">=&gt;</span> s2exp_int_t0ype <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> D2Elam_dyn <span class="keyword">(</span>lin<span class="keyword">,</span> npf<span class="keyword">,</span> p2ts_arg<span class="keyword">,</span> d2e_body<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> fc0<span class="keyword">:</span> <span class="staexp">funclo</span> <span class="keyword">=</span> $Syn<span class="keyword">.</span>FUNCLOfun <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// default
+</span>    <span class="keyword">in</span>
+      d2exp_arg_body_typ_syn <span class="keyword">(</span>d2e0<span class="keyword">,</span> fc0<span class="keyword">,</span> lin<span class="keyword">,</span> npf<span class="keyword">,</span> p2ts_arg<span class="keyword">,</span> d2e_body<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D2Elam_dyn]
+</span>  <span class="keyword">|</span> D2Elaminit_dyn <span class="keyword">(</span>lin<span class="keyword">,</span> npf<span class="keyword">,</span> p2ts_arg<span class="keyword">,</span> d2e_body<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> fc<span class="keyword">:</span> <span class="staexp">funclo</span> <span class="keyword">=</span> $Syn<span class="keyword">.</span>FUNCLOclo 0<span class="comment">(*unboxed*)</span> <span class="comment">// default
+</span>    <span class="keyword">in</span>
+      d2exp_arg_body_typ_syn <span class="keyword">(</span>d2e0<span class="keyword">,</span> fc<span class="keyword">,</span> lin<span class="keyword">,</span> npf<span class="keyword">,</span> p2ts_arg<span class="keyword">,</span> d2e_body<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D2Elaminit_dyn]
+</span>  <span class="keyword">|</span> D2Elam_met <span class="keyword">(</span>r_d2vs<span class="keyword">,</span> s2es_met<span class="keyword">,</span> d2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> <span class="keyword">!</span>r_d2vs <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        s2exp_metfn <span class="keyword">(</span>None <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> s2es_met<span class="keyword">,</span> d2exp_typ_syn d2e<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        prerr_loc_error3 d2e0<span class="keyword">.</span>d2exp_loc<span class="keyword">;</span>
+        prerr ": illegal use of termination metric."<span class="keyword">;</span>
+        prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+        $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>s2exp<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">(* end of [list_nil] *)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D2Elam_met]
+</span>  <span class="keyword">|</span> D2Elam_sta <span class="keyword">(</span>s2vs<span class="keyword">,</span> s2ps<span class="keyword">,</span> d2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      s2exp_uni <span class="keyword">(</span>s2vs<span class="keyword">,</span> s2ps<span class="keyword">,</span> d2exp_typ_syn d2e<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D2Elam_sta]
+</span>  <span class="keyword">|</span> D2Elet <span class="keyword">(</span>_<span class="keyword">,</span> d2e<span class="keyword">)</span> <span class="keyword">=&gt;</span> d2exp_typ_syn <span class="keyword">(</span>d2e<span class="keyword">)</span>
+  <span class="keyword">|</span> D2Estring <span class="keyword">(</span>_<span class="comment">(*str*)</span><span class="keyword">,</span> _<span class="comment">(*len*)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> s2exp_string_type <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> D2Ewhere <span class="keyword">(</span>d2e<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> d2exp_typ_syn <span class="keyword">(</span>d2e<span class="keyword">)</span>
+  <span class="keyword">|</span> D2Ewhile _ <span class="keyword">=&gt;</span> s2exp_void_t0ype <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> s2e <span class="keyword">where</span> <span class="keyword">{</span>
+      <span class="keyword">val</span> s2e <span class="keyword">=</span> s2exp_Var_make_srt <span class="keyword">(</span>d2e0<span class="keyword">.</span>d2exp_loc<span class="keyword">,</span> s2rt_t0ype<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> d2exp_typ_set <span class="keyword">(</span>d2e0<span class="keyword">,</span> Some s2e<span class="keyword">)</span>
+    <span class="keyword">}</span> <span class="comment">// end of [_]
+</span><span class="keyword">end</span> <span class="comment">// end of [d2exp_typ_syn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+d3exp_open_and_add <span class="keyword">(</span>d3e<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2e <span class="keyword">=</span> s2exp_opnexi_and_add <span class="keyword">(</span>d3e<span class="keyword">.</span>d3exp_loc<span class="keyword">,</span> d3e<span class="keyword">.</span>d3exp_typ<span class="keyword">)</span>
+<span class="keyword">in</span>
+  d3exp_typ_set <span class="keyword">(</span>d3e<span class="keyword">,</span> s2e<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d3exp_open_and_add]
+</span>
+<span class="keyword">implement</span>
+d3explst_open_and_add
+  <span class="keyword">(</span>d3es<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">case+</span> d3es <span class="keyword">of</span>
+  <span class="keyword">|</span> list_cons <span class="keyword">(</span>d3e<span class="keyword">,</span> d3es<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      d3exp_open_and_add d3e<span class="keyword">;</span> d3explst_open_and_add d3es 
+    <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>  <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">// end of [d3explst_open_and_add]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> d3exp_ind_get
+  <span class="keyword">(</span>d3e<span class="keyword">:</span> <span class="staexp">d3exp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2exp</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> d3exp_open_and_add <span class="keyword">(</span>d3e<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> s2e <span class="keyword">=</span> d3e<span class="keyword">.</span>d3exp_typ <span class="comment">// HX: WHNF
+</span>  <span class="keyword">val</span> os2i <span class="keyword">=</span> un_s2exp_int_int_t0ype <span class="keyword">(</span>s2e<span class="keyword">)</span>
+  <span class="keyword">val</span> os2i <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> os2i <span class="keyword">of</span>
+    <span class="keyword">|</span> Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>fold@ os2i<span class="keyword">;</span> os2i<span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> un_s2exp_size_int_t0ype <span class="keyword">(</span>s2e<span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">s2expopt_vt</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="keyword">case+</span> os2i <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>Some_vt s2i <span class="keyword">=&gt;</span> s2i
+  <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      $Loc<span class="keyword">.</span>prerr_location d3e<span class="keyword">.</span>d3exp_loc<span class="keyword">;</span>
+      prerr ": error(3)"<span class="keyword">;</span>
+      prerr ": the array index is assigned the type ["<span class="keyword">;</span>
+      prerr_s2exp s2e<span class="keyword">;</span>
+      prerr "], which is not an indexed integer type."<span class="keyword">;</span>
+      prerr_newline <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      $Err<span class="keyword">.</span>abort <span class="staexp"><span class="keyword">{</span>s2exp<span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span><span class="keyword">end</span> <span class="comment">// end of [d3exp_ind_get]
+</span>
+<span class="keyword">fn</span> d3explst_ind_get
+  <span class="keyword">(</span>d3es<span class="keyword">:</span> <span class="staexp">d3explst</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">s2explst</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_map_fun <span class="keyword">(</span>d3es<span class="keyword">,</span> d3exp_ind_get<span class="keyword">)</span>
+<span class="comment">// end of [d3explst_ind_get]
+</span>
+<span class="keyword">implement</span>
+d3explstlst_ind_get <span class="keyword">(</span>d3ess<span class="keyword">)</span> <span class="keyword">=</span>
+  $Lst<span class="keyword">.</span>list_map_fun <span class="keyword">(</span>d3ess<span class="keyword">,</span> d3explst_ind_get<span class="keyword">)</span>
+<span class="comment">// end of [d3explstlst_ind_get]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_trans3_util.dats] *)</span>
+</pre>
+</body>
+</html>

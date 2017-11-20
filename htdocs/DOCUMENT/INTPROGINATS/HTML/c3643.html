@@ -1,0 +1,338 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>Dataviewtypes as Linear Datatypes</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+TITLE="Introduction to Programming in ATS"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Linear Types for Programming"
+HREF="p3216.html"><LINK
+REL="PREVIOUS"
+TITLE="Example: Quicksort"
+HREF="x3605.html"><LINK
+REL="NEXT"
+TITLE="Linear Lists"
+HREF="x3673.html"></HEAD
+><BODY
+CLASS="chapter"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>Introduction to Programming in ATS: </TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="x3605.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="x3673.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="chapter"
+><H1
+><A
+NAME="dataviewtypes"
+></A
+>Dataviewtypes as Linear Datatypes</H1
+><P
+>&#13;A dataviewtype can be thought of as a linear version of datatype. To a
+large extent, it is a combination of a datatype and a dataview. This
+programming feature is primarily introduced into ATS for the purpose of
+providing the kind convenience of pattern matching associated with
+datatypes while incurring no need for run-time garbage collection (GC). In
+a situation where GC must be reduced or even completely eliminated,
+dataviewtypes can often chosen as a replacement for datatypes.  I now
+present in this chapter some commonly encountered dataviewtypes and their
+uses.
+
+</P
+><DIV
+CLASS="sect1"
+><H1
+CLASS="sect1"
+><A
+NAME="linear_optional_values"
+>Linear Optional Values</A
+></H1
+><P
+>&#13;When an optional value is created, it is most likely to be used immediately
+and then discarded. If such a value is assigned a linear type, then the
+memory allocated for storing it can be efficiently reclaimed.  The
+dataviewtype <FONT
+COLOR="RED"
+>option_vt</FONT
+> for linear optional values is declared as
+follows:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3650"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>dataviewtye
+option_vt (a:t@ype+, bool) =
+  | Some_vt (a, true) of a | None_vt (a, false) of ()
+// end of [option_vt]
+
+viewtypedef
+Option_vt (a:t@ype) = [b:bool] option_vt (a, b)
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;By the declaration, the dataviewtype <FONT
+COLOR="RED"
+>option_vt</FONT
+> is covariant in its
+first argument and there are two data constructors <FONT
+COLOR="RED"
+>Some_vt</FONT
+> and
+<FONT
+COLOR="RED"
+>None_vt</FONT
+> associated with it. In the following example,
+<FONT
+COLOR="RED"
+>find_rightmost</FONT
+> tries to find the rightmost element in a list that
+satisfies a given predicate:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3657"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun{a:t@ype}
+find_rightmost {n:nat} .&#60;n&#62;.
+  (xs: list (a, n), P: (a) -&#60;cloref&#62; bool): Option_vt (a) =
+  case+ xs of
+  | list_cons (x, xs) =&#62; let
+      val opt = find_rightmost (xs, P)
+    in
+      case opt of
+      | ~None_vt () =&#62; if P (x) then Some_vt (x) else None_vt ()
+      | _ =&#62; opt
+    end // end of [list_cons]
+  | list_nil () =&#62; None_vt ()
+// end of [find_rightmost]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;Note that the tilde symbol (<FONT
+COLOR="RED"
+>~</FONT
+>) in front of the pattern
+<FONT
+COLOR="RED"
+>None_vt()</FONT
+> indicates that the memory for the node that matches the
+pattern is freed before the body of the matched clause is evaluated.  In
+this case, no memory is actually freed as <FONT
+COLOR="RED"
+>None_vt</FONT
+> is mapped to the
+null pointer.  I will soon give more detailed explanation about freeing
+memory allocated for constructors associated with dataviewtypes.
+
+</P
+><P
+>&#13;As another example, the following function template <FONT
+COLOR="RED"
+>list_optcons</FONT
+>
+tries to construct a new list with its head element extracted from a given
+optional value:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3665"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fn{a:t@ype}
+list_optcons {b:bool} {n:nat} (
+  opt: option_vt (a, b), xs: list (a, n)
+) : list (a, n+int_of_bool(b)) =
+  case+ opt of
+  | ~Some_vt (x) =&#62; list_cons (x, xs) | ~None_vt () =&#62; xs
+// end of [list_optcons]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;The symbol <FONT
+COLOR="RED"
+>int_of_bool</FONT
+> stands for a built-in static function in
+ATS that maps <FONT
+COLOR="RED"
+>true</FONT
+> and <FONT
+COLOR="RED"
+>false</FONT
+> to 1 and 0,
+respectively. What is special here is that the first argument of
+<FONT
+COLOR="RED"
+>list_optcons</FONT
+>, which is linear, is consumed after a call to
+<FONT
+COLOR="RED"
+>list_optcons</FONT
+> returns and the memory it occupies is reclaimed.
+
+</P
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="x3605.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="x3673.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Example: Quicksort</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="p3216.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Linear Lists</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

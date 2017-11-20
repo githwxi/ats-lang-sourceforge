@@ -1,0 +1,78 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: October, 2010
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// book: AUP (2nd edition), pages 535 - 537
+</span><span class="comment">// section 8.2.3: AF_INET Socket Addresses
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/fcntl.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/unistd.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/socket.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/sockaddr.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/netinet/SATS/in.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/socket_in.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/arpa/SATS/inet.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">REQUEST "GET / HTTP/1.0\r\n\r\n"</span>
+
+<span class="keyword">implement</span>
+main <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+<span class="comment">//
+</span>  <span class="keyword">var</span> sa<span class="keyword">:</span> <span class="staexp">sockaddr_in</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> sa<span class="keyword">.</span>sin_family := AF_INET
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> sa<span class="keyword">.</span>sin_port := in_port_nbo_of_int <span class="keyword">(</span>80<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> sa<span class="keyword">.</span>sin_addr<span class="keyword">.</span>s_addr := inet_addr <span class="keyword">(</span>"209.191.122.70"<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pfskt</span> <span class="keyword">|</span> fd<span class="keyword">)</span> <span class="keyword">=</span> socket_family_type_exn <span class="keyword">(</span>AF_INET<span class="keyword">,</span> SOCK_STREAM<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> connect_in_exn <span class="keyword">(</span><span class="prfexp">pfskt</span>  <span class="keyword">|</span> fd<span class="keyword">,</span> sa<span class="keyword">)</span>
+  <span class="keyword">val</span> len <span class="keyword">=</span> string_length <span class="keyword">(</span>REQUEST<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> socket_write_substring <span class="keyword">(</span><span class="prfexp">pfskt</span> <span class="keyword">|</span> fd<span class="keyword">,</span> REQUEST<span class="keyword">,</span> 0<span class="keyword">,</span> len<span class="keyword">)</span>
+  <span class="keyword">#define</span> <span class="neuexp">BUFSZ 1024</span> <span class="comment">// HX: hopefully, this is large enough
+</span>  <span class="keyword">var</span> <span class="keyword">!</span>p_buf <span class="keyword">with</span> <span class="prfexp">pf_buf</span> <span class="keyword">=</span> <span class="keyword">@[</span><span class="staexp">byte</span><span class="keyword">]</span><span class="keyword">[</span>BUFSZ<span class="keyword">]</span><span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_buf := bytes_v_of_b0ytes_v <span class="keyword">(</span>pf_buf<span class="keyword">)</span></span>
+  <span class="keyword">val</span> nread <span class="keyword">=</span> socket_read_err <span class="keyword">(</span><span class="prfexp">pfskt</span> <span class="keyword">|</span> fd<span class="keyword">,</span> <span class="keyword">!</span>p_buf<span class="keyword">,</span> BUFSZ<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assertloc <span class="keyword">(</span>nread &gt;= 1<span class="keyword">)</span>
+  <span class="keyword">val</span> nread <span class="keyword">=</span> size1_of_ssize1 <span class="keyword">(</span>nread<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pfout</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> stdout_fildes_view_get <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> _err <span class="keyword">=</span> write_err <span class="keyword">(</span><span class="prfexp">pfout</span> <span class="keyword">|</span> STDOUT_FILENO<span class="keyword">,</span> <span class="keyword">!</span>p_buf<span class="keyword">,</span> nread-1<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> stdout_fildes_view_set <span class="keyword">(</span><span class="prfexp">pfout</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> socket_close_exn <span class="keyword">(</span><span class="prfexp">pfskt</span> <span class="keyword">|</span> fd<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [AUP_8_2_3.dats] *)</span>
+</pre>
+</body>
+</html>

@@ -1,0 +1,457 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>Mutual Tail-Recursion</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+TITLE="A Tutorial on Programming Features in ATS"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Basic Tutorial Topics"
+HREF="p34.html"><LINK
+REL="PREVIOUS"
+TITLE="Tail-Recursive Call Optimization"
+HREF="c199.html"><LINK
+REL="NEXT"
+TITLE="Metrics for Termination Verification"
+HREF="c289.html"></HEAD
+><BODY
+CLASS="chapter"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>A Tutorial on Programming Features in ATS: </TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="c199.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="c289.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="chapter"
+><H1
+><A
+NAME="mutailrec"
+></A
+>Mutual Tail-Recursion</H1
+><P
+>&#13;Mutually tail-recursive functions are commonly encountered in practice.
+Assume that <I
+CLASS="emphasis"
+>foo</I
+> and <I
+CLASS="emphasis"
+>bar</I
+> are two mutually defined
+functions. In the body of either <I
+CLASS="emphasis"
+>foo</I
+> or <I
+CLASS="emphasis"
+>bar</I
+>, a tail-call
+to <I
+CLASS="emphasis"
+>foo</I
+> or <I
+CLASS="emphasis"
+>bar</I
+> is referred to as a mutually tail-recursive
+call. If every call to <I
+CLASS="emphasis"
+>foo</I
+> or <I
+CLASS="emphasis"
+>bar</I
+> in the bodies of
+<I
+CLASS="emphasis"
+>foo</I
+> and <I
+CLASS="emphasis"
+>bar</I
+> are tail-call, then <I
+CLASS="emphasis"
+>foo</I
+> and
+<I
+CLASS="emphasis"
+>bar</I
+> are mutually tail-recursive.  Mutual recursion involving more
+functions can be defined similarly.  As an example, the following two
+functions <FONT
+COLOR="RED"
+>isEvn</FONT
+> and <FONT
+COLOR="RED"
+>isOdd</FONT
+> are defined mutually
+recursively:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN262"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun isEvn (n: int): bool = if n &#62; 0 then isOdd (n-1) else true
+and isOdd (n: int): bool = if n &#62; 0 then isEvn (n-1) else false
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+The call to <FONT
+COLOR="RED"
+>isOdd</FONT
+> in the body of <FONT
+COLOR="RED"
+>isEvn</FONT
+> is
+a mutually tail-recursive call, and the call to <FONT
+COLOR="RED"
+>isEvn</FONT
+>
+in the body of <FONT
+COLOR="RED"
+>isOdd</FONT
+> is also a a mutually tail-recursive call.
+Therefore, <FONT
+COLOR="RED"
+>isEvn</FONT
+> and <FONT
+COLOR="RED"
+>isOdd</FONT
+> are mutually tail-recursive.
+</P
+><P
+>&#13;In order to turn mutually recursive tail-calls into jumps, the bodies of
+the involved mutually recursive functions need to be combined. The keyword
+<FONT
+COLOR="RED"
+>fn*</FONT
+> in ATS is introduced precisely for this purpose. For instance,
+let us replace <FONT
+COLOR="RED"
+>fun</FONT
+> with <FONT
+COLOR="RED"
+>fn*</FONT
+> in the code above:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN274"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fn* isEvn (n: int): bool = if n &#62; 0 then isOdd (n-1) else true
+and isOdd (n: int): bool = if n &#62; 0 then isEvn (n-1) else false
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+Then the following C code is essentially what is generated from compiling
+these two mutually defined functions:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN276"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>bool isEvnisOdd (int tag, int n) {
+
+bool res ;
+
+switch (tag) {
+  0: goto isEvn ;
+  1: goto isOdd ;
+  default : exit (1) ;
+}
+
+isEvn: if (n &#62; 0) { n = n - 1; goto isodd; } else { res = true; goto done; }
+isOdd: if (n &#62; 0) { n = n - 1; goto isEvn; } else { res = false; goto done; }
+
+done: return res ;
+
+} /* end of [isEvnisOdd] */
+
+bool isEvn (int n) { return isEvnisOdd (0, n) ; }
+bool isOdd (int n) { return isEvnisOdd (1, n) ; }
+
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+Note that mutually recursive functions can be combined in such a manner
+only if they all have the same return type. In the above case, both
+<FONT
+COLOR="RED"
+>isEvn</FONT
+> and <FONT
+COLOR="RED"
+>isOdd</FONT
+> have the same return type <FONT
+COLOR="RED"
+>bool</FONT
+>.
+
+</P
+><P
+>&#13;When translating C code involving embedded loops, we often encounter the
+need for mutual tail-recursion. For example, the following C code prints
+out some ordered pairs of digits:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN282"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>int main (
+  int argc, char *argv[]
+) {
+  int i, j ;
+  for (i = 0; i &#60;= 9; i += 1) {
+    for (j = i; j &#60;= 9; j += 1) {
+      if (i &#60; j) printf (", ") ; printf ("(%i, %i)", i, j) ;
+    } /* for */
+    printf ("
+") ;
+  } /* for */
+  return 0 ;
+}
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+A straightforward translation of the C code into ATS (in the style of
+functional programming) can be done as follows:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN284"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>implement
+main (argc, argv) = let
+  fn* loop1
+    {i:nat | i &#60;= 10} (i: int i): void =
+    if i &#60;= 9 then loop2 (i, i) else ()
+  // end of [loop1]
+
+  and loop2
+    {i,j:nat | i &#60;= 9; j &#60;= 10} (i: int i, j: int j): void =
+    if j &#60;= 9 then (
+      if i &#60; j then (
+        print ", "; printf ("(%i, %i)", @(i, j)); loop2 (i, j+1)
+      ) // end of [if]
+    ) else (
+      print_newline (); loop1 (i+1)
+    ) // end of [if]
+  // end of [loop2]
+in
+  loop1 (0)
+end // end of [main]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+Evidently, <FONT
+COLOR="RED"
+>loop1</FONT
+> and <FONT
+COLOR="RED"
+>loop2</FONT
+> are defined mutually
+tail-recursively. The use of the keyword <FONT
+COLOR="RED"
+>fn*</FONT
+> ensures that these
+two functions are translated into the equivalent of two loops in C, which
+require only a fixed amount of stack space to run.
+
+</P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="c199.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="c289.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Tail-Recursive Call Optimization</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="p34.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Metrics for Termination Verification</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

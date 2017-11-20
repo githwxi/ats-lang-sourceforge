@@ -1,0 +1,329 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>Cast Functions</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+TITLE="A Tutorial on Programming Features in ATS"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Advanced Tutorial Topics"
+HREF="p721.html"><LINK
+REL="PREVIOUS"
+TITLE="Advanced Tutorial Topics"
+HREF="p721.html"><LINK
+REL="NEXT"
+TITLE="Stack Allocation at Run-Time"
+HREF="c739.html"></HEAD
+><BODY
+CLASS="chapter"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>A Tutorial on Programming Features in ATS: </TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="p721.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="c739.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="chapter"
+><H1
+><A
+NAME="castfn"
+></A
+>Cast Functions</H1
+><P
+>&#13;A cast function in ATS is equivalent to the identify function in terms
+of dynamic semantics. A call to such a function is evaluated at
+compile-time, and its argument is returned. For instance, we have the
+following commonly used cast functions:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN726"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>castfn int1_of_int (x: int):&#60;&#62; [n:nat] int n
+castfn string1_of_string (x: string):&#60;&#62; [n:nat] string n
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+Note that the keyword <FONT
+COLOR="RED"
+>castfn</FONT
+> is for introducing cast functions.
+
+</P
+><P
+>&#13;Let us now see a more interesting use of casting functions. The following
+declared function interface is intended for concatenating a list of lists:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN730"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>extern fun{a:t@ype} list_concat (xss: List (List a)): List a
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+Assume that we would like to verify that the concatenation of a list of
+lists yields a list whose length equals the sum of the lengths of the lists
+in the given list of lists. This, for instance, can be done as follows by
+introducting a datatype constructor lstlst.
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN732"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>datatype lstlst (a:t@ype+, int, int) =
+  | {m,t:nat} {n:nat}
+    lstlst_cons (a, m+1, t+n) of (list (a, n), lstlst (a, m, t))
+  | lstlst_nil (a, 0, 0) of ()
+// end of [lstlst]
+
+fun{a:t@ype} _concat {m,t:nat} .&#60;m&#62;.
+  (xss: lstlst (a, m, t)):&#60;&#62; list (a, t) = case+ xss of
+  | lstlst_cons (xs, xss) =&#62; list_append (xs, _concat&#60;a&#62; xss)
+  | lstlst_nil () =&#62; list_nil ()
+// end of [_concat]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+Given a type T and integers I and J, the type <FONT
+COLOR="RED"
+>lstlst</FONT
+>(T, I, J) is
+for a list of lists such that the length of the list is I and each element
+in the list is a list of values of the type T and the sum of the lengths of
+these elements equals J.  The function list_concat is the same as the
+function _concat in terms of dynamic semantics, and it can be implemented
+as follows:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN735"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>implement{a}
+list_concat (xss) =
+  _concat&#60;a&#62; (lstlst_of_listlist xss) where {
+  castfn lstlst_of_listlist
+    {m:nat} .&#60;m&#62;. (xss: list (List a, m))
+    :&#60;&#62; [t:nat] lstlst (a, m, t) = case+ xss of
+    | list_cons (xs, xss) =&#62; lstlst_cons (xs, lstlst_of_listlist xss)
+    | list_nil () =&#62; lstlst_nil ()
+} // end of [list_concat]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+Given lstlst_of_listlist being implemented as a casting function, the
+implementation of list_concat is equivalent to the following one in terms
+of dynamic semantics:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN737"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>implement{a}
+list_concat (xss) = _concat (xss) // this one does not typecheck
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+</P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="p721.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="c739.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Advanced Tutorial Topics</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="p721.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Stack Allocation at Run-Time</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

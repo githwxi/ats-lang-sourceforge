@@ -1,0 +1,423 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>Abstract Views and Viewtypes</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+TITLE="Introduction to Programming in ATS"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Linear Types for Programming"
+HREF="p3216.html"><LINK
+REL="PREVIOUS"
+TITLE="Transition from Datatypes to Dataviewtypes"
+HREF="x3905.html"><LINK
+REL="NEXT"
+TITLE="Example: Implemeting Circular Buffers"
+HREF="x3974.html"></HEAD
+><BODY
+CLASS="chapter"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>Introduction to Programming in ATS: </TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="x3905.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="x3974.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="chapter"
+><H1
+><A
+NAME="abstract_views_viewtypes"
+></A
+>Abstract Views and Viewtypes</H1
+><P
+>&#13;I have so far given a presentation of views that solely focuses on at-views
+and the views built on top of at-views. This is largely due to at-views
+being the form of most widely used views in practice and also being the
+first form of views supported in ATS. However, other forms of views can be
+readily introduced into ATS abstractly. Even in a case where a view can be
+defined based on at-views (or other forms of views), one may still want to
+introduce it as an abstract view (accompanied with certain proof functions
+for performing view changes). Often what the programmer really needs is to
+figure out <I
+CLASS="emphasis"
+>conceptually</I
+> whether abstractly defined views and proof
+functions for manipulating them actually make sense. This is a bit like
+arguing whether a function is computable: There is rarely a need, if at
+all, to actually encode the function as a Turing-machine to prove its being
+computable. IMHO, learning proper use of abstract views and abstract
+viewtypes is a necessary step for one to take in order to employ linear
+types effectively in practice to deal with resource-related programming
+issues.
+
+</P
+><DIV
+CLASS="sect1"
+><H1
+CLASS="sect1"
+><A
+NAME="AEN3942"
+>Memory Allocation and Deallocation</A
+></H1
+><P
+>&#13;The issue of memory allocation and deallocation is of paramount importance
+in systems programming, where garabage collection (GC) at run-time is most
+likely forbidden or only supported in a highly restricted manner.  Handling
+memory management safely and efficiently is a long standing problem of
+great challenge in programming, and its novel solution in ATS is firmly
+rooted in the paradigm of programming with theorem-proving (PwTP).
+
+</P
+><P
+>&#13;The following function <FONT
+COLOR="RED"
+>malloc_gc</FONT
+> is available in ATS for memory
+allocation:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3947"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun malloc_gc ()
+  {n:nat} (n: size_t n)
+  :&#60;&#62; [l:agz] (freebyte_gc_v (n, l), b0ytes n @ l | ptr l)
+// end of [malloc_gc]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;The sort <FONT
+COLOR="RED"
+>agz</FONT
+> is a subset sort defined for addresses that are not
+null:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3951"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>&#13;sortdef agz = {a:addr | a &#62; null} // [gz] for great-than-zero
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;The type <FONT
+COLOR="RED"
+>b0ytes(n)</FONT
+> is a shorthand for <FONT
+COLOR="RED"
+>@[byte?][n]</FONT
+>, which
+is for an array of <FONT
+COLOR="RED"
+>n</FONT
+> uninitialized bytes. Therefore, the at-view
+<FONT
+COLOR="RED"
+>b0ytes(n)@l</FONT
+> is the same as the array-view <FONT
+COLOR="RED"
+>array_v(byte?, n,
+l)</FONT
+>.  The view <FONT
+COLOR="RED"
+>freebyte_gc_v(n, l)</FONT
+> stands for a form of
+capability allowing that the <FONT
+COLOR="RED"
+>n</FONT
+> bytes located at the address
+<FONT
+COLOR="RED"
+>l</FONT
+> be freed (or reclaimed) by the following function <FONT
+COLOR="RED"
+>free_gc</FONT
+>:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3963"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun free_gc {n:nat} {l:addr}
+  (pfgc: freebyte_gc_v (n, l), pfat: b0ytes n @ l | p: ptr l):&#60;&#62; void
+// end of [free_gc]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;Note that <FONT
+COLOR="RED"
+>freebyte_gc_v</FONT
+> is so far the first view we have
+encountered that is not built on top of any at-views.
+
+</P
+><P
+>&#13;In practice, it rather cumbersome to deal with bytes directly. Instead, the
+following two functions are more convenient for allocating and deallocating
+arrays:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3968"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun{a:viewt@ype}
+array_ptr_alloc {n:nat} (asz: size_t n)
+  :&#60;&#62; [l:agz] (free_gc_v (a, n, l), array_v (a?, n, l) | ptr l)
+// end of [array_ptr_alloc]
+
+fun array_ptr_free
+  {a:viewt@ype} {n:int} {l:addr} (
+  pfgc: free_gc_v (a, n, l), pfarr: array_v (a?, n, l) | p: ptr l
+) :&#60;&#62; void // end of [array_ptr_free]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3970"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>extern
+fun{a:t@ype}
+msort1 {n:nat}
+  (A: &#38;(@[a][n]), n: size_t n, B: &#38;(@[a?][n]), cmp: cmp(a)): void
+// end of [msort1]
+
+extern
+fun{a:t@ype}
+msort2 {n:nat}
+  (A: &#38;(@[a][n]), n: size_t n, B: &#38;(@[a?][n]) &#62;&#62; @[a][n], cmp: cmp(a)): void
+// end of [msort2]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3972"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>extern
+fun{a:t@ype}
+mergesort {n:nat}
+  (A: &#38;(@[a][n]), n: size_t n, cmp: cmp(a)): void
+// end of [mergesort]
+
+implement{a}
+mergesort (A, n, cmp) = let
+  val (pfgc, pfat | p) = array_ptr_alloc&#60;a&#62; (n)
+  val () = msort1 (A, n, !p, cmp)
+  val () = array_ptr_free (pfgc, pfat | p)
+in
+  // nothing
+end // end of [mergesort]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="x3905.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="x3974.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Transition from Datatypes to Dataviewtypes</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="p3216.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Example: Implemeting Circular Buffers</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

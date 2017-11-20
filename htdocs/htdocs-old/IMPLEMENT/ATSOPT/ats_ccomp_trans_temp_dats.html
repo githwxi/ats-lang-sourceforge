@@ -1,0 +1,595 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2010 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Start Time: May 2008
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+#include "ats_counter.cats" /* only needed for [ATS/Geizella] */
+%}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_reference.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">CS <span class="keyword">=</span> "ats_charlst.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Deb <span class="keyword">=</span> "ats_debug.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Err <span class="keyword">=</span> "ats_error.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">HT <span class="keyword">=</span> "ats_hashtbl.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Loc <span class="keyword">=</span> "ats_location.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Lst <span class="keyword">=</span> "ats_list.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Map <span class="keyword">=</span> "ats_map_lin.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Stamp <span class="keyword">=</span> "ats_stamp.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Sym <span class="keyword">=</span> "ats_symbol.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_trans2_env.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_hiexp.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_ccomp.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_ccomp_env.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymous*)</span> <span class="keyword">=</span> "ats_reference.dats"</span>
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymois*)</span> <span class="keyword">=</span> "ats_hashtbl.dats"</span>
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymois*)</span> <span class="keyword">=</span> "ats_map_lin.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">THISFILENAME "ats_ccomp_trans_temp.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">absviewtype</span> <span class="staexp"><a name="2424"><span class="stacstdec">stactx_vt</span></a></span>
+<span class="keyword">absview</span> <span class="staexp"><a name="2442"><span class="stacstdec">stactx_token_v</span></a></span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="2469"><span class="dyncstdec">print_the_stactx <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span></span></a>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="2507"><span class="dyncstdec">the_stactx_add <span class="keyword">(</span>s2v<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#2272"><span class="stacstuse">s2var_t</span></a></span><span class="keyword">,</span> hit<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#21941"><span class="stacstuse">hityp_t</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span></span></a>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="2568"><span class="dyncstdec">the_stactx_free <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span></span></a> <span class="comment">// free the (toplevel) stactx
+</span><span class="keyword">extern</span> <span class="keyword">fun</span> <a name="2636"><span class="dyncstdec">the_stactx_find <span class="keyword">(</span>s2v<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#2272"><span class="stacstuse">s2var_t</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#23028"><span class="stacstuse">Option_vt</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#21941"><span class="stacstuse">hityp_t</span></a><span class="keyword">)</span></span></span></a>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="2699"><span class="dyncstdec">the_stactx_push <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">@(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#2442"><span class="stacstuse">stactx_token_v</span></a> <span class="keyword">|</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a><span class="keyword">)</span></span></span></a>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="2755"><span class="dyncstdec">the_stactx_pop <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#2442"><span class="stacstuse">stactx_token_v</span></a></span></span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> prerr_interror <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> prerr "INTERNAL ERROR (ats_ccomp_trans_temp)"
+<span class="keyword">fn</span> prerr_loc_interror <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5fenv_2esats.html#1591"><span class="stacstuse">loc_t</span></a></span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5flocation_2esats.html#2738"><span class="dyncstuse">$Loc<span class="keyword">.</span>prerr_location</span></a> loc<span class="keyword">;</span> prerr ": INTERNAL ERROR (ats_ccomp_trans_temp)"
+<span class="keyword">end</span> <span class="comment">// end of [prerr_loc_interror]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="3093"><span class="stacstdec">stactx <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fmap_5flin_2esats.html#1634"><span class="stacstuse">$Map<span class="keyword">.</span>map_vt</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#2272"><span class="stacstuse">s2var_t</span></a><span class="keyword">,</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#21941"><span class="stacstuse">hityp_t</span></a><span class="keyword">)</span></span></a></span>
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="3145"><span class="stacstdec">stactxlst <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#22725"><span class="stacstuse">List_vt</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#3093"><span class="stacstuse">stactx</span></a><span class="keyword">)</span></span></a></span>
+
+<span class="keyword">assume</span> <span class="staexp">stactx_vt <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#3093"><span class="stacstuse">stactx</span></a></span>
+<span class="keyword">assume</span> <span class="staexp">stactx_token_v <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#23184"><span class="stacstuse">unit_v</span></a></span>
+
+<span class="keyword">fn</span> stactx_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:&lt;&gt;</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#3093"><span class="stacstuse">stactx</span></a></span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fmap_5flin_2esats.html#1706"><span class="dyncstuse">$Map<span class="keyword">.</span>map_make</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#17509"><span class="dyncstuse">compare_s2var_s2var</span></a><span class="keyword">)</span>
+
+<span class="keyword">val</span> the_stactx <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5freference_2esats.html#1801"><span class="dyncstuse">ref_make_elt&lt;</span></a><span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#3093"><span class="stacstuse">stactx</span></a></span><span class="keyword">&gt;</span> <span class="keyword">(</span>stactx_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">val</span> the_stactxlst <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5freference_2esats.html#1801"><span class="dyncstuse">ref_make_elt&lt;</span></a><span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#3145"><span class="stacstuse">stactxlst</span></a></span><span class="keyword">&gt;</span> <span class="keyword">(</span>list_vt_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#2469"><span class="dyncstimp">print_the_stactx</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> kis <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fmap_5flin_2esats.html#2546"><span class="dyncstuse">$Map<span class="keyword">.</span>map_list_inf</span></a> <span class="keyword">(</span><span class="keyword">!</span>p<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5freference_2esats.html#2660"><span class="dyncstuse">ref_get_view_ptr</span></a> <span class="keyword">(</span>the_stactx<span class="keyword">)</span>
+  <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">fun</span> loop <span class="keyword">(</span>kis<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#22725"><span class="stacstuse">List_vt</span></a> <span class="keyword">@(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#2272"><span class="stacstuse">s2var_t</span></a><span class="keyword">,</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#21941"><span class="stacstuse">hityp_t</span></a><span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">case+</span> kis <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">~</span>list_vt_cons <span class="keyword">(</span>ki<span class="keyword">,</span> kis<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#18009"><span class="dyncstuse">print_s2var</span></a> <span class="keyword">(</span>ki<span class="keyword">.</span>0<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#8431"><span class="dyncstuse">print_string</span></a> " -&gt; "
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#22898"><span class="dyncstuse">print_hityp_t</span></a> <span class="keyword">(</span>ki<span class="keyword">.</span>1<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12832"><span class="dyncstuse">print_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">in</span>
+        loop <span class="keyword">(</span>kis<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [list_vt_cons]
+</span>    <span class="keyword">|</span> <span class="keyword">~</span>list_vt_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="comment">// end of [loop]
+</span><span class="keyword">in</span>
+  loop <span class="keyword">(</span>kis<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [print_the_stactx]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#2507"><span class="dyncstimp">the_stactx_add</span></a> <span class="keyword">(</span>s2v<span class="keyword">,</span> hit<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5freference_2esats.html#2660"><span class="dyncstuse">ref_get_view_ptr</span></a> <span class="keyword">(</span>the_stactx<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fmap_5flin_2esats.html#2066"><span class="dyncstuse">$Map<span class="keyword">.</span>map_insert&lt;</span></a><span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#2272"><span class="stacstuse">s2var_t</span></a></span><span class="keyword">,</span><span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#21941"><span class="stacstuse">hityp_t</span></a></span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="keyword">!</span>p<span class="keyword">,</span> s2v<span class="keyword">,</span> hit<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_stactx_add]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#2636"><span class="dyncstimp">the_stactx_find</span></a> <span class="keyword">(</span>s2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5freference_2esats.html#2660"><span class="dyncstuse">ref_get_view_ptr</span></a> <span class="keyword">(</span>the_stactx<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fmap_5flin_2esats.html#2271"><span class="dyncstuse">$Map<span class="keyword">.</span>map_search&lt;</span></a><span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#2272"><span class="stacstuse">s2var_t</span></a></span><span class="keyword">,</span><span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#21941"><span class="stacstuse">hityp_t</span></a></span><span class="keyword">&gt;</span> <span class="keyword">(</span><span class="keyword">!</span>p<span class="keyword">,</span> s2v<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_stactx_find]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#2699"><span class="dyncstimp">the_stactx_push</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> stactx <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5freference_2esats.html#2660"><span class="dyncstuse">ref_get_view_ptr</span></a> <span class="keyword">(</span>the_stactx<span class="keyword">)</span>
+    <span class="keyword">val</span> stactx <span class="keyword">=</span> <span class="keyword">!</span>p
+  <span class="keyword">in</span>
+    <span class="keyword">!</span>p := stactx_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span> stactx
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5freference_2esats.html#2660"><span class="dyncstuse">ref_get_view_ptr</span></a> <span class="keyword">(</span>the_stactxlst<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="keyword">!</span>p := list_vt_cons <span class="keyword">(</span>stactx<span class="keyword">,</span> <span class="keyword">!</span>p<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="keyword">(</span><span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span></span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_stactx_push]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#2755"><span class="dyncstimp">the_stactx_pop</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf</span>
+  <span class="keyword">var</span> err<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span> <span class="keyword">=</span> 0<span class="keyword">;</span> <span class="keyword">val</span> stactx <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5freference_2esats.html#2660"><span class="dyncstuse">ref_get_view_ptr</span></a> <span class="keyword">(</span>the_stactxlst<span class="keyword">)</span>
+    <span class="keyword">val</span> stactx <span class="keyword">=</span> <span class="keyword">(</span>
+      <span class="keyword">case+</span> <span class="keyword">!</span>p <span class="keyword">of</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>list_vt_cons <span class="keyword">(</span>x<span class="keyword">,</span> xs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">!</span>p := <span class="keyword">(</span>xs<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#3145"><span class="stacstuse">stactxlst</span></a></span><span class="keyword">)</span><span class="keyword">;</span> x<span class="keyword">)</span>
+      <span class="keyword">|</span> list_vt_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          fold@ <span class="keyword">(</span><span class="keyword">!</span>p<span class="keyword">)</span><span class="keyword">;</span> err := 1<span class="keyword">;</span> stactx_nil <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#3093"><span class="stacstuse">stactx</span></a></span>
+  <span class="keyword">in</span>
+    stactx
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> err <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span> <span class="comment">// error checking
+</span>    prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span> prerr ": the_stactx_pop"<span class="keyword">;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+    <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> stactx <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5freference_2esats.html#2660"><span class="dyncstuse">ref_get_view_ptr</span></a> <span class="keyword">(</span>the_stactx<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fmap_5flin_2esats.html#1870"><span class="dyncstuse">$Map<span class="keyword">.</span>map_free</span></a> <span class="keyword">(</span><span class="keyword">!</span>p<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="keyword">!</span>p := stactx
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [the_stactx_pop]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// HX: declared in [ats_hiexp.sats]
+</span><span class="comment">//
+</span><span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#24510"><span class="dyncstimp">hityp_s2var_normalize</span></a> <span class="keyword">(</span>s2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = print "hityp_s2var_normalize: the_stactx =\n"
+  val () = print_the_stactx ()
+*)</span>
+<span class="keyword">in</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#2636"><span class="dyncstuse">the_stactx_find</span></a> <span class="keyword">(</span>s2v<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [hityp_s2var_normalize]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">PTR_TYPE_NAME "ats_ptr_type"</span>
+
+<span class="comment">(*
+// HX: foo(bar)(baz1, baz2) -&gt; foo;bar;baz1,baz2
+*)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#26103"><span class="dyncstimp">template_name_make</span></a>
+  <span class="keyword">(</span>basename<span class="keyword">,</span> hitss0<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">viewtypedef</span> <span class="staexp"><a name="5963"><span class="stacstdec">T <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fcharlst_2esats.html#1654"><span class="stacstuse">$CS<span class="keyword">.</span>Charlst_vt</span></a></span></a></span>
+<span class="comment">//
+</span>  <span class="keyword">fun</span> aux_char
+    <span class="keyword">(</span>cs<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#5963"><span class="stacstuse"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#5963"><span class="stacstuse">T</span></a></span></a></span><span class="keyword">,</span> c<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15120"><span class="stacstuse">char</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">(</span>cs := $CS<span class="keyword">.</span>CHARLSTcons <span class="keyword">(</span>c<span class="keyword">,</span> cs<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="comment">(* end of [aux_char] *)</span>
+<span class="comment">//
+</span>  <span class="keyword">fun</span> aux_string <span class="staexp"><span class="keyword">{</span>n<span class="keyword">,</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#7823"><span class="stacstuse">&lt;=</span></a> n<span class="keyword">}</span></span>
+     <span class="keyword">(</span>cs<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#5963"><span class="stacstuse"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#5963"><span class="stacstuse">T</span></a></span></a></span><span class="keyword">,</span> s<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15957"><span class="stacstuse">string</span></a> n</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15569"><span class="stacstuse">size_t</span></a> i</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span>
+    <span class="keyword">if</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#15807"><span class="dyncstuse">string_is_at_end</span></a> <span class="keyword">(</span>s<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+      cs := $CS<span class="keyword">.</span>CHARLSTcons <span class="keyword">(</span>s[<span class="prfexp">i</span><span class="keyword">]</span><span class="keyword">,</span> cs<span class="keyword">)</span><span class="keyword">;</span> aux_string <span class="keyword">(</span>cs<span class="keyword">,</span> s<span class="keyword">,</span> i+1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="comment">(* end of [aux_string] *)</span>
+<span class="comment">//
+</span>  <span class="keyword">fun</span> aux_hityp
+    <span class="keyword">(</span>cs<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#5963"><span class="stacstuse"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#5963"><span class="stacstuse">T</span></a></span></a></span><span class="keyword">,</span> hit<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#2808"><span class="stacstuse">hityp</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> hit<span class="keyword">.</span>hityp_node <span class="keyword">of</span>
+    <span class="keyword">|</span> HITextype <span class="keyword">(</span>name<span class="keyword">,</span> _arg<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> name <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#4982"><span class="dyncstuse">string1_of_string</span></a> name
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> aux_string <span class="keyword">(</span>cs<span class="keyword">,</span> name<span class="keyword">,</span> 0<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        aux_hityplstlst <span class="keyword">(</span>cs<span class="keyword">,</span> _arg<span class="keyword">,</span> 1<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [HITextype]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">let</span>    
+        <span class="keyword">val</span> HITNAM <span class="keyword">(</span>knd<span class="keyword">,</span> name<span class="keyword">)</span> <span class="keyword">=</span> hit<span class="keyword">.</span>hityp_name
+        <span class="keyword">val</span> name <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">if</span> knd <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> PTR_TYPE_NAME <span class="keyword">else</span> name<span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15989"><span class="stacstuse">string</span></a></span>
+        <span class="keyword">val</span> name <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#4982"><span class="dyncstuse">string1_of_string</span></a> name
+      <span class="keyword">in</span>
+        aux_string <span class="keyword">(</span>cs<span class="keyword">,</span> name<span class="keyword">,</span> 0<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [_]
+</span>  <span class="comment">(* end of [aux_hityp] *)</span>
+<span class="comment">//
+</span>  <span class="keyword">and</span> aux_hityplst <span class="keyword">(</span>
+    cs<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#5963"><span class="stacstuse"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#5963"><span class="stacstuse">T</span></a></span></a></span><span class="keyword">,</span> hits<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#2893"><span class="stacstuse">hityplst</span></a></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">case+</span> hits <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>hit<span class="keyword">,</span> hits<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> aux_char <span class="keyword">(</span>cs<span class="keyword">,</span> ','<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> aux_hityp <span class="keyword">(</span>cs<span class="keyword">,</span> hit<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        aux_hityplst <span class="keyword">(</span>cs<span class="keyword">,</span> hits<span class="keyword">,</span> i+1<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="comment">(* end of [aux_hityplst] *)</span>
+<span class="comment">//
+</span>  <span class="keyword">and</span> aux_hityplstlst <span class="keyword">(</span>
+    cs<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#5963"><span class="stacstuse"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#5963"><span class="stacstuse">T</span></a></span></a></span><span class="keyword">,</span> hitss<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#2919"><span class="stacstuse">hityplstlst</span></a></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">case+</span> hitss <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>hits<span class="keyword">,</span> hitss<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> aux_char <span class="keyword">(</span>cs<span class="keyword">,</span> ';'<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> aux_hityplst <span class="keyword">(</span>cs<span class="keyword">,</span> hits<span class="keyword">,</span> 0<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        aux_hityplstlst <span class="keyword">(</span>cs<span class="keyword">,</span> hitss<span class="keyword">,</span> i+1<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="comment">(* end of [aux_hityplstlst] *)</span>
+<span class="comment">//
+</span>  <span class="keyword">fun</span> aux1_hityplstlst <span class="keyword">(</span>
+    cs<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#5963"><span class="stacstuse"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#5963"><span class="stacstuse">T</span></a></span></a></span><span class="keyword">,</span> hitss<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#2919"><span class="stacstuse">hityplstlst</span></a></span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">case+</span> hitss <span class="keyword">of</span>
+    <span class="keyword">|</span> list_cons <span class="keyword">(</span>hits<span class="keyword">,</span> hitss<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> i <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> aux_char <span class="keyword">(</span>cs<span class="keyword">,</span> '_'<span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> aux_hityplst <span class="keyword">(</span>cs<span class="keyword">,</span> hits<span class="keyword">,</span> 0<span class="keyword">)</span>
+      <span class="keyword">in</span>
+        aux1_hityplstlst <span class="keyword">(</span>cs<span class="keyword">,</span> hitss<span class="keyword">,</span> i+1<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [list_cons]
+</span>    <span class="keyword">|</span> list_nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="comment">(* end of [aux1_hityplstlst] *)</span>
+<span class="comment">//
+</span>  <span class="keyword">var</span> cs<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#5963"><span class="stacstuse">T</span></a></span> <span class="keyword">=</span> $CS<span class="keyword">.</span>CHARLSTnil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> basename <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#4982"><span class="dyncstuse">string1_of_string</span></a> <span class="keyword">(</span>basename<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> aux_string <span class="keyword">(</span>cs<span class="keyword">,</span> basename<span class="keyword">,</span> 0<span class="keyword">)</span>
+  <span class="keyword">val</span> hitss0 <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#22729"><span class="dyncstuse">hityplstlst_decode</span></a> hitss0
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> aux1_hityplstlst <span class="keyword">(</span>cs<span class="keyword">,</span> hitss0<span class="keyword">,</span> 1<span class="keyword">)</span>
+<span class="comment">//
+</span><span class="keyword">in</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fcharlst_2esats.html#1943"><span class="dyncstuse">$CS<span class="keyword">.</span>string_make_charlst_rev</span></a> <span class="keyword">(</span>cs<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [template_name_make]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">datatype</span> <span class="staexp"><a name="8274"><span class="stacstdec">tmpcstvar</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">|</span> TMPcst <span class="keyword">of</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2635"><span class="stacstuse">d2cst_t</span></a></span> <span class="keyword">|</span> TMPvar <span class="keyword">of</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2719"><span class="stacstuse">d2var_t</span></a></span>
+<span class="comment">// end of [tmpcstvar]
+</span>
+<span class="keyword">fn</span> fprint_tmpcstvar <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>file_mode<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#10177"><span class="stacstuse">file_mode_lte</span></a> <span class="keyword">(</span>m<span class="keyword">,</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20767"><span class="stacstuse">w</span></a><span class="keyword">)</span></span></span> <span class="keyword">|</span> out<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#20956"><span class="stacstuse">FILE</span></a></span></a> m</span><span class="keyword">,</span> tcv<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#8274"><span class="stacstuse">tmpcstvar</span></a></span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> tcv <span class="keyword">of</span>
+  <span class="keyword">|</span> TMPcst d2c <span class="keyword">=&gt;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#5592"><span class="dyncstuse">fprint_d2cst</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> d2c<span class="keyword">)</span>
+  <span class="keyword">|</span> TMPvar d2v <span class="keyword">=&gt;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#8549"><span class="dyncstuse">fprint_d2var</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> out<span class="keyword">,</span> d2v<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [fprint_tmpcstvar]
+</span>
+<span class="keyword">fn</span> print_tmpcstvar <span class="keyword">(</span>tcv<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#8274"><span class="stacstuse">tmpcstvar</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> print_mac <span class="keyword">(</span>fprint_tmpcstvar<span class="keyword">,</span> tcv<span class="keyword">)</span>
+<span class="keyword">fn</span> prerr_tmpcstvar <span class="keyword">(</span>tcv<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#8274"><span class="stacstuse">tmpcstvar</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> prerr_mac <span class="keyword">(</span>fprint_tmpcstvar<span class="keyword">,</span> tcv<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="8792"><span class="dyncstdec">ccomp_tmpdef <span class="keyword">(</span>
+  loc0<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5fenv_2esats.html#1591"><span class="stacstuse">loc_t</span></a></span>
+<span class="keyword">,</span> res<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#14730"><span class="stacstuse"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#14730"><span class="stacstuse">instrlst_vt</span></a></span></a></span>
+<span class="keyword">,</span> hit0<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#21941"><span class="stacstuse">hityp_t</span></a></span>
+<span class="keyword">,</span> tcv<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#8274"><span class="stacstuse">tmpcstvar</span></a></span>
+<span class="keyword">,</span> hitss<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#22004"><span class="stacstuse">hityplstlst_t</span></a></span>
+<span class="keyword">,</span> fullname<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15989"><span class="stacstuse">string</span></a></span>
+<span class="keyword">,</span> tmpdef<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#24598"><span class="stacstuse">tmpdef_t</span></a></span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#6562"><span class="stacstuse">valprim</span></a></span></span></a>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> template_arg_match <span class="keyword">(</span>
+    loc0<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5fenv_2esats.html#1591"><span class="stacstuse">loc_t</span></a></span>
+  <span class="keyword">,</span> tcv<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#8274"><span class="stacstuse">tmpcstvar</span></a></span>
+  <span class="keyword">,</span> tmparg<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#10049"><span class="stacstuse">s2qualst</span></a></span>
+  <span class="keyword">,</span> hitss<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#22004"><span class="stacstuse">hityplstlst_t</span></a></span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fn</span> aux <span class="keyword">(</span>s2v<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#2272"><span class="stacstuse">s2var_t</span></a></span><span class="keyword">,</span> hit<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#2808"><span class="stacstuse">hityp</span></a></span><span class="keyword">)</span> <span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">let</span> <span class="keyword">val</span> hit <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#22037"><span class="dyncstuse">hityp_encode</span></a> hit <span class="keyword">in</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#2507"><span class="dyncstuse">the_stactx_add</span></a> <span class="keyword">(</span>s2v<span class="keyword">,</span> hit<span class="keyword">)</span> <span class="keyword">end</span>
+  <span class="keyword">end</span> <span class="comment">// end of [aux]
+</span>
+  <span class="keyword">fun</span> auxlst <span class="keyword">(</span>s2vs<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#2615"><span class="stacstuse">s2varlst</span></a></span><span class="keyword">,</span> hits<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#2893"><span class="stacstuse">hityplst</span></a></span><span class="keyword">)</span>
+    <span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> <span class="keyword">(</span>s2vs<span class="keyword">,</span> hits<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>list_cons <span class="keyword">(</span>s2v<span class="keyword">,</span> s2vs<span class="keyword">)</span><span class="keyword">,</span> list_cons <span class="keyword">(</span>hit<span class="keyword">,</span> hits<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> aux <span class="keyword">(</span>s2v<span class="keyword">,</span> hit<span class="keyword">)</span> <span class="keyword">in</span> auxlst <span class="keyword">(</span>s2vs<span class="keyword">,</span> hits<span class="keyword">)</span> <span class="keyword">end</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5flocation_2esats.html#2738"><span class="dyncstuse">$Loc<span class="keyword">.</span>prerr_location</span></a> loc0<span class="keyword">;</span> prerr ": error(ccomp)"<span class="keyword">;</span>
+        prerr ": template argument mismatch for ["<span class="keyword">;</span> prerr_tmpcstvar tcv<span class="keyword">;</span> prerr "]."<span class="keyword">;</span>
+        <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+        <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span>
+  <span class="keyword">end</span> <span class="comment">// end of [auxlst]
+</span>
+  <span class="keyword">fun</span> auxlstlst
+    <span class="keyword">(</span>s2qs<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#10049"><span class="stacstuse">s2qualst</span></a></span><span class="keyword">,</span> hitss<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#2919"><span class="stacstuse">hityplstlst</span></a></span><span class="keyword">)</span>
+    <span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">begin</span> <span class="keyword">case+</span> <span class="keyword">(</span>s2qs<span class="keyword">,</span> hitss<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>list_cons <span class="keyword">(</span>s2q<span class="keyword">,</span> s2qs<span class="keyword">)</span><span class="keyword">,</span> list_cons <span class="keyword">(</span>hits<span class="keyword">,</span> hitss<span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> auxlst <span class="keyword">(</span>s2q<span class="keyword">.</span>0<span class="keyword">,</span> hits<span class="keyword">)</span> <span class="keyword">in</span> auxlstlst <span class="keyword">(</span>s2qs<span class="keyword">,</span> hitss<span class="keyword">)</span> <span class="keyword">end</span>
+      <span class="keyword">end</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">|</span> <span class="keyword">(</span>_<span class="keyword">,</span> _<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5flocation_2esats.html#2738"><span class="dyncstuse">$Loc<span class="keyword">.</span>prerr_location</span></a> loc0<span class="keyword">;</span> prerr ": error(ccomp)"<span class="keyword">;</span>
+        prerr ": template argument mismatch for ["<span class="keyword">;</span> prerr_tmpcstvar tcv<span class="keyword">;</span> prerr "]."<span class="keyword">;</span>
+        <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+        <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [_, _]
+</span>  <span class="keyword">end</span> <span class="comment">// end of [auxlstlst]
+</span><span class="keyword">in</span>
+  auxlstlst <span class="keyword">(</span>tmparg<span class="keyword">,</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#22729"><span class="dyncstuse">hityplstlst_decode</span></a> hitss<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [template_arg_match]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">#define</span> <span class="neuexp">TMPNAMETBL_SIZE_HINT 1024</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="10494"><span class="stacstdec">tmpnamtbl <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#1525"><span class="stacstuse">$HT<span class="keyword">.</span>hashtbl_t</span></a> <span class="keyword">(</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15989"><span class="stacstuse">string</span></a><span class="keyword">,</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#6562"><span class="stacstuse">valprim</span></a><span class="keyword">)</span></span></a></span>
+
+<span class="keyword">val</span> the_tmpnamtbl <span class="keyword">=</span> <span class="keyword">begin</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#1816"><span class="dyncstuse">$HT<span class="keyword">.</span>hashtbl_str_make_hint</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#6562"><span class="stacstuse">valprim</span></a><span class="keyword">}</span></span> <span class="keyword">(</span>TMPNAMETBL_SIZE_HINT<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#10494"><span class="stacstuse">tmpnamtbl</span></a></span> <span class="comment">// end of [the_tmpnamtbl]
+</span>
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#25959"><span class="dyncstimp">tmpnamtbl_add</span></a> <span class="keyword">(</span>fullname<span class="keyword">,</span> vp_funclo<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#2135"><span class="dyncstuse">$HT<span class="keyword">.</span>hashtbl_insert</span></a> <span class="keyword">(</span>the_tmpnamtbl<span class="keyword">,</span> fullname<span class="keyword">,</span> vp_funclo<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> ans <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">|</span> <span class="keyword">~</span>Some_vt _<span class="comment">(*valprim*)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      prerr ": tmpnamtbl_add: fullname = "<span class="keyword">;</span> prerr fullname<span class="keyword">;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span><span class="keyword">end</span> <span class="comment">// end of [tmpnamtbl_add]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#26022"><span class="dyncstimp">tmpnamtbl_find</span></a> <span class="keyword">(</span>fullname<span class="keyword">)</span> <span class="keyword">=</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#2024"><span class="dyncstuse">$HT<span class="keyword">.</span>hashtbl_search</span></a> <span class="keyword">(</span>the_tmpnamtbl<span class="keyword">,</span> fullname<span class="keyword">)</span>
+<span class="comment">// end of [tmpnamtbl_find]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#8792"><span class="dyncstimp">ccomp_tmpdef</span></a>
+  <span class="keyword">(</span>loc0<span class="keyword">,</span> res<span class="keyword">,</span> hit0<span class="keyword">,</span> tcv<span class="keyword">,</span> hitss<span class="keyword">,</span> fullname<span class="keyword">,</span> tmpdef<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> fl <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#3222"><span class="dyncstuse">funlab_make_nam_typ</span></a> <span class="keyword">(</span>fullname<span class="keyword">,</span> hit0<span class="keyword">)</span>
+  <span class="keyword">val</span> vp_funclo <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#9419"><span class="dyncstuse">valprim_funclo_make</span></a> <span class="keyword">(</span>fl<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_stactx_token</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#2699"><span class="dyncstuse">the_stactx_push</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_dynctx_token</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5fenv_2esats.html#3110"><span class="dyncstuse">the_dynctx_push</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> tmparg <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#24709"><span class="dyncstuse">tmpdef_arg_get</span></a> tmpdef
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> template_arg_match <span class="keyword">(</span>loc0<span class="keyword">,</span> tcv<span class="keyword">,</span> tmparg<span class="keyword">,</span> hitss<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#25959"><span class="dyncstuse">tmpnamtbl_add</span></a> <span class="keyword">(</span>fullname<span class="keyword">,</span> vp_funclo<span class="keyword">)</span>
+  <span class="comment">(* ****** vvvvvv vvvvvv ****** *)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_tailcallst_mark</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5fenv_2esats.html#9885"><span class="dyncstuse">the_tailcallst_mark</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5fenv_2esats.html#9762"><span class="dyncstuse">the_tailcallst_add</span></a> <span class="keyword">(</span>fl<span class="keyword">,</span> list_nil <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> _<span class="comment">(*funentry_t*)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> ins <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#16173"><span class="dyncstuse">instr_funlab</span></a> <span class="keyword">(</span>fl<span class="keyword">)</span><span class="keyword">;</span> <span class="keyword">val</span> prolog <span class="keyword">=</span> <span class="keyword">'[</span>ins<span class="keyword">]</span>
+    <span class="keyword">val</span> hie <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#24754"><span class="dyncstuse">tmpdef_exp_get</span></a> <span class="keyword">(</span>tmpdef<span class="keyword">)</span><span class="keyword">;</span> <span class="keyword">val</span> loc_fun <span class="keyword">=</span> hie<span class="keyword">.</span>hiexp_loc
+  <span class="keyword">in</span>
+    <span class="keyword">case+</span> hie<span class="keyword">.</span>hiexp_node <span class="keyword">of</span>
+    <span class="keyword">|</span> HIElam <span class="keyword">(</span>hips_arg<span class="keyword">,</span> hie_body<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#25541"><span class="dyncstuse">ccomp_exp_arg_body_funlab</span></a> <span class="keyword">(</span>loc_fun<span class="keyword">,</span> prolog<span class="keyword">,</span> hips_arg<span class="keyword">,</span> hie_body<span class="keyword">,</span> fl<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [HIElam]
+</span>    <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        prerr_loc_interror <span class="keyword">(</span>loc_fun<span class="keyword">)</span><span class="keyword">;</span>
+        prerr ": ccomp_tmpdef: hie = "<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#15243"><span class="dyncstuse">prerr_hiexp</span></a> hie<span class="keyword">;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+        <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#2291"><span class="stacstuse">funentry_t</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [_]
+</span>   <span class="keyword">end</span> <span class="comment">(* end of [val] *)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5fenv_2esats.html#9939"><span class="dyncstuse">the_tailcallst_unmark</span></a> <span class="keyword">(</span><span class="prfexp">pf_tailcallst_mark</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+  <span class="comment">(* ****** ^^^^^^ ^^^^^^ ****** *)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#2755"><span class="dyncstuse">the_stactx_pop</span></a> <span class="keyword">(</span><span class="prfexp">pf_stactx_token</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5fenv_2esats.html#3050"><span class="dyncstuse">the_dynctx_pop</span></a> <span class="keyword">(</span><span class="prfexp">pf_dynctx_token</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  vp_funclo
+<span class="keyword">end</span> <span class="comment">// end of [ccomp_tmpdef]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#26175"><span class="dyncstimp">template_cst_name_make</span></a> <span class="keyword">(</span>d2c<span class="keyword">,</span> hitss<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> extdef <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#4673"><span class="dyncstuse">d2cst_extdef_get</span></a> d2c<span class="keyword">;</span> <span class="keyword">val</span> base <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> extdef <span class="keyword">of</span>
+    <span class="keyword">|</span> $Syn<span class="keyword">.</span>DCSTEXTDEFnone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">val</span> sym <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#4409"><span class="dyncstuse">d2cst_sym_get</span></a> d2c<span class="keyword">;</span> <span class="keyword">val</span> stamp <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#4719"><span class="dyncstuse">d2cst_stamp_get</span></a> d2c
+        <span class="keyword">val</span> name <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fprintf_2esats.html#3327"><span class="dyncstuse">tostringf</span></a> <span class="keyword">(</span>
+          "%s$%s"<span class="keyword">,</span> <span class="keyword">@(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#4322"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_name</span></a> sym<span class="keyword">,</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstamp_2esats.html#2352"><span class="dyncstuse">$Stamp<span class="keyword">.</span>tostring_stamp</span></a> stamp<span class="keyword">)</span>
+        <span class="keyword">)</span> <span class="comment">// end of [tostringf]
+</span>      <span class="keyword">in</span>
+        <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#20637"><span class="dyncstuse">string_of_strptr</span></a> <span class="keyword">(</span>name<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">|</span> $Syn<span class="keyword">.</span>DCSTEXTDEFsome_fun name <span class="keyword">=&gt;</span> name
+    <span class="keyword">|</span> $Syn<span class="keyword">.</span>DCSTEXTDEFsome_mac _name <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+        prerr ": tmpnamtbl_cst_name_make: d2c = "<span class="keyword">;</span> prerr d2c<span class="keyword">;</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+        <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15989"><span class="stacstuse">string</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [DCSTEXTDEFsome_mac]
+</span>  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15989"><span class="stacstuse">string</span></a></span>
+<span class="keyword">in</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#26103"><span class="dyncstuse">template_name_make</span></a> <span class="keyword">(</span>base<span class="keyword">,</span> hitss<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [template_cst_name_make]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#26247"><span class="dyncstimp">template_var_name_make</span></a> <span class="keyword">(</span>d2v<span class="keyword">,</span> hitss<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> sym <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#6740"><span class="dyncstuse">d2var_sym_get</span></a> d2v <span class="keyword">and</span> stamp <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#7792"><span class="dyncstuse">d2var_stamp_get</span></a> d2v
+  <span class="keyword">val</span> basename <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fprintf_2esats.html#3327"><span class="dyncstuse">tostringf</span></a> <span class="keyword">(</span>
+    "%s$%s"<span class="keyword">,</span> <span class="keyword">@(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#4322"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_name</span></a> sym<span class="keyword">,</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstamp_2esats.html#2352"><span class="dyncstuse">$Stamp<span class="keyword">.</span>tostring_stamp</span></a> stamp<span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="comment">// end of [tostringf]
+</span>  <span class="keyword">val</span> basename <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fSATS_2fstring_2esats.html#20637"><span class="dyncstuse">string_of_strptr</span></a> <span class="keyword">(</span>basename<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#26103"><span class="dyncstuse">template_name_make</span></a> <span class="keyword">(</span>basename<span class="keyword">,</span> hitss<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [template_var_name_make]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#26320"><span class="dyncstimp">ccomp_exp_template_cst</span></a>
+  <span class="keyword">(</span>res<span class="keyword">,</span> loc0<span class="keyword">,</span> hit0<span class="keyword">,</span> d2c<span class="keyword">,</span> hitss<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> hitss <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#24401"><span class="dyncstuse">hityplstlst_normalize</span></a> <span class="keyword">(</span>hitss<span class="keyword">)</span>
+  <span class="keyword">val</span> fullname <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#26175"><span class="dyncstuse">template_cst_name_make</span></a> <span class="keyword">(</span>d2c<span class="keyword">,</span> hitss<span class="keyword">)</span>
+<span class="comment">(*
+  val () = begin
+    print "ccomp_exp_tmpcst: hit0 = "; print hit0; print_newline ();
+    print "ccomp_exp_tmpcst: fullname = "; print fullname; print_newline ();
+  end // end of [val]
+*)</span>
+  <span class="keyword">val</span> ovp <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#26022"><span class="dyncstuse">tmpnamtbl_find</span></a> <span class="keyword">(</span>fullname<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> ovp <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> tmpdef <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#24906"><span class="dyncstuse">tmpcstmap_find</span></a> d2c <span class="keyword">of</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>Some_vt tmpdef <span class="keyword">=&gt;</span> tmpdef <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5flocation_2esats.html#2738"><span class="dyncstuse">$Loc<span class="keyword">.</span>prerr_location</span></a> loc0<span class="keyword">;</span> prerr ": error(ccomp)"<span class="keyword">;</span>
+          <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdebug_2esats.html#1975"><span class="dyncstuse">$Deb<span class="keyword">.</span>debug_prerrf</span></a> <span class="keyword">(</span>": %s: ccomp_exp_template_cst"<span class="keyword">,</span> <span class="keyword">@(</span>THISFILENAME<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+          prerr ": the template definition for ["<span class="keyword">;</span>
+          prerr d2c<span class="keyword">;</span>
+          prerr "] is unavailable at ["<span class="keyword">;</span>
+          prerr fullname<span class="keyword">;</span>
+          prerr "]."<span class="keyword">;</span>
+          <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#24598"><span class="stacstuse">tmpdef_t</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>      <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#24598"><span class="stacstuse">tmpdef_t</span></a></span>
+      <span class="keyword">val</span> level0 <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3577"><span class="dyncstuse">d2var_current_level_get</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3613"><span class="dyncstuse">d2var_current_level_set</span></a> <span class="keyword">(</span>0<span class="keyword">)</span>
+      <span class="keyword">val</span> vp <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#8792"><span class="dyncstuse">ccomp_tmpdef</span></a> <span class="keyword">(</span>loc0<span class="keyword">,</span> res<span class="keyword">,</span> hit0<span class="keyword">,</span> TMPcst d2c<span class="keyword">,</span> hitss<span class="keyword">,</span> fullname<span class="keyword">,</span> tmpdef<span class="keyword">)</span>
+      <span class="keyword">val</span> level0 <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3613"><span class="dyncstuse">d2var_current_level_set</span></a> <span class="keyword">(</span>level0<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      vp <span class="comment">// return value
+</span>    <span class="keyword">end</span> <span class="comment">(* end of [None_vt] *)</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>Some_vt vp <span class="keyword">=&gt;</span> vp
+<span class="keyword">end</span> <span class="comment">// end of [ccomp_exp_template_cst]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#26478"><span class="dyncstimp">ccomp_exp_template_var</span></a>
+  <span class="keyword">(</span>res<span class="keyword">,</span> loc0<span class="keyword">,</span> hit0<span class="keyword">,</span> d2v<span class="keyword">,</span> hitss<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> hitss <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#24401"><span class="dyncstuse">hityplstlst_normalize</span></a> <span class="keyword">(</span>hitss<span class="keyword">)</span>
+  <span class="keyword">val</span> fullname <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#26247"><span class="dyncstuse">template_var_name_make</span></a> <span class="keyword">(</span>d2v<span class="keyword">,</span> hitss<span class="keyword">)</span>
+<span class="comment">(*
+  val () = begin
+    print "ccomp_exp_tmpvar: hit0 = "; print hit0; print_newline ();
+    print "ccomp_exp_tmpvar: fullname = "; print fullname; print_newline ();
+  end // end of [val]
+*)</span>
+  <span class="keyword">val</span> ovp <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_2esats.html#26022"><span class="dyncstuse">tmpnamtbl_find</span></a> <span class="keyword">(</span>fullname<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> ovp <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> tmpdef <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#25070"><span class="dyncstuse">tmpvarmap_find</span></a> d2v <span class="keyword">of</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>Some_vt tmpdef <span class="keyword">=&gt;</span> tmpdef <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5flocation_2esats.html#2738"><span class="dyncstuse">$Loc<span class="keyword">.</span>prerr_location</span></a> loc0<span class="keyword">;</span> prerr ": error(ccomp)"<span class="keyword">;</span>
+          <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdebug_2esats.html#1975"><span class="dyncstuse">$Deb<span class="keyword">.</span>debug_prerrf</span></a> <span class="keyword">(</span>": %s: ccomp_exp_template_var"<span class="keyword">,</span> <span class="keyword">@(</span>THISFILENAME<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">;</span>
+          prerr ": the template definition for ["<span class="keyword">;</span>
+          prerr d2v<span class="keyword">;</span>
+          prerr "] is unavailable at ["<span class="keyword">;</span>
+          prerr fullname<span class="keyword">;</span>
+          prerr "]."<span class="keyword">;</span>
+          <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#24598"><span class="stacstuse">tmpdef_t</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>      <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhiexp_2esats.html#24598"><span class="stacstuse">tmpdef_t</span></a></span>
+      <span class="keyword">val</span> d2v_lev <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#6952"><span class="dyncstuse">d2var_lev_get</span></a> <span class="keyword">(</span>d2v<span class="keyword">)</span>
+      <span class="keyword">val</span> level0 <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3577"><span class="dyncstuse">d2var_current_level_get</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">(*
+      val () = begin
+        print "ccomp_exp_tmpvar: d2v_lev = "; print d2v_lev; print_newline ();
+        print "ccomp_exp_tmpvar: level0 = "; print level0; print_newline ();
+      end // end of [val]
+*)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3613"><span class="dyncstuse">d2var_current_level_set</span></a> <span class="keyword">(</span>d2v_lev<span class="keyword">)</span>
+      <span class="keyword">val</span> vp <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fccomp_5ftrans_5ftemp_2edats.html#8792"><span class="dyncstuse">ccomp_tmpdef</span></a> <span class="keyword">(</span>loc0<span class="keyword">,</span> res<span class="keyword">,</span> hit0<span class="keyword">,</span> TMPvar d2v<span class="keyword">,</span> hitss<span class="keyword">,</span> fullname<span class="keyword">,</span> tmpdef<span class="keyword">)</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3613"><span class="dyncstuse">d2var_current_level_set</span></a> <span class="keyword">(</span>level0<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      vp <span class="comment">// return value
+</span>    <span class="keyword">end</span> <span class="comment">(* end of [None_vt] *)</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>Some_vt vp <span class="keyword">=&gt;</span> vp
+<span class="keyword">end</span> <span class="comment">// end of [ccomp_exp_template_var]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_ccomp_trans_temp.dats] *)</span>
+</pre>
+</body>
+</html>

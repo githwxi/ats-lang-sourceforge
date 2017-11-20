@@ -1,0 +1,128 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(*
+**
+** An introductory example to BSD Unix socket programming in ATS
+**
+** The following code implements a server socket that responds to a request by
+** sending out a string representation of the current time. This is a concurrent
+** version (in contrast to an iterative version). The use of the function [fork]
+** and the type assigned to it should serve as an interesting example for future
+** reference.
+
+** Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+** Time: November, 2008
+**
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/stdio.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/time.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/unistd.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/socket.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/sockaddr.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/netinet/SATS/in.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/socket_in.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/arpa/SATS/inet.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">LISTENQ 5</span> <span class="comment">// a traditional value
+</span><span class="keyword">#define</span> <span class="neuexp">TIME_SERVER_PORT 13000</span> <span class="comment">// default value
+</span>
+<span class="comment">(*
+//
+// HX-2008: some ideas:
+//
+absprop forkdup_p (v: view)
+extern praxi forkdup_socket
+  {fd:int} {st:status} (): forkdup_p (socket_v (fd, st))
+extern praxi forkdup_pair {v1,v2:view}
+ (pf1: forkdup_p (v1), pf2: forkdup_p (v2)): forkdup_p @(v1, v2) 
+*)</span>
+
+<span class="keyword">implement</span> main <span class="keyword">(</span>argc<span class="keyword">,</span> argv<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> nport <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">if</span> argc <span class="keyword">&gt;</span> 1 <span class="keyword">then</span> int_of argv<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">1</span><span class="keyword">]</span> <span class="keyword">else</span> TIME_SERVER_PORT<span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">int</span>
+  <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">fd_s<span class="keyword">:</span>int</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pfskt_s</span> <span class="keyword">|</span> fd_s<span class="keyword">)</span> <span class="keyword">=</span> socket_family_type_exn <span class="keyword">(</span>AF_INET<span class="keyword">,</span> SOCK_STREAM<span class="keyword">)</span>
+  <span class="keyword">var</span> servaddr<span class="keyword">:</span> <span class="staexp">sockaddr_in_struct</span> <span class="comment">// uninitialized
+</span>  <span class="keyword">val</span> servport <span class="keyword">=</span> in_port_nbo_of_int <span class="keyword">(</span>nport<span class="keyword">)</span>
+  <span class="keyword">val</span> in4addr_any <span class="keyword">=</span> in_addr_nbo_of_hbo <span class="keyword">(</span>INADDR_ANY<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> sockaddr_in_init <span class="keyword">(</span>servaddr<span class="keyword">,</span> AF_INET<span class="keyword">,</span> in4addr_any<span class="keyword">,</span> servport<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> bind_in_exn <span class="keyword">(</span><span class="prfexp">pfskt_s</span> <span class="keyword">|</span> fd_s<span class="keyword">,</span> servaddr<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> listen_exn <span class="keyword">(</span><span class="prfexp">pfskt_s</span> <span class="keyword">|</span> fd_s<span class="keyword">,</span> LISTENQ<span class="keyword">)</span> 
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> loop <span class="keyword">(</span><span class="prfexp">pfskt_s</span> <span class="keyword">|</span> fd_s<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">fun</span> loop <span class="keyword">(</span>
+        <span class="prfexp">pfskt_s<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>socket_v <span class="keyword">(</span>fd_s<span class="keyword">,</span> listen<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd_s<span class="keyword">:</span> <span class="staexp">int fd_s</span>
+      <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">fd_c<span class="keyword">:</span>int</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pfskt_c</span> <span class="keyword">|</span> fd_c<span class="keyword">)</span> <span class="keyword">=</span> accept_null_exn <span class="keyword">(</span><span class="prfexp">pfskt_s</span> <span class="keyword">|</span> fd_s<span class="keyword">)</span>
+      <span class="keyword">viewdef</span> <span class="staexp"><a name="1890"><span class="stacstdec">V <span class="keyword">=</span> <span class="keyword">@(</span>socket_v <span class="keyword">(</span>fd_s<span class="keyword">,</span> listen<span class="keyword">)</span><span class="keyword">,</span> socket_v <span class="keyword">(</span>fd_c<span class="keyword">,</span> conn<span class="keyword">)</span><span class="keyword">)</span></span></a></span>
+      <span class="keyword">prval</span> <span class="prfexp">pf <span class="keyword">=</span> <span class="keyword">@(</span>pfskt_s<span class="keyword">,</span> pfskt_c<span class="keyword">)</span></span>
+      <span class="keyword">val</span> f_child <span class="keyword">=</span> <span class="keyword">lam</span> <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp">V</span></span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">@(</span>pfskt_s<span class="keyword">,</span> pfskt_c<span class="keyword">)</span> <span class="keyword">=</span> pf</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> socket_close_exn <span class="keyword">(</span><span class="prfexp">pfskt_s</span> <span class="keyword">|</span> fd_s<span class="keyword">)</span>
+        <span class="keyword">var</span> ntick <span class="keyword">=</span> time_get <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">//
+</span>        <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">l<span class="keyword">:</span>addr</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">fpf_pstr</span> <span class="keyword">|</span> pstr<span class="keyword">)</span> <span class="keyword">=</span> ctime ntick <span class="comment">// ctime is non-reentrant
+</span>        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert <span class="keyword">(</span>strptr_isnot_null<span class="keyword">(</span>pstr<span class="keyword">)</span><span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+          <span class="keyword">val</span> str <span class="keyword">=</span> __cast <span class="keyword">(</span>pstr<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+            <span class="keyword">extern</span> <span class="keyword">castfn</span> <a name="2395"><span class="dyncstdec">__cast <span class="staexp"><span class="keyword">{</span>l<span class="keyword">&gt;</span>null<span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>strptr l</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">string</span></span></a>
+          <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>          <span class="keyword">val</span> str <span class="keyword">=</span> string1_of_string <span class="keyword">(</span>str<span class="keyword">)</span>
+          <span class="keyword">val</span> strlen <span class="keyword">=</span> string1_length <span class="keyword">(</span>str<span class="keyword">)</span>
+<span class="comment">//
+</span>          <span class="keyword">extern</span> <span class="keyword">castfn</span> <a name="2577"><span class="dyncstdec">__cast <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+            <span class="keyword">(</span>s<span class="keyword">:</span> <span class="staexp">string n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span>bytes n @ l<span class="keyword">,</span> bytes n @ l <span class="keyword">-&lt;</span>lin<span class="keyword">,</span>prf<span class="keyword">&gt;</span> void <span class="keyword">|</span> ptr l<span class="keyword">)</span></span></span></a>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf</span><span class="keyword">,</span> <span class="prfexp">fpf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> __cast <span class="keyword">(</span>str<span class="keyword">)</span>
+          <span class="keyword">val</span> _ <span class="keyword">=</span> socket_write_all_exn <span class="keyword">(</span><span class="prfexp">pfskt_c</span> <span class="keyword">|</span> fd_c<span class="keyword">,</span> <span class="keyword">!</span>p<span class="keyword">,</span> strlen<span class="keyword">)</span>
+          <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fpf <span class="keyword">(</span>pf<span class="keyword">)</span></span>
+<span class="comment">//
+</span>          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> socket_close_exn <span class="keyword">(</span><span class="prfexp">pfskt_c</span> <span class="keyword">|</span> fd_c<span class="keyword">)</span>
+        <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>        <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fpf_pstr <span class="keyword">(</span>pstr<span class="keyword">)</span></span>
+<span class="comment">//
+</span>      <span class="keyword">in</span>
+        <span class="comment">// empty
+</span>      <span class="keyword">end</span> <span class="comment">// f_child
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fork_exec_cloptr_exn <span class="staexp"><span class="keyword">{</span>V<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> f_child<span class="keyword">)</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pfskt_s := pf<span class="keyword">.</span>0</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pfskt_c := pf<span class="keyword">.</span>1</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> socket_close_exn <span class="keyword">(</span><span class="prfexp">pfskt_c</span> <span class="keyword">|</span> fd_c<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      loop <span class="keyword">(</span><span class="prfexp">pfskt_s</span> <span class="keyword">|</span> fd_s<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [loop]
+</span>  <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> socket_close_exn <span class="keyword">(</span><span class="prfexp">pfskt_s</span> <span class="keyword">|</span> fd_s<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [daytime_tcpserver.dats] *)</span>
+</pre>
+</body>
+</html>

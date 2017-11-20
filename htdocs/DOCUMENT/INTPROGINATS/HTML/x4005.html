@@ -1,0 +1,595 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>Simple Linear Objects</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+TITLE="Introduction to Programming in ATS"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Abstract Views and Viewtypes"
+HREF="c3942.html"><LINK
+REL="PREVIOUS"
+TITLE="Abstract Views and Viewtypes"
+HREF="c3942.html"><LINK
+REL="NEXT"
+TITLE="Example: Implementing an Array-Based Circular Buffer"
+HREF="x4062.html"></HEAD
+><BODY
+CLASS="sect1"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>Introduction to Programming in ATS: </TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="c3942.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+>Abstract Views and Viewtypes</TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="x4062.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="sect1"
+><H1
+CLASS="sect1"
+><A
+NAME="AEN4005"
+>Simple Linear Objects</A
+></H1
+><P
+>&#13;Objects in the physical world are conspicuously linear: They cannot be
+created from nothing or simply go vanished by turning into nothing. Thus,
+it is only natural to assign linear types to values that represent physical
+objects. I choose the name <I
+CLASS="emphasis"
+>simple linear object</I
+> here to refer to a
+linear value representing an object of some sort that does not contain
+built-in mechanism for supporting inheritance.
+
+</P
+><P
+>Let us first introduce a boxed abstract viewtype as follows
+for simple linear objects:
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN4010"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>absviewtype sobjptr (a:viewt@ype+)
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;Given a viewtype VT, <FONT
+COLOR="RED"
+>sobjptr(VT)</FONT
+> is essentially meant for a
+pointer to some memory location L where a value of the viewtype VT is
+stored. The following function template <FONT
+COLOR="RED"
+>sobjptr_new</FONT
+> and function
+<FONT
+COLOR="RED"
+>sobjptr_free</FONT
+> are for creating and destroying (i.e., freeing) simple
+linear objects, respectively:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN4016"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun{a:viewt@ype} sobjptr_new (): sobjptr (a?)
+fun sobjptr_free {a:t@ype} (x: sobjptr (a)): void
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;The abstract viewtype <FONT
+COLOR="RED"
+>sobjptr</FONT
+> can be given the following
+definition:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN4020"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>assume
+sobjptr (a:viewt@ype) = [l:addr] @{
+  atview= a @ l, gcview= free_gc_v (a?, l), ptr= ptr l
+} // end of [sobjptr]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>Subsequently, <FONT
+COLOR="RED"
+>sobjptr_new</FONT
+> and <FONT
+COLOR="RED"
+>sobjptr_free</FONT
+>
+can be implemented as follows:
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN4025"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>implement{a}
+sobjptr_new () = let
+  val (pfgc, pfat | p) = ptr_alloc&#60;a&#62; ()
+in @{
+  atview= pfat, gcview= pfgc, ptr= p
+} end // end of [sobjptr_new]
+
+implement
+sobjptr_free {a} (pobj) =
+  ptr_free (pobj.gcview, pobj.atview | pobj.ptr)
+// end of [sobjptr_free]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;Clearly, a simple object needs to be initialized before
+it is of any use. This can be done by calling the following
+function <FONT
+COLOR="RED"
+>sobjptr_init</FONT
+>:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN4029"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>extern
+fun sobjptr_init {a:viewt@ype}
+  (pobj: !sobjptr (a?) &#62;&#62; sobjptr (a), f: (&#38;a? &#62;&#62; a) -&#62; void): void
+// end of [sobjptr_init]
+
+implement
+sobjptr_init
+  (pobj, f) = let
+  prval pfat = pobj.atview
+  val () = f !(pobj.ptr)
+  prval () = pobj.atview := pfat
+in
+  // nothing
+end // end of [sobjptr_init]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;As a simple object may contain resources, it needs to be cleared out before
+it is allowed to be freed. This can be done by calling the following
+function <FONT
+COLOR="RED"
+>sobjptr_clear</FONT
+>:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN4033"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>extern
+fun sobjptr_clear
+  {a:viewt@ype} (
+  x: !sobjptr (a) &#62;&#62; sobjptr (a?), f: (&#38;a &#62;&#62; a?) -&#62; void
+) : void // end of [sobjptr_clear]
+
+implement
+sobjptr_clear
+  (pobj, f) = let
+  prval pfat = pobj.atview
+  val () = f !(pobj.ptr)
+  prval () = pobj.atview := pfat
+in
+  // nothing
+end // end of [sobjptr_clear]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;Note that each type T (of the sort <FONT
+COLOR="RED"
+>t@ype</FONT
+>) is a subtype of T?,
+implying that <FONT
+COLOR="RED"
+>sobjptr</FONT
+>(T) is a subtype of <FONT
+COLOR="RED"
+>sobjptr</FONT
+>(T?)  (as
+<FONT
+COLOR="RED"
+>sobjptr</FONT
+> is co-variant). Therefore, <FONT
+COLOR="RED"
+>sobjptr_free</FONT
+> can be
+called directly on a value of the type <FONT
+COLOR="RED"
+>sobjptr</FONT
+>(T) without need to
+call <FONT
+COLOR="RED"
+>sobjptr_clear</FONT
+> on the value first.
+
+</P
+><P
+>&#13;
+Let us now see a concrete example of simple linear object. Suppose that a
+timer (that is, stopwatch) is wanted to measure time (of some
+sort). Following is a natural interface for functions creating, destroying
+and manipulating timer objects:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN4044"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>absviewtype timerObj
+
+fun timerObj_new (): timerObj
+fun timerObj_free (x: timerObj): void
+fun timerObj_start (x: !timerObj): void
+fun timerObj_finish (x: !timerObj): void
+fun timerObj_pause (x: !timerObj): void
+fun timerObj_resume (x: !timerObj): void
+fun timerObj_get_ntick (x: !timerObj): uint
+fun timerObj_reset (x: !timerObj): void
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;The (flat) record type <FONT
+COLOR="RED"
+>timer_struct</FONT
+> is defined as follows to
+represent the state of a timer object:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN4048"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>typedef
+timer_struct = @{
+  started= bool // the timer has started
+, running= bool // the timer is running
+  // the tick number recorded
+, ntick_beg= uint // when the timer was turned on the last time
+, ntick_acc= uint // the number of accumulated ticks
+} // end of [timer_struct]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;The abstract viewtype <FONT
+COLOR="RED"
+>timerObj</FONT
+> can then be mapped to
+<FONT
+COLOR="RED"
+>sobjptr(timer_struct)</FONT
+>:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN4053"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>assume timerObj = sobjptr (timer_struct)
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;The functions <FONT
+COLOR="RED"
+>timerObj_new</FONT
+> and <FONT
+COLOR="RED"
+>timerObj_free</FONT
+>
+can now be given the following implementation:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN4058"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>implement
+timerObj_new () = let
+  typedef T = timer_struct
+  fn f (
+    x: &#38;T? &#62;&#62; T
+  ) : void = {
+    val () = x.started := false
+    val () = x.running := false
+    val () = x.ntick_beg := 0u // unsigned
+    val () = x.ntick_acc := 0u // unsigned
+  } // end of [f]
+  val pobj = sobjptr_new&#60;T&#62; ()
+in
+  sobjptr_init {T} (pobj, f); pobj
+end // end of [timerObj_new]
+
+implement
+timerObj_free (pobj) = sobjptr_free (pobj)
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;For brevity, I omit the code implementing the other functions on timer
+objects, which the interested reader can find
+<A
+HREF="http://www.ats-lang.org/DOCUMENT/INTPROGINATS/CODE/CHAPTER_ABSVTYPES/sobjptr.dats"
+TARGET="_top"
+>on-line</A
+> together with
+some additional testing code.
+
+</P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="c3942.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="x4062.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Abstract Views and Viewtypes</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="c3942.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Example: Implementing an Array-Based Circular Buffer</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

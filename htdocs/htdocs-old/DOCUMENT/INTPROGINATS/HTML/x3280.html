@@ -1,0 +1,346 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>Stack-Allocated Variables</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+TITLE="Introduction to Programming in ATS"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Introduction to Views and Viewtypes"
+HREF="c3147.html"><LINK
+REL="PREVIOUS"
+TITLE="Left-Values and Call-by-Reference"
+HREF="x3258.html"><LINK
+REL="NEXT"
+TITLE="Dataviews as Linear Dataprops"
+HREF="c3317.html"></HEAD
+><BODY
+CLASS="sect1"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>Introduction to Programming in ATS: </TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="x3258.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+>Introduction to Views and Viewtypes</TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="c3317.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="sect1"
+><H1
+CLASS="sect1"
+><A
+NAME="stack-allocated_variables"
+>Stack-Allocated Variables</A
+></H1
+><P
+>&#13;Given a type T and an address L, how can a proof of the view T@L be
+obtained in the first place? There are actually a variety of methods for
+obtaining such proofs in practice, and I present one as follows that is
+based on stack-allocation of local variables.
+
+</P
+><P
+>&#13;In the body of the following function <FONT
+COLOR="RED"
+>foo</FONT
+>, some stack-allocated
+local variables are declared:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3285"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fn foo (): void = let
+  var x0: int // view@ (x0): int? @ x0
+  val () = x0 := 0 // view@ (x0): int(0) @ x0
+  var x1: int = 1 // view@ (x1): int(1) @ x1
+//
+// [with] is a keyword in ATS
+//
+  var y: int with pfy // pfy is an alias of view@ (y): int? @ y
+  val () = y := 2 // pfy = view@ (y): int(2) @ y
+  var z: int with pfz = 3 // pfz is an alias of view@ (z): int(3) @ z
+in
+  // nothing
+end // end of [f]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;The keyword <FONT
+COLOR="RED"
+>var</FONT
+> is for declaring a local variable. When a variable
+is declared, either its type or its initial value needs to be given. If a
+variable is declared without a type, then the type of its initial value is
+assumed to be its type. Assume that a variable x is declared of type
+T. Then the pointer to the location of the variable is denoted by
+<FONT
+COLOR="RED"
+>&#38;</FONT
+>x, and its associated linear proof (of some at-view) can be
+referred to as <FONT
+COLOR="RED"
+>view@</FONT
+>(x), where <FONT
+COLOR="RED"
+>view@</FONT
+> is a keyword. A
+variable is another form of left-value in ATS. In the body of <FONT
+COLOR="RED"
+>foo</FONT
+>,
+<FONT
+COLOR="RED"
+>x0</FONT
+> is declared to be a variable of the type <FONT
+COLOR="RED"
+>int</FONT
+> and then
+it is initialized with the integer 0; <FONT
+COLOR="RED"
+>x1</FONT
+> is declared to be a
+variable of the type <FONT
+COLOR="RED"
+>int</FONT
+> that is given the initial value 1;
+<FONT
+COLOR="RED"
+>y</FONT
+> is declared to be a variable of the type <FONT
+COLOR="RED"
+>int</FONT
+> while
+<FONT
+COLOR="RED"
+>pfy</FONT
+> is introduced as an alias of <FONT
+COLOR="RED"
+>view@(y)</FONT
+>, and then
+<FONT
+COLOR="RED"
+>y</FONT
+> is initialized with the integer 2; <FONT
+COLOR="RED"
+>z</FONT
+> is declared to be
+a variable of the type <FONT
+COLOR="RED"
+>int</FONT
+> that is given the initial value 3 while
+<FONT
+COLOR="RED"
+>pfz</FONT
+> is introduced as an alias of <FONT
+COLOR="RED"
+>view@(z)</FONT
+>.
+
+</P
+><P
+>&#13;The following code gives an implementation of the factorial function:
+
+</P
+><DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN3307"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fn fact {n:nat}
+  (n: int n): int = let
+  fun loop {n:nat} {l:addr} .&#60;n&#62;.
+    (pf: !int @ l | n: int n, res: ptr l): void =
+    if n &#62; 0 then let
+      val () = !res := n * !res in loop (pf | n-1, res)
+    end // end of [if]
+  // end of [loop]
+  var res: int with pf = 1
+  val () = loop (pf | n, &#38;res) // &#38;res: the pointer to res
+in
+  res
+end // end of [fact]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><P
+>&#13;Note that the variable <FONT
+COLOR="RED"
+>res</FONT
+> holds the intermediate result during
+the execution of the loop. As <FONT
+COLOR="RED"
+>res</FONT
+> is stack-allocated, there is no
+generated garbage after a call to <FONT
+COLOR="RED"
+>fact</FONT
+> is evaluated. When this
+style of programming is done in C, there is often a concern about the
+pointer to <FONT
+COLOR="RED"
+>res</FONT
+> being derefenced after a call to <FONT
+COLOR="RED"
+>fact</FONT
+>
+returns, which is commonly referred to as derefencing a dangling pointer.
+This concern is completely eliminated in ATS as it is required by the type
+system of ATS that a linear proof of the at-view associated with the
+variable <FONT
+COLOR="RED"
+>res</FONT
+> be present at the end of legal scope for
+<FONT
+COLOR="RED"
+>res</FONT
+>. More specifically, if x is a declared variable of the type T,
+then a linear proof of the view T?@L, where L is the address of x, must be
+available when typechecking reaches the end of the scope for x.  This
+requirement ensures that a variable can no longer be accessed after the
+portion of the stack in which it is allocated is reclaimed as no linear
+proof of the at-view associated with the variable is ever available from
+that point on.
+
+</P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="x3258.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="c3317.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Left-Values and Call-by-Reference</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="c3147.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Dataviews as Linear Dataprops</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

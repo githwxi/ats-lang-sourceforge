@@ -1,0 +1,128 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(*
+**
+** An introductory example to BSD Unix socket programming in ATS
+**
+** The following code implements a server socket that responds to a request by
+** sending out a string representation of the current time. This is a concurrent
+** version (in contrast to an iterative version). The use of the function [fork]
+** and the type assigned to it should serve as an interesting example for future
+** reference.
+
+** Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+** Time: November, 2008
+**
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/stdio.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/time.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/unistd.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/socket.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/sockaddr.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/netinet/SATS/in.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/socket_in.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/arpa/SATS/inet.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">LISTENQ 5</span> <span class="comment">// a traditional value
+</span><span class="keyword">#define</span> <span class="neuexp">TIME_SERVER_PORT 13000</span> <span class="comment">// default value
+</span>
+<span class="comment">(*
+//
+// HX-2008: some ideas:
+//
+absprop forkdup_p (v: view)
+extern praxi forkdup_socket
+  {fd:int} {st:status} (): forkdup_p (socket_v (fd, st))
+extern praxi forkdup_pair {v1,v2:view}
+ (pf1: forkdup_p (v1), pf2: forkdup_p (v2)): forkdup_p @(v1, v2) 
+*)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fdyn_2esats.html#6780"><span class="dyncstimp">main</span></a> <span class="keyword">(</span>argc<span class="keyword">,</span> argv<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> nport <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">if</span> argc <span class="keyword">&gt;</span> 1 <span class="keyword">then</span> int_of argv<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">1</span><span class="keyword">]</span> <span class="keyword">else</span> TIME_SERVER_PORT<span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#14520"><span class="stacstuse">int</span></a></span>
+  <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">fd_s<span class="keyword">:</span>int</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pfskt_s</span> <span class="keyword">|</span> fd_s<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2fsocket_2esats.html#3152"><span class="dyncstuse">socket_family_type_exn</span></a> <span class="keyword">(</span>AF_INET<span class="keyword">,</span> SOCK_STREAM<span class="keyword">)</span>
+  <span class="keyword">var</span> servaddr<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2flibc_2fnetinet_2fSATS_2fin_2esats.html#7384"><span class="stacstuse">sockaddr_in_struct</span></a></span> <span class="comment">// uninitialized
+</span>  <span class="keyword">val</span> servport <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fnetinet_2fSATS_2fin_2esats.html#5571"><span class="dyncstuse">in_port_nbo_of_int</span></a> <span class="keyword">(</span>nport<span class="keyword">)</span>
+  <span class="keyword">val</span> in4addr_any <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fnetinet_2fSATS_2fin_2esats.html#5879"><span class="dyncstuse">in_addr_nbo_of_hbo</span></a> <span class="keyword">(</span>INADDR_ANY<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2fsocket_5fin_2esats.html#1722"><span class="dyncstuse">sockaddr_in_init</span></a> <span class="keyword">(</span>servaddr<span class="keyword">,</span> AF_INET<span class="keyword">,</span> in4addr_any<span class="keyword">,</span> servport<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2fsocket_5fin_2esats.html#2171"><span class="dyncstuse">bind_in_exn</span></a> <span class="keyword">(</span><span class="prfexp">pfskt_s</span> <span class="keyword">|</span> fd_s<span class="keyword">,</span> servaddr<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2fsocket_2esats.html#4498"><span class="dyncstuse">listen_exn</span></a> <span class="keyword">(</span><span class="prfexp">pfskt_s</span> <span class="keyword">|</span> fd_s<span class="keyword">,</span> LISTENQ<span class="keyword">)</span> 
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> loop <span class="keyword">(</span><span class="prfexp">pfskt_s</span> <span class="keyword">|</span> fd_s<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">fun</span> loop <span class="keyword">(</span>
+        <span class="prfexp">pfskt_s<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span><a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2fsocket_2esats.html#2926"><span class="stacstuse"><a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2fsocket_2esats.html#2926"><span class="stacstuse">socket_v</span></a></span></a> <span class="keyword">(</span>fd_s<span class="keyword">,</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2fsocket_2esats.html#2903"><span class="stacstuse"><a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2fsocket_2esats.html#2903"><span class="stacstuse">listen</span></a></span></a><span class="keyword">)</span></span></span> <span class="keyword">|</span> fd_s<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#14493"><span class="stacstuse">int</span></a> fd_s</span>
+      <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#15389"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">fd_c<span class="keyword">:</span>int</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pfskt_c</span> <span class="keyword">|</span> fd_c<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2fsocket_2esats.html#4921"><span class="dyncstuse">accept_null_exn</span></a> <span class="keyword">(</span><span class="prfexp">pfskt_s</span> <span class="keyword">|</span> fd_s<span class="keyword">)</span>
+      <span class="keyword">viewdef</span> <span class="staexp"><a name="1890"><span class="stacstdec">V <span class="keyword">=</span> <span class="keyword">@(</span><a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2fsocket_2esats.html#2926"><span class="stacstuse">socket_v</span></a> <span class="keyword">(</span>fd_s<span class="keyword">,</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2fsocket_2esats.html#2903"><span class="stacstuse">listen</span></a><span class="keyword">)</span><span class="keyword">,</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2fsocket_2esats.html#2926"><span class="stacstuse">socket_v</span></a> <span class="keyword">(</span>fd_c<span class="keyword">,</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2fsocket_2esats.html#2912"><span class="stacstuse">conn</span></a><span class="keyword">)</span><span class="keyword">)</span></span></a></span>
+      <span class="keyword">prval</span> <span class="prfexp">pf <span class="keyword">=</span> <span class="keyword">@(</span>pfskt_s<span class="keyword">,</span> pfskt_c<span class="keyword">)</span></span>
+      <span class="keyword">val</span> f_child <span class="keyword">=</span> <span class="keyword">lam</span> <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fSOCKET_2fdaytime_5ftcpserver_2edats.html#1890"><span class="stacstuse">V</span></a></span></span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#15389"><span class="stacstuse">void</span></a></span> <span class="keyword">=&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="keyword">let</span>
+        <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">@(</span>pfskt_s<span class="keyword">,</span> pfskt_c<span class="keyword">)</span> <span class="keyword">=</span> pf</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2fsocket_2esats.html#5404"><span class="dyncstuse">socket_close_exn</span></a> <span class="keyword">(</span><span class="prfexp">pfskt_s</span> <span class="keyword">|</span> fd_s<span class="keyword">)</span>
+        <span class="keyword">var</span> ntick <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2ftime_2esats.html#3203"><span class="dyncstuse">time_get</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">//
+</span>        <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">l<span class="keyword">:</span>addr</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">fpf_pstr</span> <span class="keyword">|</span> pstr<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2ftime_2esats.html#3500"><span class="dyncstuse">ctime</span></a> ntick <span class="comment">// ctime is non-reentrant
+</span>        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert <span class="keyword">(</span><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fstring_2esats.html#20249"><span class="dyncstuse">strptr_isnot_null</span></a><span class="keyword">(</span>pstr<span class="keyword">)</span><span class="keyword">)</span>
+        <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+          <span class="keyword">val</span> str <span class="keyword">=</span> <a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fSOCKET_2fdaytime_5ftcpserver_2edats.html#2395"><span class="dyncstuse">__cast</span></a> <span class="keyword">(</span>pstr<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+            <span class="keyword">extern</span> <span class="keyword">castfn</span> <a name="2395"><span class="dyncstdec">__cast <span class="staexp"><span class="keyword">{</span>l<a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#7907"><span class="stacstuse"><span class="keyword">&gt;</span></span></a><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#7615"><span class="stacstuse">null</span></a><span class="keyword">}</span></span> <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#15145"><span class="stacstuse"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#15145"><span class="stacstuse">strptr</span></a></span></a> l</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#15085"><span class="stacstuse">string</span></a></span></span></a>
+          <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>          <span class="keyword">val</span> str <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fstring_2esats.html#4982"><span class="dyncstuse">string1_of_string</span></a> <span class="keyword">(</span>str<span class="keyword">)</span>
+          <span class="keyword">val</span> strlen <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fSATS_2fstring_2esats.html#14525"><span class="dyncstuse">string1_length</span></a> <span class="keyword">(</span>str<span class="keyword">)</span>
+<span class="comment">//
+</span>          <span class="keyword">extern</span> <span class="keyword">castfn</span> <a name="2577"><span class="dyncstdec">__cast <span class="staexp"><span class="keyword">{</span>n<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+            <span class="keyword">(</span>s<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#15053"><span class="stacstuse">string</span></a> n</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>l<span class="keyword">:</span>addr<span class="keyword">]</span> <span class="keyword">(</span><a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fstdio_2esats.html#2361"><span class="stacstuse">bytes</span></a> n <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#9373"><span class="stacstuse">@</span></a> l<span class="keyword">,</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2fstdio_2esats.html#2361"><span class="stacstuse">bytes</span></a> n <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#9373"><span class="stacstuse">@</span></a> l <span class="keyword">-&lt;</span>lin<span class="keyword">,</span>prf<span class="keyword">&gt;</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#15389"><span class="stacstuse">void</span></a> <span class="keyword">|</span> <a href="XREF/_2ftmp_2ftrunk_2fprelude_2fbasics_5fsta_2esats.html#14879"><span class="stacstuse">ptr</span></a> l<span class="keyword">)</span></span></span></a>
+          <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf</span><span class="keyword">,</span> <span class="prfexp">fpf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fSOCKET_2fdaytime_5ftcpserver_2edats.html#2577"><span class="dyncstuse">__cast</span></a> <span class="keyword">(</span>str<span class="keyword">)</span>
+          <span class="keyword">val</span> _ <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2fsocket_2esats.html#8033"><span class="dyncstuse">socket_write_all_exn</span></a> <span class="keyword">(</span><span class="prfexp">pfskt_c</span> <span class="keyword">|</span> fd_c<span class="keyword">,</span> <span class="keyword">!</span>p<span class="keyword">,</span> strlen<span class="keyword">)</span>
+          <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fpf <span class="keyword">(</span>pf<span class="keyword">)</span></span>
+<span class="comment">//
+</span>          <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2fsocket_2esats.html#5404"><span class="dyncstuse">socket_close_exn</span></a> <span class="keyword">(</span><span class="prfexp">pfskt_c</span> <span class="keyword">|</span> fd_c<span class="keyword">)</span>
+        <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>        <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fpf_pstr <span class="keyword">(</span>pstr<span class="keyword">)</span></span>
+<span class="comment">//
+</span>      <span class="keyword">in</span>
+        <span class="comment">// empty
+</span>      <span class="keyword">end</span> <span class="comment">// f_child
+</span>      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fSATS_2funistd_2esats.html#4279"><span class="dyncstuse">fork_exec_cloptr_exn</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fSOCKET_2fdaytime_5ftcpserver_2edats.html#1890"><span class="stacstuse">V</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> f_child<span class="keyword">)</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pfskt_s := pf<span class="keyword">.</span>0</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pfskt_c := pf<span class="keyword">.</span>1</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2fsocket_2esats.html#5404"><span class="dyncstuse">socket_close_exn</span></a> <span class="keyword">(</span><span class="prfexp">pfskt_c</span> <span class="keyword">|</span> fd_c<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      loop <span class="keyword">(</span><span class="prfexp">pfskt_s</span> <span class="keyword">|</span> fd_s<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [loop]
+</span>  <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk_2flibc_2fsys_2fSATS_2fsocket_2esats.html#5404"><span class="dyncstuse">socket_close_exn</span></a> <span class="keyword">(</span><span class="prfexp">pfskt_s</span> <span class="keyword">|</span> fd_s<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [daytime_tcpserver.dats] *)</span>
+</pre>
+</body>
+</html>

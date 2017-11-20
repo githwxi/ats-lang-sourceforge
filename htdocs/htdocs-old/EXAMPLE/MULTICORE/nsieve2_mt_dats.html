@@ -1,0 +1,299 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">//
+</span><span class="comment">// Time March 2010
+</span><span class="comment">// Author: Hongwei Xi (hwxi @ cs.bu.edu)
+</span><span class="comment">//
+</span>
+<span class="comment">//
+</span><span class="comment">// Erastothene's sieve
+</span><span class="comment">// This is an excellent example showing the issue of memory bottleneck!!!
+</span><span class="comment">//
+</span>
+<span class="comment">(*
+
+command: time nsieve2_mt &lt;integer&gt; &lt;ncore&gt;
+
+output:
+Primes up to 40960000  2488465
+
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">M <span class="keyword">=</span> "libc/SATS/math.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/pthread.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"libats/SATS/parworkshop.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">_ <span class="keyword">=</span> "libats/DATS/parworkshop.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">macdef</span> <span class="neuexp">tt <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2finteger_5ffixed_2esats.html#1773"><span class="dyncstuse">int8_of_int</span></a> <span class="keyword">(</span>1<span class="keyword">)</span></span>
+<span class="keyword">macdef</span> <span class="neuexp">ff <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2finteger_5ffixed_2esats.html#1773"><span class="dyncstuse">int8_of_int</span></a> <span class="keyword">(</span>0<span class="keyword">)</span></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="585"><span class="stacstdec">two <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2finteger_5ffixed_2esats.html#1750"><span class="stacstuse">int8</span></a></span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="extern">%{^
+
+ATSinline()
+ats_int_type
+ceil2 (ats_int_type k, ats_int_type i) {
+  int r = k % i ;
+  if (r == 0) {
+    return k ;
+  } else {
+    return (k + i - r) ;
+  } // end of [if]
+} // end of [ceil2]
+
+%}</span> <span class="comment">// end of [%{^]
+</span>
+<span class="keyword">extern</span>
+<span class="keyword">fun</span> <a name="845"><span class="dyncstdec">ceil2 <span class="staexp"><span class="keyword">{</span>k<span class="keyword">,</span>i<span class="keyword">:</span>nat <span class="keyword">|</span> i <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#7311"><span class="stacstuse"><span class="keyword">&gt;</span></span></a> 0<span class="keyword">}</span></span> <span class="keyword">(</span>k<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14651"><span class="stacstuse">int</span></a> k</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14651"><span class="stacstuse">int</span></a> i</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#15923"><span class="stacstuse">intGte</span></a> k</span></span></a> <span class="keyword">=</span> "ceil2"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="943"><span class="dyncstdec">sieve_once
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>limit<span class="keyword">:</span>nat <span class="keyword">|</span> limit <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#7522"><span class="stacstuse">&lt;=</span></a> m<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>i<span class="keyword">,</span>j<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2farray_2esats.html#2918"><span class="stacstuse"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2farray_2esats.html#2918"><span class="stacstuse">array_v</span></a></span></a> <span class="keyword">(</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#585"><span class="stacstuse"><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#585"><span class="stacstuse">two</span></a></span></a><span class="keyword">,</span> m<span class="keyword">,</span> l<span class="keyword">)</span></span></span> <span class="keyword">|</span> A<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#15037"><span class="stacstuse">ptr</span></a> l</span><span class="keyword">,</span> limit<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14651"><span class="stacstuse">int</span></a> limit</span><span class="keyword">,</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14651"><span class="stacstuse">int</span></a> i</span><span class="keyword">,</span> j<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14651"><span class="stacstuse">int</span></a> j</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#15547"><span class="stacstuse">void</span></a></span></span></a> <span class="keyword">=</span> "sieve_once_safe"
+<span class="comment">// end of [sieve_once]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#943"><span class="dyncstimp">sieve_once</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> A<span class="keyword">,</span> limit<span class="keyword">,</span> i<span class="keyword">,</span> j<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">if</span> <span class="keyword">(</span>j <span class="keyword">&lt;</span> limit<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">begin</span>
+    <span class="keyword">(</span><span class="keyword">if</span> A[<span class="prfexp">j</span><span class="keyword">]</span> &lt;&gt; ff <span class="keyword">then</span> A[<span class="prfexp">j</span><span class="keyword">]</span> := ff<span class="keyword">;</span> <a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#943"><span class="dyncstuse">sieve_once</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> A<span class="keyword">,</span> limit<span class="keyword">,</span> i<span class="keyword">,</span> j+i<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">// end of [sieve_once]
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="1344"><span class="dyncstdec">sieve_many
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>m1<span class="keyword">,</span>m2<span class="keyword">:</span>nat <span class="keyword">|</span> m1 <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#7522"><span class="stacstuse">&lt;=</span></a> m<span class="keyword">;</span> m2 <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#7522"><span class="stacstuse">&lt;=</span></a> m<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2farray_2esats.html#2918"><span class="stacstuse"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2farray_2esats.html#2918"><span class="stacstuse">array_v</span></a></span></a> <span class="keyword">(</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#585"><span class="stacstuse"><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#585"><span class="stacstuse">two</span></a></span></a><span class="keyword">,</span> m<span class="keyword">,</span> l<span class="keyword">)</span></span></span> <span class="keyword">|</span> A<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#15037"><span class="stacstuse">ptr</span></a> l</span><span class="keyword">,</span> m1<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14651"><span class="stacstuse">int</span></a> m1</span><span class="keyword">,</span> m2<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14651"><span class="stacstuse">int</span></a> m2</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#15547"><span class="stacstuse">void</span></a></span></span></a>
+
+<span class="keyword">implement</span> <a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#1344"><span class="dyncstimp">sieve_many</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> p_A<span class="keyword">,</span> m1<span class="keyword">,</span> m2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">var</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#15923"><span class="stacstuse">intGte</span></a> 2</span> <span class="keyword">=</span> 2
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">while</span> <span class="keyword">(</span>i <span class="keyword">&lt;</span> m1<span class="keyword">)</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> p_A<span class="keyword">-&gt;</span><span class="keyword">[</span><span class="prfexp">i</span><span class="keyword">]</span> <span class="keyword">=</span> tt <span class="keyword">then</span> <a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#943"><span class="dyncstuse">sieve_once</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> p_A<span class="keyword">,</span> m2<span class="keyword">,</span> i<span class="keyword">,</span> i+i<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    i := i + 1
+  <span class="keyword">end</span> <span class="comment">// end of [while]
+</span><span class="keyword">}</span> <span class="comment">// end of [sieve_many]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="1746"><span class="dyncstdec">sieve_many_seg
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">,</span>m1<span class="keyword">,</span>m2<span class="keyword">,</span>m3<span class="keyword">:</span>nat <span class="keyword">|</span> m1 <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#7522"><span class="stacstuse">&lt;=</span></a> m<span class="keyword">;</span> m2 <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#7522"><span class="stacstuse">&lt;=</span></a> m<span class="keyword">;</span> m3 <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#7522"><span class="stacstuse">&lt;=</span></a> m<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2farray_2esats.html#2918"><span class="stacstuse"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2farray_2esats.html#2918"><span class="stacstuse">array_v</span></a></span></a> <span class="keyword">(</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#585"><span class="stacstuse"><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#585"><span class="stacstuse">two</span></a></span></a><span class="keyword">,</span> m<span class="keyword">,</span> l<span class="keyword">)</span></span></span> <span class="keyword">|</span> A<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#15037"><span class="stacstuse">ptr</span></a> l</span><span class="keyword">,</span> m1<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14651"><span class="stacstuse">int</span></a> m1</span><span class="keyword">,</span> m2<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14651"><span class="stacstuse">int</span></a> m2</span><span class="keyword">,</span> m3<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14651"><span class="stacstuse">int</span></a> m3</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#15547"><span class="stacstuse">void</span></a></span></span></a>
+  <span class="keyword">=</span> "sieve_many_seg_safe"
+
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="1937"><span class="dyncstdec">sieve_many_seg_unsafe
+  <span class="staexp"><span class="keyword">{</span>m1<span class="keyword">,</span>m2<span class="keyword">,</span>m3<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>l<span class="keyword">:</span>addr<span class="keyword">}</span></span> <span class="keyword">(</span>A<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#15037"><span class="stacstuse">ptr</span></a> l</span><span class="keyword">,</span> m1<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14651"><span class="stacstuse">int</span></a> m1</span><span class="keyword">,</span> m2<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14651"><span class="stacstuse">int</span></a> m2</span><span class="keyword">,</span> m3<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14651"><span class="stacstuse">int</span></a> m3</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#15547"><span class="stacstuse">void</span></a></span></span></a>
+  <span class="keyword">=</span> "sieve_many_seg_safe"
+
+<span class="keyword">implement</span> <a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#1746"><span class="dyncstimp">sieve_many_seg</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> p_A<span class="keyword">,</span> m1<span class="keyword">,</span> m2<span class="keyword">,</span> m3<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+<span class="comment">(*
+  val () = (print "sieve_many_seg: m2 = "; print m2; print_newline ())
+  val () = (print "sieve_many_seg: m3 = "; print m3; print_newline ())
+*)</span>
+  <span class="keyword">var</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#15923"><span class="stacstuse">intGte</span></a> 2</span> <span class="keyword">=</span> 2
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">while</span> <span class="keyword">(</span>i <span class="keyword">&lt;</span> m1<span class="keyword">)</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> p_A<span class="keyword">-&gt;</span><span class="keyword">[</span><span class="prfexp">i</span><span class="keyword">]</span> <span class="keyword">=</span> tt <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> j <span class="keyword">=</span> <a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#845"><span class="dyncstuse">ceil2</span></a> <span class="keyword">(</span>m2<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">in</span> <a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#943"><span class="dyncstuse">sieve_once</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> p_A<span class="keyword">,</span> m3<span class="keyword">,</span> i<span class="keyword">,</span> j<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">in</span>
+    i := i + 1
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">}</span> <span class="comment">// end of [sieve_seg_many]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> sqrt_int <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>m<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14651"><span class="stacstuse">int</span></a> m</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#16039"><span class="stacstuse">Nat</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> m_sqrt <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2ffloat_2esats.html#6836"><span class="dyncstuse">int_of_double</span></a> <span class="keyword">(</span><a href="XREF/_2ftmp_2ftrunk1_2flibc_2fSATS_2fmath_2esats.html#2892"><span class="dyncstuse">$M<span class="keyword">.</span>sqrt</span></a> <span class="keyword">(</span>double_of m + 0.5<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> m_sqrt <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2finteger_2esats.html#9644"><span class="dyncstuse">int1_of_int</span></a> m_sqrt
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert <span class="keyword">(</span>m_sqrt &gt;= 0<span class="keyword">)</span> <span class="comment">// redundant at run-time
+</span><span class="keyword">in</span>
+  m_sqrt
+<span class="keyword">end</span> <span class="comment">// end of [sqrt_int]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="2808"><span class="stacstdec">work <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">-&lt;</span>lincloptr1<span class="keyword">&gt;</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#15547"><span class="stacstuse">void</span></a></span></a></span>
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="2849"><span class="stacstdec">WSptr <span class="keyword">(</span>l<span class="keyword">:</span>addr<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2flibats_2fSATS_2fparworkshop_2esats.html#1656"><span class="stacstuse">WORKSHOPptr</span></a> <span class="keyword">(</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#2808"><span class="stacstuse">work</span></a><span class="keyword">,</span> l<span class="keyword">)</span></span></a></span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fun</span> fwork <span class="staexp"><span class="keyword">{</span>lws<span class="keyword">:</span>agz<span class="keyword">}</span></span>
+  <span class="keyword">(</span>ws<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#2849"><span class="stacstuse"><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#2849"><span class="stacstuse">WSptr</span></a></span></a> lws</span><span class="keyword">,</span> wk<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#2808"><span class="stacstuse">work</span></a> &gt;&gt; <a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#2808"><span class="stacstuse">work</span></a>?</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14678"><span class="stacstuse">int</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> wk <span class="keyword">=</span> wk
+  <span class="keyword">val</span> pfun <span class="keyword">=</span> <a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#3045"><span class="dyncstuse">__cast</span></a> <span class="keyword">(</span>wk<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">extern</span> <span class="keyword">castfn</span> <a name="3045"><span class="dyncstdec">__cast
+      <span class="keyword">(</span>wk<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#2808"><span class="stacstuse">work</span></a> &gt;&gt; <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#10436"><span class="stacstuse">opt</span></a> <span class="keyword">(</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#2808"><span class="stacstuse">work</span></a><span class="keyword">,</span> i <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#7381"><span class="stacstuse">&gt;=</span></a> 2<span class="keyword">)</span></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><span class="keyword">#[</span>i<span class="keyword">:</span>nat<span class="keyword">]</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2finteger_5fptr_2esats.html#6918"><span class="stacstuse">uintptr</span></a> i</span></span></a>
+  <span class="keyword">}</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="keyword">if</span> pfun &gt;= <span class="keyword">(</span><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2finteger_5fptr_2esats.html#11840"><span class="dyncstuse">uintptr1_of_uint1</span></a><span class="keyword">)</span>2U <span class="keyword">then</span> <span class="keyword">let</span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fdyn_2esats.html#8913"><span class="dyncstuse">opt_unsome</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#2808"><span class="stacstuse">work</span></a><span class="keyword">}</span></span> <span class="keyword">(</span>wk<span class="keyword">)</span></span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> wk <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fdyn_2esats.html#8191"><span class="dyncstuse">cloptr_free</span></a> <span class="keyword">(</span>wk<span class="keyword">)</span>
+  <span class="keyword">in</span>
+    1 <span class="comment">// the worker is to continue
+</span>  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> u <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2finteger_5fptr_2esats.html#11923"><span class="dyncstuse">uint1_of_uintptr1</span></a> <span class="keyword">(</span>pfun<span class="keyword">)</span>
+    <span class="keyword">val</span> i <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2finteger_2esats.html#1708"><span class="dyncstuse">int_of_uint</span></a> <span class="keyword">(</span>u<span class="keyword">)</span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fdyn_2esats.html#9049"><span class="dyncstuse">opt_unnone</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#2808"><span class="stacstuse">work</span></a><span class="keyword">}</span></span> <span class="keyword">(</span>wk<span class="keyword">)</span></span>
+    <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fdyn_2esats.html#2741"><span class="dyncstuse">cleanup_top</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#2808"><span class="stacstuse">work</span></a><span class="keyword">}</span></span> <span class="keyword">(</span>wk<span class="keyword">)</span></span>
+  <span class="keyword">in</span>
+    <span class="keyword">~</span>i <span class="comment">// the worker is to pause or quit
+</span>  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">// end of [fwork]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> nsieve_mt <span class="staexp"><span class="keyword">{</span>lws<span class="keyword">:</span>agz<span class="keyword">}</span></span>
+  <span class="staexp"><span class="keyword">{</span>m<span class="keyword">:</span>int <span class="keyword">|</span> m <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#7381"><span class="stacstuse">&gt;=</span></a> 2<span class="keyword">}</span></span> <span class="keyword">(</span>ws<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#2849"><span class="stacstuse"><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#2849"><span class="stacstuse">WSptr</span></a></span></a> lws</span><span class="keyword">,</span> m<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14651"><span class="stacstuse">int</span></a> m</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#15547"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2fprintf_2esats.html#2886"><span class="dyncstuse">assert_prerrf_bool1</span></a> <span class="keyword">(</span>
+    m &gt;= 2<span class="keyword">,</span> "nsieve_mt(%i): argument is illegal; it must be positive.\n"<span class="keyword">,</span> <span class="keyword">@(</span>m<span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="comment">// end of [val]
+</span><span class="comment">//
+</span>  <span class="keyword">val</span> msz <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2fsizetype_2esats.html#6250"><span class="dyncstuse">size1_of_int1</span></a> <span class="keyword">(</span>m<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">la<span class="keyword">:</span>addr</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pf_gc</span><span class="keyword">,</span> <span class="prfexp">pf</span> <span class="keyword">|</span> p_A<span class="keyword">)</span> <span class="keyword">=</span>
+    <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2farray_2esats.html#4051"><span class="dyncstuse">array_ptr_alloc_tsz</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#585"><span class="stacstuse">two</span></a><span class="keyword">}</span></span> <span class="keyword">(</span>msz<span class="keyword">,</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fdyn_2esats.html#3997"><span class="dyncstuse">sizeof&lt;</span></a><span class="staexp"><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#585"><span class="stacstuse">two</span></a></span><span class="keyword">&gt;</span><span class="keyword">)</span>
+  <span class="keyword">var</span> x0 <span class="keyword">=</span> tt
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2farray_2esats.html#5242"><span class="dyncstuse">array_ptr_initialize_elt_tsz</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#585"><span class="stacstuse">two</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">!</span>p_A<span class="keyword">,</span> msz<span class="keyword">,</span> x0<span class="keyword">,</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fdyn_2esats.html#3997"><span class="dyncstuse">sizeof&lt;</span></a><span class="staexp"><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#585"><span class="stacstuse">two</span></a></span><span class="keyword">&gt;</span><span class="keyword">)</span>
+  <span class="keyword">val</span> m1 <span class="keyword">=</span> sqrt_int <span class="keyword">(</span>m<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">m1<span class="keyword">:</span>int</span><span class="keyword">]</span> m1 <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">if</span> m1 <span class="keyword">&lt;</span> m <span class="keyword">then</span> m1 + 1 <span class="keyword">else</span> m<span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#16129"><span class="stacstuse">natLte</span></a> m</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#1344"><span class="dyncstuse">sieve_many</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> p_A<span class="keyword">,</span> m1<span class="keyword">,</span> m1<span class="keyword">)</span> <span class="comment">// find the all the primes upto [m1]
+</span><span class="comment">//
+</span>  <span class="keyword">#define</span> <span class="neuexp">INC <span class="keyword">%(</span>1 &lt;&lt; 16<span class="keyword">)</span></span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> split <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> ws<span class="keyword">,</span> p_A<span class="keyword">,</span> m1<span class="keyword">,</span> m<span class="keyword">,</span> m1<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+<span class="comment">//
+</span>  <span class="keyword">fun</span> split <span class="staexp"><span class="keyword">{</span>m1<span class="keyword">,</span>m<span class="keyword">:</span>nat <span class="keyword">|</span> m1 <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#7522"><span class="stacstuse">&lt;=</span></a> m<span class="keyword">}</span></span> <span class="staexp"><span class="keyword">{</span>j<span class="keyword">:</span>nat<span class="keyword">}</span></span> <span class="keyword">(</span>
+      <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2farray_2esats.html#2918"><span class="stacstuse"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2farray_2esats.html#2918"><span class="stacstuse">array_v</span></a></span></a> <span class="keyword">(</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#585"><span class="stacstuse"><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#585"><span class="stacstuse">two</span></a></span></a><span class="keyword">,</span> m<span class="keyword">,</span> la<span class="keyword">)</span></span></span>
+    <span class="keyword">|</span> ws<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#2849"><span class="stacstuse"><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#2849"><span class="stacstuse">WSptr</span></a></span></a> lws</span>
+    <span class="keyword">,</span> p_A<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#15037"><span class="stacstuse">ptr</span></a> la</span>
+    <span class="keyword">,</span> m1<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14651"><span class="stacstuse">int</span></a> m1</span>
+    <span class="keyword">,</span> m<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14651"><span class="stacstuse">int</span></a> m</span>
+    <span class="keyword">,</span> j<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14651"><span class="stacstuse">int</span></a> j</span>
+    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#15547"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> j1 <span class="keyword">=</span> j + INC
+  <span class="keyword">in</span>
+    <span class="keyword">if</span> j1 <span class="keyword">&lt;</span> m <span class="keyword">then</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2flibats_2fSATS_2fparworkshop_2esats.html#3396"><span class="dyncstuse">workshop_insert_work</span></a> <span class="keyword">(</span>ws<span class="keyword">,</span> f<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> f <span class="keyword">=</span> <span class="keyword">lam</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#15547"><span class="stacstuse">void</span></a></span> <span class="keyword">=&lt;</span><span class="staexp">lincloptr1</span><span class="keyword">&gt;</span> <a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#1937"><span class="dyncstuse">sieve_many_seg_unsafe</span></a> <span class="keyword">(</span>p_A<span class="keyword">,</span> m1<span class="keyword">,</span> j<span class="keyword">,</span> j1<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [val]
+</span><span class="comment">(*
+      val () = sieve_many_seg_unsafe (p_A, m1, j, j1)
+*)</span>
+    <span class="keyword">in</span>
+      split <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> ws<span class="keyword">,</span> p_A<span class="keyword">,</span> m1<span class="keyword">,</span> m<span class="keyword">,</span> j1<span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2flibats_2fSATS_2fparworkshop_2esats.html#3396"><span class="dyncstuse">workshop_insert_work</span></a> <span class="keyword">(</span>ws<span class="keyword">,</span> f<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+        <span class="keyword">val</span> f <span class="keyword">=</span> <span class="keyword">lam</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#15547"><span class="stacstuse">void</span></a></span> <span class="keyword">=&lt;</span><span class="staexp">lincloptr1</span><span class="keyword">&gt;</span> <a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#1937"><span class="dyncstuse">sieve_many_seg_unsafe</span></a> <span class="keyword">(</span>p_A<span class="keyword">,</span> m1<span class="keyword">,</span> j<span class="keyword">,</span> m<span class="keyword">)</span>
+      <span class="keyword">}</span> <span class="comment">// end of [val]
+</span><span class="comment">(*
+      val () = sieve_many_seg_unsafe (p_A, m1, j, m)
+*)</span>
+    <span class="keyword">in</span>
+      <span class="comment">// nothing
+</span>    <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>  <span class="keyword">end</span> <span class="comment">// end of [split]
+</span><span class="comment">//
+</span>  <span class="keyword">}</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2flibats_2fSATS_2fparworkshop_2esats.html#3972"><span class="dyncstuse">workshop_wait_blocked_all</span></a> <span class="keyword">(</span>ws<span class="keyword">)</span>  
+  <span class="keyword">val</span> nworker <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2flibats_2fSATS_2fparworkshop_2esats.html#2542"><span class="dyncstuse">workshop_get_nworker</span></a> <span class="keyword">(</span>ws<span class="keyword">)</span>
+  <span class="keyword">var</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#16039"><span class="stacstuse">Nat</span></a></span> <span class="keyword">=</span> 0
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">while</span> <span class="keyword">(</span>i <span class="keyword">&lt;</span> nworker<span class="keyword">)</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> _quit <span class="keyword">=</span> <span class="keyword">$extval</span> <span class="keyword">(</span><span class="staexp"><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#2808"><span class="stacstuse">work</span></a></span><span class="keyword">,</span> "(void*)0"<span class="keyword">)</span>
+    <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2flibats_2fSATS_2fparworkshop_2esats.html#3396"><span class="dyncstuse">workshop_insert_work</span></a> <span class="keyword">(</span>ws<span class="keyword">,</span> _quit<span class="keyword">)</span> <span class="keyword">in</span> i := i + 1
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2flibats_2fSATS_2fparworkshop_2esats.html#3603"><span class="dyncstuse">workshop_wait_quit_all</span></a> <span class="keyword">(</span>ws<span class="keyword">)</span>  
+<span class="comment">//
+</span>  <span class="keyword">val</span> count <span class="keyword">=</span> loop <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> 2<span class="keyword">,</span> 0<span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">fun</span> loop <span class="staexp"><span class="keyword">{</span>i<span class="keyword">:</span>nat<span class="keyword">}</span></span>
+      <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2farray_2esats.html#2918"><span class="stacstuse"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2farray_2esats.html#2918"><span class="stacstuse">array_v</span></a></span></a> <span class="keyword">(</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#585"><span class="stacstuse"><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#585"><span class="stacstuse">two</span></a></span></a><span class="keyword">,</span> m<span class="keyword">,</span> la<span class="keyword">)</span></span></span> <span class="keyword">|</span> i<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14651"><span class="stacstuse">int</span></a> i</span><span class="keyword">,</span> c<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14678"><span class="stacstuse">int</span></a></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloref1</span><span class="keyword">&gt;</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14678"><span class="stacstuse">int</span></a></span> <span class="keyword">=</span>
+      <span class="keyword">if</span> i <span class="keyword">&lt;</span> m <span class="keyword">then</span> <span class="keyword">begin</span>
+        <span class="keyword">if</span> p_A<span class="keyword">-&gt;</span><span class="keyword">[</span><span class="prfexp">i</span><span class="keyword">]</span> <span class="keyword">=</span> tt <span class="keyword">then</span> loop <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> i+1<span class="keyword">,</span> c+1<span class="keyword">)</span> <span class="keyword">else</span> loop <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> i+1<span class="keyword">,</span> c<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+        c <span class="comment">// return value
+</span>      <span class="keyword">end</span>
+    <span class="comment">// end of [loop]
+</span>  <span class="keyword">}</span> <span class="comment">// end of [where]
+</span><span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2farray_2esats.html#4310"><span class="dyncstuse">array_ptr_free</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#585"><span class="stacstuse">two</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf_gc</span><span class="keyword">,</span> <span class="prfexp">pf</span> <span class="keyword">|</span> p_A<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2fprintf_2esats.html#2494"><span class="dyncstuse">printf</span></a> <span class="keyword">(</span>"The number of primes &lt; %8i is %8i\n"<span class="keyword">,</span> <span class="keyword">@(</span>m<span class="keyword">,</span> count<span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [nsieve_mt]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// dynload "libats/DATS/parworkshop.dats" // unnecessary
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">QSZ 1024</span> <span class="comment">// HX: arbitrarily choosen; should be &gt;= 1
+</span><span class="keyword">#define</span> <span class="neuexp">NWORKER 1</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fdyn_2esats.html#6780"><span class="dyncstimp">main</span></a> <span class="keyword">(</span>argc<span class="keyword">,</span> argv<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">var</span> nworker<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fsta_2esats.html#14678"><span class="stacstuse">int</span></a></span> <span class="keyword">=</span> NWORKER
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fdyn_2esats.html#5668"><span class="dyncstuse">assert_errmsg_bool1</span></a> <span class="keyword">(</span>
+    argc &gt;= 2<span class="keyword">,</span> ": command format: nsieve2_mt &lt;integer&gt; &lt;ncore&gt;"
+  <span class="keyword">)</span>
+  <span class="keyword">val</span> i <span class="keyword">=</span> int1_of argv<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">1</span><span class="keyword">]</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fbasics_5fdyn_2esats.html#5668"><span class="dyncstuse">assert_errmsg_bool1</span></a> <span class="keyword">(</span>
+    i &gt;= 2<span class="keyword">,</span> "The input integer needs to be at least 2.\n"
+  <span class="keyword">)</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> argc &gt;= 3 <span class="keyword">then</span> <span class="keyword">(</span>nworker := int_of argv<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">2</span><span class="keyword">]</span><span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> nworker <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2fprelude_2fSATS_2finteger_2esats.html#9644"><span class="dyncstuse">int1_of_int</span></a> <span class="keyword">(</span>nworker<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert_errmsg <span class="keyword">(</span>nworker <span class="keyword">&gt;</span> 0<span class="keyword">,</span> <span class="keyword">#LOCATION</span><span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> ws <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2flibats_2fSATS_2fparworkshop_2esats.html#2111"><span class="dyncstuse">workshop_make&lt;</span></a><span class="staexp"><a href="XREF/_2fhome_2ffac2_2fhwxi_2fresearch_2fATS_2fIMPLEMENT_2fGeizella_2fAnairiats_2fsvn_2fats_2dlang_2fdoc_2fEXAMPLE_2fMULTICORE_2fnsieve2_5fmt_2edats.html#2808"><span class="stacstuse">work</span></a></span><span class="keyword">&gt;</span> <span class="keyword">(</span>QSZ<span class="keyword">,</span> fwork<span class="keyword">)</span>
+  <span class="keyword">val</span> _err <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2flibats_2fSATS_2fparworkshop_2esats.html#3237"><span class="dyncstuse">workshop_add_nworker</span></a> <span class="keyword">(</span>ws<span class="keyword">,</span> nworker<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> assert_errmsg <span class="keyword">(</span>_err <span class="keyword">=</span> 0<span class="keyword">,</span> <span class="keyword">#LOCATION</span><span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> nsieve_mt <span class="keyword">(</span>ws<span class="keyword">,</span> i<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2ftmp_2ftrunk1_2flibats_2fSATS_2fparworkshop_2esats.html#4333"><span class="dyncstuse">workshop_free_vt_exn</span></a> <span class="keyword">(</span>ws<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// nothing
+</span><span class="keyword">end</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [nsieve2_mt.dats] *)</span>
+</pre>
+</body>
+</html>

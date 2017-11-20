@@ -1,0 +1,177 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">//
+</span><span class="comment">// An 'echoing' server with preforked processes
+</span><span class="comment">//
+</span><span class="comment">// Author: Chris Double (chris.double AT double DOT co DOT nz)
+</span><span class="comment">//   with minor modification by Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: May, 2010
+</span><span class="comment">//
+</span>
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// How to compile:
+</span><span class="comment">//   atscc -o echo_preforking echo_preforking.dats
+</span><span class="comment">//
+</span><span class="comment">// How to test:
+</span><span class="comment">//   1: do './echo_preforking &amp;'
+</span><span class="comment">//   2: do 'telnet localhost 5000' and input a line from the keyboard
+</span><span class="comment">//   3: do (2) as many times as you would like to
+</span><span class="comment">//   4: kill the process started by 'echo_preforking' or all of its children
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/signal.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/stdio.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/SATS/stdlib.sats"</span> <span class="comment">// for EXIT_FAILURE
+</span><span class="keyword">staload</span> <span class="staexp">"libc/SATS/unistd.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/wait.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/types.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/socket.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/sockaddr.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/netinet/SATS/in.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/sys/SATS/socket_in.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"libc/arpa/SATS/inet.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">_ <span class="keyword">=</span> "prelude/DATS/array.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">macdef</span> <span class="neuexp">int <span class="keyword">=</span> int_of_pid</span>
+<span class="keyword">fun</span> fork_child <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span> <span class="keyword">(</span>
+  <span class="prfexp">pf_sock<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>socket_v <span class="keyword">(</span>fd<span class="keyword">,</span>listen<span class="keyword">)</span></span></span> <span class="keyword">|</span>
+  fd<span class="keyword">:</span> <span class="staexp">int fd</span>
+<span class="keyword">,</span> f<span class="keyword">:</span> <span class="staexp"><span class="keyword">(</span><span class="keyword">!</span>socket_v <span class="keyword">(</span>fd<span class="keyword">,</span>listen<span class="keyword">)</span> <span class="keyword">|</span> int fd<span class="keyword">,</span> pid_t<span class="keyword">)</span> <span class="keyword">-&lt;</span>fun1<span class="keyword">&gt;</span> void</span>
+<span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">pid_t</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> pid <span class="keyword">=</span> fork_exn<span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">if</span> <span class="keyword">(</span>int<span class="keyword">)</span>pid <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+    f <span class="keyword">(</span><span class="prfexp">pf_sock</span> <span class="keyword">|</span> fd<span class="keyword">,</span> pid<span class="keyword">)</span><span class="keyword">;</span> exit<span class="keyword">(</span>0<span class="keyword">)</span><span class="keyword">;</span> <span class="comment">// this is the child
+</span>  <span class="keyword">end</span> <span class="keyword">else</span> pid
+<span class="keyword">end</span> <span class="comment">// end of [fork_child]
+</span>
+<span class="keyword">extern</span> <span class="keyword">fun</span> <a name="1397"><span class="dyncstdec">fchild <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">:</span>int<span class="keyword">}</span></span>
+  <span class="keyword">(</span><span class="prfexp">pf_sock<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>socket_v<span class="keyword">(</span>fd<span class="keyword">,</span>listen<span class="keyword">)</span></span></span> <span class="keyword">|</span> fd<span class="keyword">:</span> <span class="staexp">int fd</span><span class="keyword">,</span> pid<span class="keyword">:</span> <span class="staexp">pid_t</span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">fun1</span><span class="keyword">&gt;</span> <span class="staexp">void</span></span></a>
+<span class="keyword">implement</span> fchild <span class="staexp"><span class="keyword">{</span>fd<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">pf_sock</span> <span class="keyword">|</span> fd<span class="keyword">,</span> pid<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_client</span> <span class="keyword">|</span> client<span class="keyword">)</span> <span class="keyword">=</span> accept_null_exn <span class="keyword">(</span><span class="prfexp">pf_sock</span> <span class="keyword">|</span> fd<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">l<span class="keyword">:</span>addr</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pfopt</span> <span class="keyword">|</span> p_fil<span class="keyword">)</span> <span class="keyword">=</span> <span class="comment">// [pf_client] gets absorbed into [pf_fil]
+</span>    socket_fdopen_err <span class="keyword">(</span><span class="prfexp">pf_client</span> <span class="keyword">|</span> client<span class="keyword">,</span> file_mode_rr<span class="keyword">)</span>
+  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> ptr_is_gtez <span class="keyword">(</span>p_fil<span class="keyword">)</span></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+<span class="comment">//
+</span><span class="keyword">if</span> <span class="keyword">(</span>p_fil <span class="keyword">=</span> null<span class="keyword">)</span> <span class="keyword">then</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">socket_fdopen_v_fail <span class="keyword">(</span>pf<span class="keyword">)</span> <span class="keyword">=</span> pfopt</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> perror "socket_fdopen"
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> socket_close_exn <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> client<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> exit <span class="keyword">(</span>EXIT_FAILURE<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// nothing    
+</span><span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">let</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">prval</span> <span class="prfexp">socket_fdopen_v_succ <span class="keyword">(</span>pf_fil<span class="keyword">)</span> <span class="keyword">=</span> pfopt</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprintf <span class="keyword">(</span><span class="prfexp">file_mode_lte_rw_w</span> <span class="keyword">|</span> <span class="keyword">!</span>p_fil<span class="keyword">,</span> "Child %d echo&gt; "<span class="keyword">,</span> <span class="keyword">@(</span><span class="keyword">(</span>int<span class="keyword">)</span>pid<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fflush_exn<span class="keyword">(</span><span class="prfexp">file_mode_lte_rw_w</span> <span class="keyword">|</span> <span class="keyword">!</span>p_fil<span class="keyword">)</span>
+  <span class="keyword">#define</span> <span class="neuexp">BUFSZ 1024</span>
+  <span class="keyword">var</span> <span class="keyword">!</span>p_buf <span class="keyword">with</span> <span class="prfexp">pf_buf</span> <span class="keyword">=</span> <span class="keyword">@[</span><span class="staexp">byte</span><span class="keyword">]</span><span class="keyword">[</span>BUFSZ<span class="keyword">]</span><span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// stack allocation
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fgets_exn <span class="keyword">(</span><span class="prfexp">file_mode_lte_rw_r</span><span class="keyword">,</span> <span class="prfexp">pf_buf</span> <span class="keyword">|</span> p_buf<span class="keyword">,</span> BUFSZ<span class="keyword">,</span> <span class="keyword">!</span>p_fil<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fprintf <span class="keyword">(</span>
+    <span class="prfexp">file_mode_lte_rw_w</span> <span class="keyword">|</span> <span class="keyword">!</span>p_fil<span class="keyword">,</span> "%s"<span class="keyword">,</span> <span class="keyword">@(</span>__cast p_buf<span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+    <span class="keyword">extern</span> <span class="keyword">castfn</span> <a name="2439"><span class="dyncstdec">__cast <span class="keyword">(</span>x<span class="keyword">:</span> <span class="staexp">ptr</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">string</span></span></a> <span class="comment">// HX: cutting a corner to save time
+</span>  <span class="keyword">}</span> <span class="comment">// end of [val]
+</span>  <span class="comment">// prval () = fpf_fil (pf_fil)
+</span>  <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf_buf := bytes_v_of_strbuf_v <span class="keyword">(</span>pf_buf<span class="keyword">)</span></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fclose_exn <span class="keyword">(</span><span class="prfexp">pf_fil</span> <span class="keyword">|</span> p_fil<span class="keyword">)</span>
+  <span class="comment">// val () = socket_close_exn (pf_client_c | client) // HX: alreay closed at this point
+</span><span class="keyword">in</span>
+  fchild <span class="keyword">(</span><span class="prfexp">pf_sock</span> <span class="keyword">|</span> fd<span class="keyword">,</span> pid<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="comment">//
+</span><span class="keyword">in</span>
+  <span class="comment">// nothing
+</span><span class="keyword">end</span> <span class="comment">// end of [fchild]
+</span><span class="keyword">fun</span> make_server_socket <span class="keyword">(</span>port<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp"><span class="keyword">[</span>fd<span class="keyword">:</span>int<span class="keyword">]</span> <span class="keyword">(</span>socket_v<span class="keyword">(</span>fd<span class="keyword">,</span>listen<span class="keyword">)</span> <span class="keyword">|</span> int fd<span class="keyword">)</span></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf_sock_s</span> <span class="keyword">|</span> sockfd<span class="keyword">)</span> <span class="keyword">=</span> socket_family_type_exn <span class="keyword">(</span>AF_INET<span class="keyword">,</span> SOCK_STREAM<span class="keyword">)</span><span class="keyword">;</span>
+  <span class="keyword">var</span> servaddr<span class="keyword">:</span> <span class="staexp">sockaddr_in_struct</span>
+  <span class="keyword">val</span> servport <span class="keyword">=</span> in_port_nbo_of_int <span class="keyword">(</span>port<span class="keyword">)</span><span class="keyword">;</span>
+  <span class="keyword">val</span> in4addr <span class="keyword">=</span> in_addr_nbo_of_hbo <span class="keyword">(</span>INADDR_ANY<span class="keyword">)</span><span class="keyword">;</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> sockaddr_in_init <span class="keyword">(</span>servaddr<span class="keyword">,</span> AF_INET<span class="keyword">,</span> in4addr<span class="keyword">,</span> servport<span class="keyword">)</span><span class="keyword">;</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> bind_in_exn <span class="keyword">(</span><span class="prfexp">pf_sock_s</span> <span class="keyword">|</span> sockfd<span class="keyword">,</span> servaddr<span class="keyword">)</span><span class="keyword">;</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> listen_exn <span class="keyword">(</span><span class="prfexp">pf_sock_s</span> <span class="keyword">|</span> sockfd<span class="keyword">,</span> 10<span class="keyword">)</span><span class="keyword">;</span>
+<span class="keyword">in</span>
+  <span class="keyword">(</span><span class="prfexp">pf_sock_s</span> <span class="keyword">|</span> sockfd<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [make_server_socket]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> main <span class="keyword">(</span>argc<span class="keyword">,</span> argv<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">//
+</span>  <span class="keyword">var</span> port<span class="keyword">:</span> <span class="staexp">int</span> <span class="keyword">=</span> 5000 <span class="comment">// default choice
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> argc &gt;= 2 <span class="keyword">then</span> port := int_of <span class="keyword">(</span>argv<span class="keyword">.</span><span class="keyword">[</span><span class="prfexp">1</span><span class="keyword">]</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">[</span><span class="staexp">fd<span class="keyword">:</span>int</span><span class="keyword">]</span> <span class="keyword">(</span><span class="prfexp">pf_sock_s</span> <span class="keyword">|</span> sockfd<span class="keyword">)</span> <span class="keyword">=</span> make_server_socket <span class="keyword">(</span>port<span class="keyword">)</span>
+<span class="comment">//  
+</span>  <span class="keyword">#define</span> <span class="neuexp">NCHILD 2</span>
+<span class="comment">//
+</span>  <span class="keyword">viewdef</span> <span class="staexp"><a name="3604"><span class="stacstdec">V <span class="keyword">=</span> socket_v<span class="keyword">(</span>fd<span class="keyword">,</span>listen<span class="keyword">)</span></span></a></span>
+  <span class="keyword">var</span> <span class="keyword">!</span>p_children <span class="keyword">with</span> <span class="prfexp">pf_children</span> <span class="keyword">=</span> <span class="keyword">@[</span><span class="staexp">pid_t</span><span class="keyword">]</span><span class="keyword">[</span>NCHILD<span class="keyword">]</span><span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// stack allocation
+</span>  <span class="keyword">var</span> <span class="keyword">!</span>p_clo <span class="keyword">=</span> @lam <span class="keyword">(</span> <span class="comment">// stack-allocated closure
+</span>    <span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>V</span></span> <span class="keyword">|</span> _<span class="keyword">:</span> <span class="staexp">sizeLt NCHILD</span><span class="keyword">,</span> x<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>pid_t? &gt;&gt; pid_t</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=&lt;</span><span class="staexp">clo</span><span class="keyword">&gt;</span> x := <span class="keyword">$effmask_all</span> <span class="keyword">(</span>fork_child <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> sockfd<span class="keyword">,</span> fchild<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="comment">// end of [var]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> array_ptr_initialize_clo_tsz <span class="staexp"><span class="keyword">{</span>pid_t<span class="keyword">}</span></span>
+    <span class="keyword">(</span><span class="prfexp">pf_sock_s</span> <span class="keyword">|</span> <span class="keyword">!</span>p_children<span class="keyword">,</span> NCHILD<span class="keyword">,</span> <span class="keyword">!</span>p_clo<span class="keyword">,</span> sizeof&lt;<span class="staexp">pid_t</span><span class="keyword">&gt;</span><span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">prval</span> <span class="prfexp">pfu <span class="keyword">=</span> unit_v <span class="keyword">(</span><span class="keyword">)</span></span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> array_ptr_foreach_fun&lt;<span class="staexp">pid_t</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">{</span>unit_v<span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="prfexp">pfu</span>
+  <span class="keyword">|</span> <span class="keyword">!</span>p_children
+  <span class="keyword">,</span> <span class="keyword">lam</span> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> pid<span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=&gt;</span> <span class="keyword">$effmask_all</span><span class="keyword">(</span>printf<span class="keyword">(</span>"Forked: %d\n"<span class="keyword">,</span> <span class="keyword">@(</span><span class="keyword">(</span>int<span class="keyword">)</span>pid<span class="keyword">)</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">,</span> NCHILD
+  <span class="keyword">)</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pfu</span>
+<span class="comment">//
+</span>  <span class="keyword">var</span> status<span class="keyword">:</span><span class="staexp">int</span> <span class="keyword">=</span> 0
+  <span class="keyword">viewdef</span> <span class="staexp"><a name="4271"><span class="stacstdec">V <span class="keyword">=</span> int @ status</span></a></span>
+  <span class="keyword">var</span> <span class="keyword">!</span>p_clo <span class="keyword">=</span> @lam <span class="comment">// stack-allocated closure
+</span>    <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">:</span> <span class="staexp"><span class="keyword">!</span>V</span></span> <span class="keyword">|</span> pid<span class="keyword">:</span> <span class="staexp"><span class="keyword">&amp;</span>pid_t</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">void</span> <span class="keyword">=&lt;</span><span class="staexp">clo</span><span class="keyword">&gt;</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> _pid <span class="keyword">=</span> <span class="keyword">$effmask_all</span> <span class="keyword">(</span>waitpid <span class="keyword">(</span>pid<span class="keyword">,</span> status<span class="keyword">,</span> WNONE<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">in</span>
+    <span class="comment">// nothing
+</span>  <span class="keyword">end</span> <span class="comment">// end of [var]
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> array_ptr_foreach_clo&lt;<span class="staexp">pid_t</span><span class="keyword">&gt;</span> <span class="staexp"><span class="keyword">{</span>V<span class="keyword">}</span></span> <span class="keyword">(</span><span class="prfexp">view@ status</span> <span class="keyword">|</span> <span class="keyword">!</span>p_children<span class="keyword">,</span> <span class="keyword">!</span>p_clo<span class="keyword">,</span> NCHILD<span class="keyword">)</span>
+<span class="comment">//
+</span>  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> socket_close_exn<span class="keyword">(</span><span class="prfexp">pf_sock_s</span> <span class="keyword">|</span> sockfd<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// nothing
+</span><span class="keyword">end</span> <span class="comment">// end of [main]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [echo_preforking.dats] *)</span>
+</pre>
+</body>
+</html>

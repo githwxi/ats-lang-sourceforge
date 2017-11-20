@@ -1,0 +1,983 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Time: October 2007
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Err <span class="keyword">=</span> "ats_error.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Fil <span class="keyword">=</span> "ats_filename.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">HT <span class="keyword">=</span> "ats_hashtbl.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Lst <span class="keyword">=</span> "ats_list.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">NS <span class="keyword">=</span> "ats_namespace.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Sym <span class="keyword">=</span> "ats_symbol.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">SymEnv <span class="keyword">=</span> "ats_symenv.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_reference.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp1.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_trans2_env.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymous*)</span> <span class="keyword">=</span> "ats_hashtbl.dats"</span>
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymous*)</span> <span class="keyword">=</span> "ats_map_lin.dats"</span>
+<span class="keyword">staload</span> <span class="staexp">_<span class="comment">(*anonymous*)</span> <span class="keyword">=</span> "ats_symenv.dats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">nil list_nil</span>
+<span class="keyword">#define</span> <span class="neuexp">cons list_cons</span>
+<span class="keyword">#define</span> <span class="neuexp">:: list_cons</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="neuexp"><span class="keyword">overload</span> <span class="keyword">=</span> <span class="keyword">with</span> $Sym<span class="keyword">.</span>eq_symbol_symbol</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> prerr_loc_error2 <span class="keyword">(</span>loc<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#1783"><span class="stacstuse">loc_t</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span>
+  <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5flocation_2esats.html#2738"><span class="dyncstuse">$Loc<span class="keyword">.</span>prerr_location</span></a> loc<span class="keyword">;</span> prerr ": error(2)"<span class="keyword">)</span>
+<span class="comment">// end of [prerr_loc_error2]
+</span>
+<span class="keyword">fn</span> prerr_interror <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> prerr "INTERNAL ERROR (ats_trans2_env)"
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="2467"><span class="stacstdec">s2rtextmap <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#1613"><span class="stacstuse">$SymEnv<span class="keyword">.</span>symmap_t</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#4276"><span class="stacstuse">s2rtext</span></a><span class="keyword">)</span></span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="2515"><span class="stacstdec">s2rtextmapref <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#10015"><span class="stacstuse">ref</span></a> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#2467"><span class="stacstuse">s2rtextmap</span></a></span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="2554"><span class="stacstdec">s2rtextmaptbl <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#1525"><span class="stacstuse">$HT<span class="keyword">.</span>hashtbl_t</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2064"><span class="stacstuse">sym_t</span></a><span class="keyword">,</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#2515"><span class="stacstuse">s2rtextmapref</span></a><span class="keyword">)</span></span></a></span>
+
+<span class="keyword">val</span> the_s2rtextmaptbl<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#2554"><span class="stacstuse">s2rtextmaptbl</span></a></span> <span class="keyword">=</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#1659"><span class="dyncstuse">$HT<span class="keyword">.</span>hashtbl_make_hint</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2064"><span class="stacstuse">sym_t</span></a><span class="keyword">,</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#2515"><span class="stacstuse">s2rtextmapref</span></a><span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="keyword">lam</span> s <span class="keyword">=&gt;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#5126"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_hash</span></a> s<span class="keyword">,</span> <span class="keyword">lam</span> <span class="keyword">(</span>s1<span class="keyword">,</span> s2<span class="keyword">)</span> <span class="keyword">=&gt;</span> s1 <span class="keyword">=</span> s2<span class="keyword">,</span> 256
+  <span class="keyword">)</span>
+<span class="comment">// end of [the_s2rtextmaptbl]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="2826"><span class="stacstdec">s2itemmap <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#1613"><span class="stacstuse">$SymEnv<span class="keyword">.</span>symmap_t</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#3094"><span class="stacstuse">s2item</span></a><span class="keyword">)</span></span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="2872"><span class="stacstdec">s2itemmapref <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#10015"><span class="stacstuse">ref</span></a> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#2826"><span class="stacstuse">s2itemmap</span></a></span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="2909"><span class="stacstdec">s2itemmaptbl <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#1525"><span class="stacstuse">$HT<span class="keyword">.</span>hashtbl_t</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2064"><span class="stacstuse">sym_t</span></a><span class="keyword">,</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#2872"><span class="stacstuse">s2itemmapref</span></a><span class="keyword">)</span></span></a></span>
+
+<span class="keyword">val</span> the_s2itemmaptbl<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#2909"><span class="stacstuse">s2itemmaptbl</span></a></span> <span class="keyword">=</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#1659"><span class="dyncstuse">$HT<span class="keyword">.</span>hashtbl_make_hint</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2064"><span class="stacstuse">sym_t</span></a><span class="keyword">,</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#2872"><span class="stacstuse">s2itemmapref</span></a><span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="keyword">lam</span> s <span class="keyword">=&gt;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#5126"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_hash</span></a> s<span class="keyword">,</span> <span class="keyword">lam</span> <span class="keyword">(</span>s1<span class="keyword">,</span> s2<span class="keyword">)</span> <span class="keyword">=&gt;</span> s1 <span class="keyword">=</span> s2<span class="keyword">,</span> 256
+  <span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">viewtypedef</span> <span class="staexp"><a name="3146"><span class="stacstdec">d2itemmap <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#1613"><span class="stacstuse">$SymEnv<span class="keyword">.</span>symmap_t</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#3423"><span class="stacstuse">d2item</span></a><span class="keyword">)</span></span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="3192"><span class="stacstdec">d2itemmapref <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#10015"><span class="stacstuse">ref</span></a> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#3146"><span class="stacstuse">d2itemmap</span></a></span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="3229"><span class="stacstdec">d2itemmaptbl <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#1525"><span class="stacstuse">$HT<span class="keyword">.</span>hashtbl_t</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2064"><span class="stacstuse">sym_t</span></a><span class="keyword">,</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#3192"><span class="stacstuse">d2itemmapref</span></a><span class="keyword">)</span></span></a></span>
+
+<span class="keyword">val</span> the_d2itemmaptbl<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#3229"><span class="stacstuse">d2itemmaptbl</span></a></span> <span class="keyword">=</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#1659"><span class="dyncstuse">$HT<span class="keyword">.</span>hashtbl_make_hint</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2064"><span class="stacstuse">sym_t</span></a><span class="keyword">,</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#3192"><span class="stacstuse">d2itemmapref</span></a><span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="keyword">lam</span> s <span class="keyword">=&gt;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#5126"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_hash</span></a> s<span class="keyword">,</span> <span class="keyword">lam</span> <span class="keyword">(</span>s1<span class="keyword">,</span> s2<span class="keyword">)</span> <span class="keyword">=&gt;</span> s1 <span class="keyword">=</span> s2<span class="keyword">,</span> 256
+  <span class="keyword">)</span>
+<span class="comment">// end of [the_d2itemmaptbl]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="3491"><span class="stacstdec">d2eclsttbl <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#1525"><span class="stacstuse">$HT<span class="keyword">.</span>hashtbl_t</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2064"><span class="stacstuse">sym_t</span></a><span class="keyword">,</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#20884"><span class="stacstuse">d2eclst</span></a><span class="keyword">)</span></span></a></span>
+
+<span class="keyword">val</span> the_d2eclsttbl<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#3491"><span class="stacstuse">d2eclsttbl</span></a></span> <span class="keyword">=</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#1659"><span class="dyncstuse">$HT<span class="keyword">.</span>hashtbl_make_hint</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2064"><span class="stacstuse">sym_t</span></a><span class="keyword">,</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#20884"><span class="stacstuse">d2eclst</span></a><span class="keyword">}</span></span> <span class="keyword">(</span>
+    <span class="keyword">lam</span> s <span class="keyword">=&gt;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#5126"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_hash</span></a> s<span class="keyword">,</span> <span class="keyword">lam</span> <span class="keyword">(</span>s1<span class="keyword">,</span> s2<span class="keyword">)</span> <span class="keyword">=&gt;</span> s1 <span class="keyword">=</span> s2<span class="keyword">,</span> 256
+  <span class="keyword">)</span>
+<span class="comment">// end of [the_d2eclsttbl]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#5231"><span class="dyncstimp">d2eclst_namespace_add</span></a> <span class="keyword">(</span>id<span class="keyword">,</span> d2cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#2135"><span class="dyncstuse">$HT<span class="keyword">.</span>hashtbl_insert</span></a> <span class="keyword">(</span>the_d2eclsttbl<span class="keyword">,</span> id<span class="keyword">,</span> d2cs<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> ans <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      prerr ": d2eclst_namespace_add: id = "<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#5388"><span class="dyncstuse">$Sym<span class="keyword">.</span>prerr_symbol</span></a> id<span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>  <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [d2eclst_namespace_add]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#5286"><span class="dyncstimp">d2eclst_namespace_find</span></a> <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">=</span> 
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#2024"><span class="dyncstuse">$HT<span class="keyword">.</span>hashtbl_search</span></a> <span class="keyword">(</span>the_d2eclsttbl<span class="keyword">,</span> id<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">assume</span> <span class="staexp">s2rtenv_token <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#23184"><span class="stacstuse">unit_v</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="4230"><span class="stacstdec">s2rtenv <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#2685"><span class="stacstuse">$SymEnv<span class="keyword">.</span>symenv_t</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#4276"><span class="stacstuse">s2rtext</span></a><span class="keyword">)</span></span></a></span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">val</span> the_s2rtenv<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#4230"><span class="stacstuse">s2rtenv</span></a></span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#2747"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_make</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#1767"><span class="dyncstimp">the_s2rtenv_add</span></a> <span class="keyword">(</span>id<span class="keyword">,</span> s2te<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#2937"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_remove_fst</span></a> <span class="keyword">(</span>the_s2rtenv<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> ans <span class="keyword">of</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#2827"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_insert_fst</span></a> <span class="keyword">(</span>the_s2rtenv<span class="keyword">,</span> id<span class="keyword">,</span> s2te<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2rtenv_add]
+</span>
+<span class="keyword">fn</span> the_s2rtenv_namespace_find
+  <span class="keyword">(</span>id<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2064"><span class="stacstuse">sym_t</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#8913"><span class="stacstuse">s2rtextopt_vt</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fn</span> f <span class="keyword">(</span>name<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2064"><span class="stacstuse">sym_t</span></a></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#8913"><span class="stacstuse">s2rtextopt_vt</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> r_m<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#2515"><span class="stacstuse">s2rtextmapref</span></a></span> <span class="keyword">=</span>
+      <span class="keyword">case+</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#2024"><span class="dyncstuse">$HT<span class="keyword">.</span>hashtbl_search</span></a> <span class="keyword">(</span>the_s2rtextmaptbl<span class="keyword">,</span> name<span class="keyword">)</span> <span class="keyword">of</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>Some_vt m <span class="keyword">=&gt;</span> m <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          prerr ": s2rtenv_namespace_find: name = "<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#5388"><span class="dyncstuse">$Sym<span class="keyword">.</span>prerr_symbol</span></a> name<span class="keyword">;</span>
+          <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#2515"><span class="stacstuse">s2rtextmapref</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>  <span class="keyword">in</span>
+    <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#1968"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symmap_ref_search</span></a> <span class="keyword">(</span>r_m<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [f]
+</span><span class="keyword">in</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fnamespace_2esats.html#1654"><span class="dyncstuse">$NS<span class="keyword">.</span>the_namespace_search</span></a> <span class="keyword">(</span>f<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2rtenv_namespace_find]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#1905"><span class="dyncstimp">the_s2rtenv_find</span></a> <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span>
+    <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3069"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_search_all</span></a> <span class="keyword">(</span>the_s2rtenv<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="comment">// end of [ans]
+</span><span class="keyword">in</span>
+  <span class="keyword">case+</span> ans <span class="keyword">of</span>
+  <span class="keyword">|</span> Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">(</span>fold@ ans<span class="keyword">;</span> ans<span class="keyword">)</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> ans <span class="keyword">=</span> the_s2rtenv_namespace_find id
+    <span class="keyword">in</span>
+      <span class="keyword">case+</span> ans <span class="keyword">of</span>
+      <span class="keyword">|</span> Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span> fold@ ans<span class="keyword">;</span> ans <span class="keyword">end</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3201"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_pervasive_search</span></a> <span class="keyword">(</span>the_s2rtenv<span class="keyword">,</span> id<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span><span class="keyword">end</span> <span class="comment">// end of [the_s2rtenv_find]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#1953"><span class="dyncstimp">the_s2rtenv_find_qua</span></a> <span class="keyword">(</span>q<span class="keyword">,</span> id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> q<span class="keyword">.</span>s0rtq_node <span class="keyword">of</span>
+  <span class="keyword">|</span> $Syn<span class="keyword">.</span>S0RTQnone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#1905"><span class="dyncstuse">the_s2rtenv_find</span></a> id
+  <span class="keyword">|</span> $Syn<span class="keyword">.</span>S0RTQsym q_id <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> fil <span class="keyword">=</span> <span class="keyword">case+</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2679"><span class="dyncstuse">the_s2expenv_find</span></a> q_id <span class="keyword">of</span>
+        <span class="keyword">|</span> <span class="keyword">~</span>Some_vt <span class="keyword">(</span>S2ITEMfil fil<span class="keyword">)</span> <span class="keyword">=&gt;</span> fil
+        <span class="keyword">|</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+            prerr_loc_error2 q<span class="keyword">.</span>s0rtq_loc<span class="keyword">;</span>
+            prerr ": the qualifier ["<span class="keyword">;</span>
+            <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#5388"><span class="dyncstuse">$Sym<span class="keyword">.</span>prerr_symbol</span></a> q_id<span class="keyword">;</span>
+            prerr "] should refer to a filename but it does not."<span class="keyword">;</span>
+            <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+            <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#1655"><span class="stacstuse">fil_t</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>        <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+            prerr_loc_error2 q<span class="keyword">.</span>s0rtq_loc<span class="keyword">;</span>
+            prerr ": the qualifier ["<span class="keyword">;</span>
+            <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#5388"><span class="dyncstuse">$Sym<span class="keyword">.</span>prerr_symbol</span></a> q_id<span class="keyword">;</span>
+            prerr "] is unrecognized."<span class="keyword">;</span>
+            <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+            <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#1655"><span class="stacstuse">fil_t</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>      <span class="keyword">val</span> fil_sym <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ffilename_2esats.html#2394"><span class="dyncstuse">$Fil<span class="keyword">.</span>filename_full_sym</span></a> fil
+    <span class="keyword">in</span>
+      <span class="keyword">case+</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#2024"><span class="dyncstuse">$HT<span class="keyword">.</span>hashtbl_search</span></a> <span class="keyword">(</span>the_s2rtextmaptbl<span class="keyword">,</span> fil_sym<span class="keyword">)</span> <span class="keyword">of</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>Some_vt r_m <span class="keyword">=&gt;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#1968"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symmap_ref_search</span></a> <span class="keyword">(</span>r_m<span class="keyword">,</span> id<span class="keyword">)</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          prerr ": the loaded file ["<span class="keyword">;</span>
+          <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#5388"><span class="dyncstuse">$Sym<span class="keyword">.</span>prerr_symbol</span></a> fil_sym<span class="keyword">;</span>
+          prerr "] cannot be located."<span class="keyword">;</span>
+          <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#8913"><span class="stacstuse">s2rtextopt_vt</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>    <span class="keyword">end</span> <span class="comment">(* end of [S0RTQsym] *)</span>
+  <span class="keyword">|</span> $Syn<span class="keyword">.</span>S0RTQstr name <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="comment">// this feature should probably be deprecated!!!
+</span>    <span class="keyword">in</span>
+      None_vt <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [S0RTQstr]
+</span><span class="keyword">end</span> <span class="comment">// end [the_s2rtenv_find_qua]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2021"><span class="dyncstimp">the_s2rtenv_pop</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">let</span> <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf</span> <span class="keyword">in</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3478"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_pop</span></a> <span class="keyword">(</span>the_s2rtenv<span class="keyword">)</span> <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2rtenv_pop]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2078"><span class="dyncstimp">the_s2rtenv_push</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3520"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_push</span></a> <span class="keyword">(</span>the_s2rtenv<span class="keyword">)</span> <span class="keyword">in</span> <span class="keyword">(</span><span class="prfexp">unit_v</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2rtenv_push]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2127"><span class="dyncstimp">the_s2rtenv_localjoin</span></a> <span class="keyword">(</span><span class="prfexp">pf1</span><span class="keyword">,</span> <span class="prfexp">pf2</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf1 <span class="keyword">and</span> unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf2</span>
+<span class="keyword">in</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3919"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_localjoin</span></a> <span class="keyword">(</span>the_s2rtenv<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2rtenv_localjoin]
+</span>
+<span class="keyword">fn</span> the_s2rtenv_pervasive_add_topenv <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> m <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3747"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_top_get</span></a> <span class="keyword">(</span>the_s2rtenv<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#4120"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_pervasive_add</span></a> <span class="keyword">(</span>the_s2rtenv<span class="keyword">,</span> m<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2rtenv_pervasive_add_topenv]
+</span>
+<span class="keyword">fn</span> the_s2rtenv_namespace_add_topenv <span class="keyword">(</span>id<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2064"><span class="stacstuse">sym_t</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> m <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3747"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_top_get</span></a> the_s2rtenv
+  <span class="keyword">val</span> r_m <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5freference_2esats.html#1801"><span class="dyncstuse">ref_make_elt&lt;</span></a><span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#2467"><span class="stacstuse">s2rtextmap</span></a></span><span class="keyword">&gt;</span> <span class="keyword">(</span>m<span class="keyword">)</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#2135"><span class="dyncstuse">$HT<span class="keyword">.</span>hashtbl_insert</span></a> <span class="keyword">(</span>the_s2rtextmaptbl<span class="keyword">,</span> id<span class="keyword">,</span> r_m<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> ans <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      prerr ": s2rtenv_namespace_add_topenv: id = "<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#5388"><span class="dyncstuse">$Sym<span class="keyword">.</span>prerr_symbol</span></a> id<span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>  <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>  
+<span class="keyword">end</span> <span class="comment">// end of [the_s2rtenv_namespace_add_topenv]
+</span>
+<span class="keyword">fn</span> the_s2rtenv_save <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3988"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_save</span></a> <span class="keyword">(</span>the_s2rtenv<span class="keyword">)</span>
+<span class="keyword">fn</span> the_s2rtenv_restore <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#4053"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_restore</span></a> <span class="keyword">(</span>the_s2rtenv<span class="keyword">)</span>
+
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">assume</span> <span class="staexp">s2expenv_token <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#23184"><span class="stacstuse">unit_v</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="8584"><span class="stacstdec">s2expenv <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#2685"><span class="stacstuse">$SymEnv<span class="keyword">.</span>symenv_t</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#3094"><span class="stacstuse">s2item</span></a><span class="keyword">)</span></span></a></span>
+
+<span class="keyword">local</span>
+<span class="comment">//
+</span><span class="keyword">val</span> the_s2expenv<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#8584"><span class="stacstuse">s2expenv</span></a></span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#2747"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_make</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="comment">//
+</span><span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2292"><span class="dyncstimp">the_s2expenv_add</span></a> <span class="keyword">(</span>id<span class="keyword">,</span> s2i<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#2937"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_remove_fst</span></a> <span class="keyword">(</span>the_s2expenv<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> ans <span class="keyword">of</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#2827"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_insert_fst</span></a> <span class="keyword">(</span>the_s2expenv<span class="keyword">,</span> id<span class="keyword">,</span> s2i<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_add]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2344"><span class="dyncstimp">the_s2expenv_add_scst</span></a> <span class="keyword">(</span>s2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = begin
+    print "s2expenv_add_scst: s2c = "; print s2c; print_newline ()
+  end
+  val () = begin
+    print "s2expenv_add_scst: s2c_s2t = "; print (s2cst_srt_get s2c);
+    print_newline ()
+  end // end of [val]
+*)</span>
+  <span class="keyword">val</span> id <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#13927"><span class="dyncstuse">s2cst_sym_get</span></a> s2c
+  <span class="keyword">val</span> s2cs <span class="keyword">=</span> <span class="keyword">(</span>
+    <span class="keyword">case+</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2679"><span class="dyncstuse">the_s2expenv_find</span></a> <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">~</span>Some_vt s2i <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> s2i <span class="keyword">of</span>
+      <span class="keyword">|</span> S2ITEMcst s2cs <span class="keyword">=&gt;</span> s2cs <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> S2CSTLSTnil <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>    <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> S2CSTLSTnil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#2880"><span class="stacstuse">s2cstlst</span></a></span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#2937"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_remove_fst</span></a> <span class="keyword">(</span>the_s2expenv<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> ans <span class="keyword">of</span> <span class="keyword">~</span>Some_vt s2i <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#2827"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_insert_fst</span></a> <span class="keyword">(</span>
+    the_s2expenv<span class="keyword">,</span> id<span class="keyword">,</span> S2ITEMcst <span class="keyword">(</span>S2CSTLSTcons <span class="keyword">(</span>s2c<span class="keyword">,</span> s2cs<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="comment">// end of [$SymEnv.symenv_insert_fst]
+</span><span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_add_scst]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2391"><span class="dyncstimp">the_s2expenv_add_svar</span></a> <span class="keyword">(</span>s2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> id <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#16784"><span class="dyncstuse">s2var_sym_get</span></a> s2v <span class="keyword">in</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2292"><span class="dyncstuse">the_s2expenv_add</span></a> <span class="keyword">(</span>id<span class="keyword">,</span> S2ITEMvar s2v<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_add_svar]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2438"><span class="dyncstimp">the_s2expenv_add_svarlst</span></a> <span class="keyword">(</span>s2vs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> s2vs <span class="keyword">of</span>
+  <span class="keyword">|</span> cons <span class="keyword">(</span>s2v<span class="keyword">,</span> s2vs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2391"><span class="dyncstuse">the_s2expenv_add_svar</span></a> s2v<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2438"><span class="dyncstuse">the_s2expenv_add_svarlst</span></a> s2vs
+    <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>  <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_add_svarlst]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2490"><span class="dyncstimp">the_s2expenv_add_datconptr</span></a> <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> sym <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#22262"><span class="dyncstuse">d2con_sym_get</span></a> d2c
+  <span class="keyword">val</span> name <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#4322"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_name</span></a> sym
+  <span class="keyword">val</span> id <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#4367"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_make_string</span></a> <span class="keyword">(</span>name + "_unfold"<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2292"><span class="dyncstuse">the_s2expenv_add</span></a> <span class="keyword">(</span>id<span class="keyword">,</span> S2ITEMdatconptr d2c<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_add_datconptr]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2542"><span class="dyncstimp">the_s2expenv_add_datcontyp</span></a> <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> sym <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#22262"><span class="dyncstuse">d2con_sym_get</span></a> d2c
+  <span class="keyword">val</span> name <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#4322"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_name</span></a> sym
+  <span class="keyword">val</span> id <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#4367"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_make_string</span></a> <span class="keyword">(</span>name + "_pstruct"<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2292"><span class="dyncstuse">the_s2expenv_add</span></a> <span class="keyword">(</span>id<span class="keyword">,</span> S2ITEMdatcontyp d2c<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_add_datcontyp]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> the_s2expenv_namespace_find
+  <span class="keyword">(</span>id<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2064"><span class="stacstuse">sym_t</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#3337"><span class="stacstuse">s2itemopt_vt</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fn</span> f <span class="keyword">(</span>name<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2064"><span class="stacstuse">sym_t</span></a></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#3337"><span class="stacstuse">s2itemopt_vt</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> r_m<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#2872"><span class="stacstuse">s2itemmapref</span></a></span> <span class="keyword">=</span> <span class="keyword">begin</span>
+      <span class="keyword">case+</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#2024"><span class="dyncstuse">$HT<span class="keyword">.</span>hashtbl_search</span></a> <span class="keyword">(</span>the_s2itemmaptbl<span class="keyword">,</span> name<span class="keyword">)</span> <span class="keyword">of</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>Some_vt m <span class="keyword">=&gt;</span> m <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          prerr ": the_s2expenv_namespace_find: name = "<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#5388"><span class="dyncstuse">$Sym<span class="keyword">.</span>prerr_symbol</span></a> name<span class="keyword">;</span>
+          <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#2872"><span class="stacstuse">s2itemmapref</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [val]
+</span>  <span class="keyword">in</span>
+    <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#1968"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symmap_ref_search</span></a> <span class="keyword">(</span>r_m<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [f]
+</span><span class="keyword">in</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fnamespace_2esats.html#1654"><span class="dyncstuse">$NS<span class="keyword">.</span>the_namespace_search</span></a> <span class="keyword">(</span>f<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_namespace_find]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2679"><span class="dyncstimp">the_s2expenv_find</span></a> <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span>
+    <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3069"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_search_all</span></a> <span class="keyword">(</span>the_s2expenv<span class="keyword">,</span> id<span class="keyword">)</span> 
+  <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="keyword">case+</span> ans <span class="keyword">of</span>
+  <span class="keyword">|</span> Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fold@ ans <span class="keyword">in</span> ans <span class="keyword">end</span>
+    <span class="keyword">end</span> <span class="comment">// end of [Some]
+</span>  <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> ans <span class="keyword">=</span> the_s2expenv_namespace_find id <span class="keyword">in</span>
+      <span class="keyword">case+</span> ans <span class="keyword">of</span>
+      <span class="keyword">|</span> Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          <span class="keyword">let</span> <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fold@ ans <span class="keyword">in</span> ans <span class="keyword">end</span>
+        <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>      <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3201"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_pervasive_search</span></a> <span class="keyword">(</span>the_s2expenv<span class="keyword">,</span> id<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span><span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_find]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3030"><span class="dyncstimp">the_s2expenv_pervasive_find</span></a> <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3201"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_pervasive_search</span></a> <span class="keyword">(</span>the_s2expenv<span class="keyword">,</span> id<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_pervasive_find]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2727"><span class="dyncstimp">the_s2expenv_find_qua</span></a> <span class="keyword">(</span>q<span class="keyword">,</span> id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> q<span class="keyword">.</span>s0taq_node <span class="keyword">of</span>
+  <span class="keyword">|</span> $Syn<span class="keyword">.</span>S0TAQnone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2679"><span class="dyncstuse">the_s2expenv_find</span></a> id
+  <span class="keyword">|</span> $Syn<span class="keyword">.</span>S0TAQsymdot <span class="keyword">(</span>q_id<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> ans <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2679"><span class="dyncstuse">the_s2expenv_find</span></a> q_id
+      <span class="keyword">val</span> fil <span class="keyword">=</span> <span class="keyword">case+</span> ans <span class="keyword">of</span>
+        <span class="keyword">|</span> <span class="keyword">~</span>Some_vt <span class="keyword">(</span>S2ITEMfil fil<span class="keyword">)</span> <span class="keyword">=&gt;</span> fil
+        <span class="keyword">|</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+            prerr_loc_error2 q<span class="keyword">.</span>s0taq_loc<span class="keyword">;</span>
+            prerr ": the qualifier ["<span class="keyword">;</span>
+            <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#5388"><span class="dyncstuse">$Sym<span class="keyword">.</span>prerr_symbol</span></a> q_id<span class="keyword">;</span>
+            prerr "] should refer to a filename but it does not."<span class="keyword">;</span>
+            <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+            <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#1655"><span class="stacstuse">fil_t</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>        <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+            prerr_loc_error2 q<span class="keyword">.</span>s0taq_loc<span class="keyword">;</span>
+            prerr ": the qualifier ["<span class="keyword">;</span>
+            <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#5388"><span class="dyncstuse">$Sym<span class="keyword">.</span>prerr_symbol</span></a> q_id<span class="keyword">;</span>
+            prerr "] is unrecognized."<span class="keyword">;</span>
+            <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+            <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#1655"><span class="stacstuse">fil_t</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>      <span class="comment">// end of [val]
+</span>      <span class="keyword">val</span> fil_sym <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ffilename_2esats.html#2394"><span class="dyncstuse">$Fil<span class="keyword">.</span>filename_full_sym</span></a> fil
+      <span class="keyword">val</span> ans <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#2024"><span class="dyncstuse">$HT<span class="keyword">.</span>hashtbl_search</span></a> <span class="keyword">(</span>the_s2itemmaptbl<span class="keyword">,</span> fil_sym<span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="keyword">case+</span> ans <span class="keyword">of</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>Some_vt r_m <span class="keyword">=&gt;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#1968"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symmap_ref_search</span></a> <span class="keyword">(</span>r_m<span class="keyword">,</span> id<span class="keyword">)</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [$Syn.S0TAQsymdot]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_find_qua]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2795"><span class="dyncstimp">the_s2expenv_pop</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">let</span> <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf</span> <span class="keyword">in</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3478"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_pop</span></a> <span class="keyword">(</span>the_s2expenv<span class="keyword">)</span> <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_pop]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2854"><span class="dyncstimp">the_s2expenv_push</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3520"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_push</span></a> <span class="keyword">(</span>the_s2expenv<span class="keyword">)</span> <span class="keyword">in</span> <span class="keyword">(</span><span class="prfexp">unit_v</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_push]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2905"><span class="dyncstimp">the_s2expenv_localjoin</span></a> <span class="keyword">(</span><span class="prfexp">pf1</span><span class="keyword">,</span> <span class="prfexp">pf2</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf1 <span class="keyword">and</span> unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf2</span>
+<span class="keyword">in</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3919"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_localjoin</span></a> <span class="keyword">(</span>the_s2expenv<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_localjoin]
+</span>
+<span class="keyword">fn</span> the_s2expenv_pervasive_add_topenv <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> m <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3747"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_top_get</span></a> <span class="keyword">(</span>the_s2expenv<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#4120"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_pervasive_add</span></a> <span class="keyword">(</span>the_s2expenv<span class="keyword">,</span> m<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_pervasive_add_topenv]
+</span>
+<span class="keyword">fn</span> the_s2expenv_namespace_add_topenv <span class="keyword">(</span>id<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2064"><span class="stacstuse">sym_t</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> m <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3747"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_top_get</span></a> the_s2expenv
+  <span class="keyword">val</span> r_m <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5freference_2esats.html#1801"><span class="dyncstuse">ref_make_elt&lt;</span></a><span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#2826"><span class="stacstuse">s2itemmap</span></a></span><span class="keyword">&gt;</span> <span class="keyword">(</span>m<span class="keyword">)</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#2135"><span class="dyncstuse">$HT<span class="keyword">.</span>hashtbl_insert</span></a> <span class="keyword">(</span>the_s2itemmaptbl<span class="keyword">,</span> id<span class="keyword">,</span> r_m<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> ans <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      prerr ": the_s2expenv_namespace_add_topenv: id = "<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#5388"><span class="dyncstuse">$Sym<span class="keyword">.</span>prerr_symbol</span></a> id<span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>  <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>  
+<span class="keyword">end</span> <span class="comment">// end of [the_s2expenv_namespace_add_topenv]
+</span>
+<span class="keyword">fn</span> the_s2expenv_save <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3988"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_save</span></a> <span class="keyword">(</span>the_s2expenv<span class="keyword">)</span>
+<span class="keyword">fn</span> the_s2expenv_restore <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#4053"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_restore</span></a> <span class="keyword">(</span>the_s2expenv<span class="keyword">)</span>
+
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">val</span> the_macdef<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#10015"><span class="stacstuse">ref</span></a> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5freference_2esats.html#1801"><span class="dyncstuse">ref_make_elt&lt;</span></a><span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span><span class="keyword">&gt;</span> <span class="keyword">(</span>0<span class="keyword">)</span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3110"><span class="dyncstimp">macdef_get</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>the_macdef
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3133"><span class="dyncstimp">macdef_inc</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> x <span class="keyword">=</span> <span class="keyword">!</span>the_macdef <span class="keyword">in</span> <span class="keyword">!</span>the_macdef := x + 1
+<span class="keyword">end</span> <span class="comment">// end of [macdef_inc]
+</span><span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3157"><span class="dyncstimp">macdef_dec</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> x <span class="keyword">=</span> <span class="keyword">!</span>the_macdef <span class="keyword">in</span> <span class="keyword">!</span>the_macdef := x - 1
+<span class="keyword">end</span> <span class="comment">// end of [macdef_dec]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">val</span> the_macro_level<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#10015"><span class="stacstuse">ref</span></a> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5freference_2esats.html#1801"><span class="dyncstuse">ref_make_elt&lt;</span></a><span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span><span class="keyword">&gt;</span> <span class="keyword">(</span>1<span class="keyword">)</span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3182"><span class="dyncstimp">macro_level_get</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>the_macro_level
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3210"><span class="dyncstimp">macro_level_inc</span></a> <span class="keyword">(</span>loc<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> level <span class="keyword">=</span> <span class="keyword">!</span>the_macro_level
+<span class="comment">(*
+  val () = if level &gt; 0 then begin
+    print_loc_error2 loc;
+    print ": the syntax `(...) is used incorrectly at this location.";
+    print_newline ();
+    $Err.abort {void} ()
+  end // end of [val]
+*)</span>
+<span class="keyword">in</span>
+  <span class="keyword">!</span>the_macro_level := level + 1
+<span class="keyword">end</span> <span class="comment">// end of [macro_level_inc]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3249"><span class="dyncstimp">macro_level_dec</span></a> <span class="keyword">(</span>loc<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> level <span class="keyword">=</span> <span class="keyword">!</span>the_macro_level
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">if</span> level <span class="keyword">=</span> 0 <span class="keyword">then</span> <span class="keyword">begin</span>
+    prerr_loc_error2 loc<span class="keyword">;</span>
+    prerr ": the syntax ,(...) or %(...) is used incorrectly at this location."<span class="keyword">;</span>
+    <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+    <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="keyword">!</span>the_macro_level := level - 1
+<span class="keyword">end</span> <span class="comment">// end of [macro_level_dec]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">val</span> the_template_level <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5freference_2esats.html#1801"><span class="dyncstuse">ref_make_elt&lt;</span></a><span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span><span class="keyword">&gt;</span> <span class="keyword">(</span>0<span class="keyword">)</span>
+
+<span class="keyword">in</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3310"><span class="dyncstimp">template_level_get</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">!</span>the_template_level
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3341"><span class="dyncstimp">template_level_inc</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">!</span>the_template_level := <span class="keyword">!</span>the_template_level + 1
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3373"><span class="dyncstimp">template_level_dec</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">!</span>the_template_level := <span class="keyword">!</span>the_template_level - 1
+
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="keyword">implement</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3406"><span class="dyncstimp">s2var_tmplev_check</span></a> <span class="keyword">(</span>loc<span class="keyword">,</span> s2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> s2v_tmplev <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#16863"><span class="dyncstuse">s2var_tmplev_get</span></a> <span class="keyword">(</span>s2v<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> 0 <span class="keyword">of</span>
+  <span class="keyword">|</span> _ <span class="keyword">when</span> s2v_tmplev <span class="keyword">&gt;</span> 0 <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> tmplev <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3310"><span class="dyncstuse">template_level_get</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">in</span>
+      <span class="keyword">if</span> s2v_tmplev <span class="keyword">&lt;</span> tmplev <span class="keyword">then</span> <span class="keyword">begin</span>
+        prerr_loc_error2 loc<span class="keyword">;</span>
+        prerr ": the static variable ["<span class="keyword">;</span> prerr s2v<span class="keyword">;</span> prerr "] is out of scope."<span class="keyword">;</span>
+        <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+        <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [if]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [_ when s2v_tmplev &gt; 0]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="comment">// not a template variable
+</span><span class="keyword">end</span> <span class="comment">// end of [s2var_tmplev_check]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3462"><span class="dyncstimp">s2qualst_tmplev_set</span></a> <span class="keyword">(</span>s2vpss<span class="keyword">,</span> tmplev<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fun</span> aux_s2vs
+    <span class="keyword">(</span>s2vs<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#2615"><span class="stacstuse">s2varlst</span></a></span><span class="keyword">,</span> tmplev<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">case+</span> s2vs <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>s2v<span class="keyword">,</span> s2vs<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#16904"><span class="dyncstuse">s2var_tmplev_set</span></a> <span class="keyword">(</span>s2v<span class="keyword">,</span> tmplev<span class="keyword">)</span><span class="keyword">;</span> aux_s2vs <span class="keyword">(</span>s2vs<span class="keyword">,</span> tmplev<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">fun</span> aux_s2qualst <span class="keyword">(</span>s2vpss<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#10049"><span class="stacstuse">s2qualst</span></a></span><span class="keyword">,</span> tmplev<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span>
+    <span class="keyword">case+</span> s2vpss <span class="keyword">of</span>
+    <span class="keyword">|</span> cons <span class="keyword">(</span>s2vps<span class="keyword">,</span> s2vpss<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+        aux_s2vs <span class="keyword">(</span>s2vps<span class="keyword">.</span>0<span class="keyword">,</span> tmplev<span class="keyword">)</span><span class="keyword">;</span> aux_s2qualst <span class="keyword">(</span>s2vpss<span class="keyword">,</span> tmplev<span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [cons]
+</span>    <span class="keyword">|</span> nil <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  aux_s2qualst <span class="keyword">(</span>s2vpss<span class="keyword">,</span> tmplev<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of s2qualst_tmplev_set]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">assume</span> <span class="staexp">d2var_current_level_v <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#23184"><span class="stacstuse">unit_v</span></a></span>
+<span class="keyword">val</span> the_d2var_current_level <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5freference_2esats.html#1801"><span class="dyncstuse">ref_make_elt&lt;</span></a><span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span><span class="keyword">&gt;</span> <span class="keyword">(</span>0<span class="keyword">)</span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3577"><span class="dyncstimp">d2var_current_level_get</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">!</span>the_d2var_current_level
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3613"><span class="dyncstimp">d2var_current_level_set</span></a> <span class="keyword">(</span>n<span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">!</span>the_d2var_current_level := n
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3656"><span class="dyncstimp">d2var_current_level_inc</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> n <span class="keyword">=</span> <span class="keyword">!</span>the_d2var_current_level <span class="keyword">in</span>
+    <span class="keyword">!</span>the_d2var_current_level := n + 1<span class="keyword">;</span> <span class="keyword">(</span><span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span></span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [d2var_current_level_inc]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3719"><span class="dyncstimp">d2var_current_level_inc_and_get</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> n <span class="keyword">=</span> <span class="keyword">!</span>the_d2var_current_level<span class="keyword">;</span> <span class="keyword">val</span> n1 <span class="keyword">=</span> n + 1 <span class="keyword">in</span>
+    <span class="keyword">!</span>the_d2var_current_level := n1<span class="keyword">;</span> <span class="keyword">(</span><span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span></span> <span class="keyword">|</span> n1<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [d2var_current_level_inc_and_get]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3789"><span class="dyncstimp">d2var_current_level_dec</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf</span><span class="keyword">;</span> <span class="keyword">val</span> n <span class="keyword">=</span> <span class="keyword">!</span>the_d2var_current_level
+<span class="keyword">in</span>
+  <span class="keyword">!</span>the_d2var_current_level := n - 1
+<span class="keyword">end</span> <span class="comment">// end of [d2var_current_level_dec]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3862"><span class="dyncstimp">d2var_current_level_dec_and_get</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf</span><span class="keyword">;</span> <span class="keyword">val</span> n <span class="keyword">=</span> <span class="keyword">!</span>the_d2var_current_level<span class="keyword">;</span> <span class="keyword">val</span> n1 <span class="keyword">=</span> n - 1
+<span class="keyword">in</span>
+  <span class="keyword">!</span>the_d2var_current_level := n1<span class="keyword">;</span> n1
+<span class="keyword">end</span> <span class="comment">// end of [d2var_current_level_dec_and_get]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">assume</span> <span class="staexp">d2expenv_token <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#23184"><span class="stacstuse">unit_v</span></a></span>
+<span class="keyword">typedef</span> <span class="staexp"><a name="18597"><span class="stacstdec">d2expenv <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#2685"><span class="stacstuse">$SymEnv<span class="keyword">.</span>symenv_t</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#3423"><span class="stacstuse">d2item</span></a><span class="keyword">)</span></span></a></span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">val</span> the_d2expenv<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#18597"><span class="stacstuse">d2expenv</span></a></span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#2747"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_make</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3987"><span class="dyncstimp">the_d2expenv_add</span></a> <span class="keyword">(</span>id<span class="keyword">,</span> d2i<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#2937"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_remove_fst</span></a> <span class="keyword">(</span>the_d2expenv<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> ans <span class="keyword">of</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#2827"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_insert_fst</span></a> <span class="keyword">(</span>the_d2expenv<span class="keyword">,</span> id<span class="keyword">,</span> d2i<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_add]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4040"><span class="dyncstimp">the_d2expenv_add_dcon</span></a> <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> id <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#22262"><span class="dyncstuse">d2con_sym_get</span></a> d2c
+  <span class="keyword">val</span> d2cs <span class="keyword">=</span> <span class="keyword">(</span>
+    <span class="keyword">case+</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4476"><span class="dyncstuse">the_d2expenv_find</span></a> <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">of</span>
+    <span class="keyword">|</span> <span class="keyword">~</span>Some_vt d2i <span class="keyword">=&gt;</span> <span class="keyword">begin</span> <span class="keyword">case+</span> d2i <span class="keyword">of</span>
+      <span class="keyword">|</span> D2ITEMcon d2cs <span class="keyword">=&gt;</span> d2cs <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> D2CONLSTnil <span class="keyword">(</span><span class="keyword">)</span>
+      <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>    <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> D2CONLSTnil <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#2977"><span class="stacstuse">d2conlst</span></a></span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#2937"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_remove_fst</span></a> <span class="keyword">(</span>the_d2expenv<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+    <span class="keyword">case+</span> ans <span class="keyword">of</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#2827"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_insert_fst</span></a> <span class="keyword">(</span>
+    the_d2expenv<span class="keyword">,</span> id<span class="keyword">,</span> D2ITEMcon <span class="keyword">(</span>D2CONLSTcons <span class="keyword">(</span>d2c<span class="keyword">,</span> d2cs<span class="keyword">)</span><span class="keyword">)</span>
+  <span class="keyword">)</span> <span class="comment">// end of [$SymEnv.symenv_insert_fst]
+</span><span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_add_dcon]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4087"><span class="dyncstimp">the_d2expenv_add_dcst</span></a> <span class="keyword">(</span>d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">let</span> <span class="keyword">val</span> id <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#4409"><span class="dyncstuse">d2cst_sym_get</span></a> d2c <span class="keyword">in</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3987"><span class="dyncstuse">the_d2expenv_add</span></a> <span class="keyword">(</span>id<span class="keyword">,</span> D2ITEMcst d2c<span class="keyword">)</span> <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_add_dcst]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4134"><span class="dyncstimp">the_d2expenv_add_dmac_def</span></a> <span class="keyword">(</span>d2m<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> id <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#24173"><span class="dyncstuse">d2mac_sym_get</span></a> d2m <span class="keyword">in</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3987"><span class="dyncstuse">the_d2expenv_add</span></a> <span class="keyword">(</span>id<span class="keyword">,</span> D2ITEMmacdef d2m<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_add_dmac_def]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4185"><span class="dyncstimp">the_d2expenv_add_dmac_var</span></a> <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> id <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#6740"><span class="dyncstuse">d2var_sym_get</span></a> d2v <span class="keyword">in</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3987"><span class="dyncstuse">the_d2expenv_add</span></a> <span class="keyword">(</span>id<span class="keyword">,</span> D2ITEMmacvar d2v<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_add_dmac_var]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4236"><span class="dyncstimp">the_d2expenv_add_dmac_varlst</span></a> <span class="keyword">(</span>d2vs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5flist_2esats.html#2118"><span class="dyncstuse">$Lst<span class="keyword">.</span>list_foreach_fun</span></a> <span class="keyword">(</span>d2vs<span class="keyword">,</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4185"><span class="dyncstuse">the_d2expenv_add_dmac_var</span></a><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_add_dmac_varlst]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4292"><span class="dyncstimp">the_d2expenv_add_dvar</span></a> <span class="keyword">(</span>d2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> id <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#6740"><span class="dyncstuse">d2var_sym_get</span></a> d2v <span class="keyword">in</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3987"><span class="dyncstuse">the_d2expenv_add</span></a> <span class="keyword">(</span>id<span class="keyword">,</span> D2ITEMvar d2v<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_add_dvar]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4339"><span class="dyncstimp">the_d2expenv_add_dvarlst</span></a> <span class="keyword">(</span>d2vs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5flist_2esats.html#2118"><span class="dyncstuse">$Lst<span class="keyword">.</span>list_foreach_fun</span></a> <span class="keyword">(</span>d2vs<span class="keyword">,</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4292"><span class="dyncstuse">the_d2expenv_add_dvar</span></a><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_add_dvarlst]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> the_d2expenv_namespace_find
+  <span class="keyword">(</span>id<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2064"><span class="stacstuse">sym_t</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#3707"><span class="stacstuse">d2itemopt_vt</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">fn</span> f <span class="keyword">(</span>name<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2064"><span class="stacstuse">sym_t</span></a></span><span class="keyword">)</span><span class="keyword">:&lt;</span><span class="staexp">cloptr1</span><span class="keyword">&gt;</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#3707"><span class="stacstuse">d2itemopt_vt</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+    <span class="keyword">val</span> ans <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#2024"><span class="dyncstuse">$HT<span class="keyword">.</span>hashtbl_search</span></a> <span class="keyword">(</span>the_d2itemmaptbl<span class="keyword">,</span> name<span class="keyword">)</span>
+    <span class="keyword">val</span> r_m <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">case+</span> ans <span class="keyword">of</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>Some_vt m <span class="keyword">=&gt;</span> m <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          prerr ": d2expenv_namespace_find: name = "<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#5388"><span class="dyncstuse">$Sym<span class="keyword">.</span>prerr_symbol</span></a> name<span class="keyword">;</span>
+          <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+          <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#3192"><span class="stacstuse">d2itemmapref</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>    <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#3192"><span class="stacstuse">d2itemmapref</span></a></span>
+  <span class="keyword">in</span>
+    <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#1968"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symmap_ref_search</span></a> <span class="keyword">(</span>r_m<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="keyword">end</span> <span class="comment">// end of [f]
+</span><span class="keyword">in</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fnamespace_2esats.html#1654"><span class="dyncstuse">$NS<span class="keyword">.</span>the_namespace_search</span></a> <span class="keyword">(</span>f<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_namespace_find]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4476"><span class="dyncstimp">the_d2expenv_find</span></a> <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+<span class="comment">(*
+  val () = let
+    val ptr = __cast (the_d2expenv)
+      where { extern castfn __cast (x: d2expenv): ptr }
+    // end of [val]
+  in
+    print "the_d2expenv_find: ptr = "; print ptr; print_newline ()
+  end // end of [val]
+  val () = begin
+    print "the_d2expenv_find: id = "; $Sym.print_symbol id; print_newline ()
+  end // end of [val]
+*)</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span>
+    <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3069"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_search_all</span></a> <span class="keyword">(</span>the_d2expenv<span class="keyword">,</span> id<span class="keyword">)</span>
+  <span class="comment">// end of [val]
+</span><span class="keyword">in</span>
+  <span class="keyword">case+</span> ans <span class="keyword">of</span>
+  <span class="keyword">|</span> Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fold@ ans</span> <span class="keyword">in</span> ans
+    <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>  <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> ans <span class="keyword">=</span> the_d2expenv_namespace_find id
+    <span class="keyword">in</span>
+      <span class="keyword">case+</span> ans <span class="keyword">of</span>
+      <span class="keyword">|</span> Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+          <span class="keyword">prval</span> <span class="prfexp"><span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> fold@ ans</span> <span class="keyword">in</span> ans
+        <span class="keyword">end</span> <span class="comment">// end of [Some]
+</span>      <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+          <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3201"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_pervasive_search</span></a> <span class="keyword">(</span>the_d2expenv<span class="keyword">,</span> id<span class="keyword">)</span>
+        <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>    <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span><span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_find]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4888"><span class="dyncstimp">the_d2expenv_current_find</span></a> <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">=</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3069"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_search_all</span></a> <span class="keyword">(</span>the_d2expenv<span class="keyword">,</span> id<span class="keyword">)</span>
+<span class="comment">// end of [the_d2expenv_current_find]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4944"><span class="dyncstimp">the_d2expenv_pervasive_find</span></a> <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3201"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_pervasive_search</span></a> <span class="keyword">(</span>the_d2expenv<span class="keyword">,</span> id<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_pervasive_find]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4524"><span class="dyncstimp">the_d2expenv_find_qua</span></a> <span class="keyword">(</span>q<span class="keyword">,</span> id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">case+</span> q<span class="keyword">.</span>d0ynq_node <span class="keyword">of</span>
+  <span class="keyword">|</span> $Syn<span class="keyword">.</span>D0YNQnone <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4476"><span class="dyncstuse">the_d2expenv_find</span></a> id
+  <span class="keyword">|</span> $Syn<span class="keyword">.</span>D0YNQsymdot <span class="keyword">(</span>q_id<span class="keyword">)</span> <span class="keyword">=&gt;</span> <span class="keyword">let</span>
+      <span class="keyword">val</span> fil <span class="keyword">=</span> <span class="keyword">case+</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2679"><span class="dyncstuse">the_s2expenv_find</span></a> q_id <span class="keyword">of</span>
+        <span class="keyword">|</span> <span class="keyword">~</span>Some_vt <span class="keyword">(</span>S2ITEMfil fil<span class="keyword">)</span> <span class="keyword">=&gt;</span> fil
+        <span class="keyword">|</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+            prerr_loc_error2 q<span class="keyword">.</span>d0ynq_loc<span class="keyword">;</span>
+            prerr ": the qualifier ["<span class="keyword">;</span>
+            <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#5388"><span class="dyncstuse">$Sym<span class="keyword">.</span>prerr_symbol</span></a> q_id<span class="keyword">;</span>
+            prerr "] should refer to a filename but it does not."<span class="keyword">;</span>
+            <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+            <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#1655"><span class="stacstuse">fil_t</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>        <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+            prerr_loc_error2 q<span class="keyword">.</span>d0ynq_loc<span class="keyword">;</span>
+            prerr ": the qualifier ["<span class="keyword">;</span>
+            <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#5388"><span class="dyncstuse">$Sym<span class="keyword">.</span>prerr_symbol</span></a> q_id<span class="keyword">;</span>
+            prerr "] is unrecognized."<span class="keyword">;</span>
+            <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+            <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#1655"><span class="stacstuse">fil_t</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+          <span class="keyword">end</span> <span class="comment">// end of [None_vt]
+</span>      <span class="keyword">val</span> fil_sym <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ffilename_2esats.html#2394"><span class="dyncstuse">$Fil<span class="keyword">.</span>filename_full_sym</span></a> fil
+    <span class="keyword">in</span>
+      <span class="keyword">case+</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#2024"><span class="dyncstuse">$HT<span class="keyword">.</span>hashtbl_search</span></a> <span class="keyword">(</span>the_d2itemmaptbl<span class="keyword">,</span> fil_sym<span class="keyword">)</span> <span class="keyword">of</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>Some_vt r_m <span class="keyword">=&gt;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#1968"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symmap_ref_search</span></a> <span class="keyword">(</span>r_m<span class="keyword">,</span> id<span class="keyword">)</span>
+      <span class="keyword">|</span> <span class="keyword">~</span>None_vt <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [D0YNQsymdoc]
+</span>  <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> None_vt <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_find_qua]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4592"><span class="dyncstimp">the_d2expenv_pop</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">let</span> <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf</span> <span class="keyword">in</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3478"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_pop</span></a> <span class="keyword">(</span>the_d2expenv<span class="keyword">)</span> <span class="keyword">end</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_pop]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4651"><span class="dyncstimp">the_d2expenv_push</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3520"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_push</span></a> <span class="keyword">(</span>the_d2expenv<span class="keyword">)</span> <span class="keyword">in</span> <span class="keyword">(</span><span class="prfexp">unit_v</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_push]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4701"><span class="dyncstimp">the_d2expenv_swap</span></a> <span class="keyword">(</span>r_map<span class="keyword">)</span> <span class="keyword">=</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3625"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_swap</span></a> <span class="keyword">(</span>the_d2expenv<span class="keyword">,</span> r_map<span class="keyword">)</span>
+<span class="comment">// end of [the_d2expenv_swap]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4763"><span class="dyncstimp">the_d2expenv_localjoin</span></a> <span class="keyword">(</span><span class="prfexp">pf1</span><span class="keyword">,</span> <span class="prfexp">pf2</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf1 <span class="keyword">and</span> unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf2</span> <span class="keyword">in</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3919"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_localjoin</span></a> <span class="keyword">(</span>the_d2expenv<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_localjoin]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> the_d2expenv_pervasive_add_topenv <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> m <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3747"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_top_get</span></a> <span class="keyword">(</span>the_d2expenv<span class="keyword">)</span> <span class="keyword">in</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#4120"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_pervasive_add</span></a> <span class="keyword">(</span>the_d2expenv<span class="keyword">,</span> m<span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_pervasive_add_topenv]
+</span>
+<span class="keyword">fn</span> the_d2expenv_namespace_add_topenv <span class="keyword">(</span>id<span class="keyword">:</span> <span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fdynexp2_2esats.html#2064"><span class="stacstuse">sym_t</span></a></span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a></span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> m <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3747"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_top_get</span></a> the_d2expenv
+  <span class="keyword">val</span> r_m <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5freference_2esats.html#1801"><span class="dyncstuse">ref_make_elt&lt;</span></a><span class="staexp"><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2edats.html#3146"><span class="stacstuse">d2itemmap</span></a></span><span class="keyword">&gt;</span> <span class="keyword">(</span>m<span class="keyword">)</span>
+  <span class="keyword">val</span> ans <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fhashtbl_2esats.html#2135"><span class="dyncstuse">$HT<span class="keyword">.</span>hashtbl_insert</span></a> <span class="keyword">(</span>the_d2itemmaptbl<span class="keyword">,</span> id<span class="keyword">,</span> r_m<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">case+</span> ans <span class="keyword">of</span>
+  <span class="keyword">|</span> <span class="keyword">~</span>Some_vt _ <span class="keyword">=&gt;</span> <span class="keyword">begin</span>
+      prerr_interror <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      prerr ": d2expenv_namespace_add_topenv: id = "<span class="keyword">;</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#5388"><span class="dyncstuse">$Sym<span class="keyword">.</span>prerr_symbol</span></a> id<span class="keyword">;</span>
+      <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fdyn_2esats.html#12890"><span class="dyncstuse">prerr_newline</span></a> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+      <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ferror_2esats.html#1817"><span class="dyncstuse">$Err<span class="keyword">.</span>abort</span></a> <span class="staexp"><span class="keyword">{</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#16293"><span class="stacstuse">void</span></a><span class="keyword">}</span></span> <span class="keyword">(</span><span class="keyword">)</span>
+    <span class="keyword">end</span> <span class="comment">// end of [Some_vt]
+</span>  <span class="keyword">|</span> <span class="keyword">~</span>None_vt _ <span class="keyword">=&gt;</span> <span class="keyword">(</span><span class="keyword">)</span>  
+<span class="keyword">end</span> <span class="comment">// end of [the_d2expenv_namespace_add_topenv]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> the_d2expenv_save <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#3988"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_save</span></a> <span class="keyword">(</span>the_d2expenv<span class="keyword">)</span>
+<span class="keyword">fn</span> the_d2expenv_restore <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymenv_2esats.html#4053"><span class="dyncstuse">$SymEnv<span class="keyword">.</span>symenv_restore</span></a> <span class="keyword">(</span>the_d2expenv<span class="keyword">)</span>
+
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">assume</span> <span class="staexp">staload_level_token <span class="keyword">=</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#23184"><span class="stacstuse">unit_v</span></a></span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">val</span> the_staload_level <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5freference_2esats.html#1801"><span class="dyncstuse">ref_make_elt&lt;</span></a><span class="staexp"><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#15410"><span class="stacstuse">int</span></a></span><span class="keyword">&gt;</span> <span class="keyword">(</span>0<span class="keyword">)</span>
+
+<span class="keyword">in</span>
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#5052"><span class="dyncstimp">staload_level_get_level</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>the_staload_level
+
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#5088"><span class="dyncstimp">staload_level_push</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5freference_2esats.html#2660"><span class="dyncstuse">ref_get_view_ptr</span></a> <span class="keyword">(</span>the_staload_level<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">!</span>p := <span class="keyword">!</span>p + 1
+<span class="keyword">in</span>
+  <span class="keyword">(</span><span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span></span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [staload_level_inc]
+</span>
+<span class="keyword">implement</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#5144"><span class="dyncstimp">staload_level_pop</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">prval</span> <span class="prfexp">unit_v <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> pf</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">vbox pf</span> <span class="keyword">|</span> p<span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5freference_2esats.html#2660"><span class="dyncstuse">ref_get_view_ptr</span></a> <span class="keyword">(</span>the_staload_level<span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">!</span>p := <span class="keyword">!</span>p - 1
+<span class="keyword">end</span> <span class="comment">// end of [staload_level_dec]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">assume</span> <span class="staexp">trans2_env_token <span class="keyword">=</span> <span class="keyword">@(</span><a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#23184"><span class="stacstuse">unit_v</span></a><span class="keyword">,</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#23184"><span class="stacstuse">unit_v</span></a><span class="keyword">,</span> <a href="XREF/_2ftmp_2fATS_2d0_2e2_2e3_2fprelude_2fbasics_5fsta_2esats.html#23184"><span class="stacstuse">unit_v</span></a><span class="keyword">)</span></span>
+
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#5392"><span class="dyncstimp">trans2_env_pop</span></a> <span class="keyword">(</span><span class="prfexp">pf</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fnamespace_2esats.html#1740"><span class="dyncstuse">$NS<span class="keyword">.</span>the_namespace_pop</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2021"><span class="dyncstuse">the_s2rtenv_pop</span></a> <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">.</span>0</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2795"><span class="dyncstuse">the_s2expenv_pop</span></a> <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">.</span>1</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4592"><span class="dyncstuse">the_d2expenv_pop</span></a> <span class="keyword">(</span><span class="prfexp">pf<span class="keyword">.</span>2</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [trans2_env_pop]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#5451"><span class="dyncstimp">trans2_env_push</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fnamespace_2esats.html#1771"><span class="dyncstuse">$NS<span class="keyword">.</span>the_namespace_push</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf0</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2078"><span class="dyncstuse">the_s2rtenv_push</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf1</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2854"><span class="dyncstuse">the_s2expenv_push</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="prfexp">pf2</span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4651"><span class="dyncstuse">the_d2expenv_push</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="keyword">(</span><span class="prfexp"><span class="keyword">@(</span>pf0<span class="keyword">,</span> pf1<span class="keyword">,</span> pf2<span class="keyword">)</span></span> <span class="keyword">|</span> <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [trans2_env_push]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#5502"><span class="dyncstimp">trans2_env_localjoin</span></a> <span class="keyword">(</span><span class="prfexp">pf1</span><span class="keyword">,</span> <span class="prfexp">pf2</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fnamespace_2esats.html#1870"><span class="dyncstuse">$NS<span class="keyword">.</span>the_namespace_localjoin</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2127"><span class="dyncstuse">the_s2rtenv_localjoin</span></a> <span class="keyword">(</span><span class="prfexp">pf1<span class="keyword">.</span>0</span><span class="keyword">,</span> <span class="prfexp">pf2<span class="keyword">.</span>0</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#2905"><span class="dyncstuse">the_s2expenv_localjoin</span></a> <span class="keyword">(</span><span class="prfexp">pf1<span class="keyword">.</span>1</span><span class="keyword">,</span> <span class="prfexp">pf2<span class="keyword">.</span>1</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#4763"><span class="dyncstuse">the_d2expenv_localjoin</span></a> <span class="keyword">(</span><span class="prfexp">pf1<span class="keyword">.</span>2</span><span class="keyword">,</span> <span class="prfexp">pf2<span class="keyword">.</span>2</span> <span class="keyword">|</span> <span class="comment">(*none*)</span><span class="keyword">)</span>
+<span class="keyword">in</span>
+  <span class="comment">// empty
+</span><span class="keyword">end</span> <span class="comment">// end of [trans2_env_localjoin]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#5627"><span class="dyncstimp">trans2_env_save</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fnamespace_2esats.html#1838"><span class="dyncstuse">$NS<span class="keyword">.</span>the_namespace_save</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2rtenv_save <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2expenv_save <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2expenv_save <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [trans2_env_save]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#5656"><span class="dyncstimp">trans2_env_restore</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fnamespace_2esats.html#1803"><span class="dyncstuse">$NS<span class="keyword">.</span>the_namespace_restore</span></a> <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2rtenv_restore <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2expenv_restore <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2expenv_restore <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [trans2_env_restore]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#5689"><span class="dyncstimp">trans2_env_pervasive_add_topenv</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2rtenv_pervasive_add_topenv <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2expenv_pervasive_add_topenv <span class="keyword">(</span><span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2expenv_pervasive_add_topenv <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [trans2_env_pervasive_add_topenv]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#5734"><span class="dyncstimp">trans2_env_namespace_add_topenv</span></a> <span class="keyword">(</span>id<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">where</span> <span class="keyword">{</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2rtenv_namespace_add_topenv <span class="keyword">(</span>id<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_s2expenv_namespace_add_topenv <span class="keyword">(</span>id<span class="keyword">)</span>
+  <span class="keyword">val</span> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> the_d2expenv_namespace_add_topenv <span class="keyword">(</span>id<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [trans2_env_namespace_add_topenv]
+</span>
+<span class="keyword">implement</span>
+<a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#5810"><span class="dyncstimp">trans2_env_initialize</span></a> <span class="keyword">(</span><span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="comment">// sort environment
+</span>  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#1767"><span class="dyncstuse">the_s2rtenv_add</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#3242"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_ADDR</span></a><span class="keyword">,</span> S2TEsrt <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#10097"><span class="dyncstuse">s2rt_addr</span></a><span class="keyword">)</span><span class="keyword">;</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#1767"><span class="dyncstuse">the_s2rtenv_add</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#3269"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_BOOL</span></a><span class="keyword">,</span> S2TEsrt <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#10118"><span class="dyncstuse">s2rt_bool</span></a><span class="keyword">)</span><span class="keyword">;</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#1767"><span class="dyncstuse">the_s2rtenv_add</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#3296"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_CHAR</span></a><span class="keyword">,</span> S2TEsrt <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#10139"><span class="dyncstuse">s2rt_char</span></a><span class="keyword">)</span><span class="keyword">;</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#1767"><span class="dyncstuse">the_s2rtenv_add</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#3323"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_CLS</span></a><span class="keyword">,</span> S2TEsrt <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#10160"><span class="dyncstuse">s2rt_cls</span></a><span class="keyword">)</span><span class="keyword">;</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#1767"><span class="dyncstuse">the_s2rtenv_add</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#3349"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_EFF</span></a><span class="keyword">,</span> S2TEsrt <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#10180"><span class="dyncstuse">s2rt_eff</span></a><span class="keyword">)</span><span class="keyword">;</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#1767"><span class="dyncstuse">the_s2rtenv_add</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#3401"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_INT</span></a><span class="keyword">,</span> S2TEsrt <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#10200"><span class="dyncstuse">s2rt_int</span></a><span class="keyword">)</span><span class="keyword">;</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#1767"><span class="dyncstuse">the_s2rtenv_add</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#3460"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_PROP</span></a><span class="keyword">,</span> S2TEsrt <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#10270"><span class="dyncstuse">s2rt_prop</span></a><span class="keyword">)</span><span class="keyword">;</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#1767"><span class="dyncstuse">the_s2rtenv_add</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#3487"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_TYPE</span></a><span class="keyword">,</span> S2TEsrt <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#10291"><span class="dyncstuse">s2rt_type</span></a><span class="keyword">)</span><span class="keyword">;</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#1767"><span class="dyncstuse">the_s2rtenv_add</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#3540"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_T0YPE</span></a><span class="keyword">,</span> S2TEsrt <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#10312"><span class="dyncstuse">s2rt_t0ype</span></a><span class="keyword">)</span><span class="keyword">;</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#1767"><span class="dyncstuse">the_s2rtenv_add</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#3597"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_VIEW</span></a><span class="keyword">,</span> S2TEsrt <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#10334"><span class="dyncstuse">s2rt_view</span></a><span class="keyword">)</span><span class="keyword">;</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#1767"><span class="dyncstuse">the_s2rtenv_add</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#3624"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_VIEWTYPE</span></a><span class="keyword">,</span> S2TEsrt <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#10355"><span class="dyncstuse">s2rt_viewtype</span></a><span class="keyword">)</span><span class="keyword">;</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#1767"><span class="dyncstuse">the_s2rtenv_add</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#3685"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_VIEWT0YPE</span></a><span class="keyword">,</span> S2TEsrt <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#10380"><span class="dyncstuse">s2rt_viewt0ype</span></a><span class="keyword">)</span><span class="keyword">;</span>
+  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#1767"><span class="dyncstuse">the_s2rtenv_add</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#3750"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_TYPES</span></a><span class="keyword">,</span> S2TEsrt <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fstaexp2_2esats.html#10406"><span class="dyncstuse">s2rt_types</span></a><span class="keyword">)</span><span class="keyword">;</span>
+  the_s2rtenv_pervasive_add_topenv <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">;</span>
+  <span class="comment">// dynamic environment
+</span>  <a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5ftrans2_5fenv_2esats.html#3987"><span class="dyncstuse">the_d2expenv_add</span></a> <span class="keyword">(</span><a href="XREF/_2fscratch_2ftmp_2fATS_2d0_2e2_2e3_2fsrc_2fats_5fsymbol_2esats.html#2151"><span class="dyncstuse">$Sym<span class="keyword">.</span>symbol_LRBRACKETS</span></a><span class="keyword">,</span> D2ITEMsymdef nil<span class="keyword">)</span><span class="keyword">;</span>
+  the_d2expenv_pervasive_add_topenv <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">end</span> <span class="comment">// end of [trans2_env_initialize]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_trans2_env.dats] *)</span>
+</pre>
+</body>
+</html>

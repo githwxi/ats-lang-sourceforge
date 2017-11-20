@@ -1,0 +1,895 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <style type="text/css">
+    span.comment {color:#787878;font-style:italic}
+    span.extern  {color:#A52A2A}
+    span.keyword {color:#000000;font-weight:bold}
+    span.neuexp  {color:#800080}
+    span.staexp  {color:#0000FF}
+    span.dynexp  {color:#E80000}
+    span.prfexp  {color:#009000}
+    span.stacstdec  {text-decoration:none}
+    span.stacstuse  {color:#0000CF;text-decoration:underline}
+    span.dyncstdec  {text-decoration:none}
+    span.dyncstimp  {color:#B80000;text-decoration:underline}
+    span.dyncstuse  {color:#B80000;text-decoration:underline}
+    body          {color:#E80000;background-color:#E0E0E0}
+  </style>
+</head>
+<body>
+<pre>
+<span class="comment">(***********************************************************************)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                         Applied Type System                         *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(*                              Hongwei Xi                             *)</span>
+<span class="comment">(*                                                                     *)</span>
+<span class="comment">(***********************************************************************)</span>
+
+<span class="comment">(*
+** ATS/Anairiats - Unleashing the Potential of Types!
+**
+** Copyright (C) 2002-2008 Hongwei Xi, Boston University
+**
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+<span class="comment">//
+</span><span class="comment">// Author: Hongwei Xi (hwxi AT cs DOT bu DOT edu)
+</span><span class="comment">// Start Time: March 2008
+</span><span class="comment">//
+</span><span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* high-level intermediate representation *)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">Err <span class="keyword">=</span> "ats_error.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">Syn <span class="keyword">=</span> "ats_syntax.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_staexp2.sats"</span>
+<span class="keyword">staload</span> <span class="staexp">"ats_dynexp2.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">staload</span> <span class="staexp">"ats_hiexp.sats"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">#define</span> <span class="neuexp">ABS_TYPE_NAME           "ats_abs_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">BOOL_TYPE_NAME          "ats_bool_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">CHAR_TYPE_NAME          "ats_char_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">CLO_TYPE_NAME           "ats_clo_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">CLO_PTR_TYPE_NAME       "ats_clo_ptr_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">CLO_REF_TYPE_NAME       "ats_clo_ref_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">DOUBLE_TYPE_NAME        "ats_double_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">FLOAT_TYPE_NAME         "ats_float_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">INT_TYPE_NAME           "ats_int_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">PROOF_TYPE_NAME         "ats_proof_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">PTR_TYPE_NAME           "ats_ptr_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">REF_TYPE_NAME           "ats_ref_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">RECTEMP_TYPE_NAME       "ats_rectemp_type"</span>
+<span class="comment">// #define STRING_TYPE_NAME     "ats_string_type"
+</span><span class="keyword">#define</span> <span class="neuexp">STRING_TYPE_NAME        "ats_ptr_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">SUM_PTR_TYPE_NAME       "ats_sum_ptr_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">SUMTEMP_TYPE_NAME       "ats_sumtemp_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">VAR_TYPE_NAME           "ats_var_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">VARET_TYPE_NAME         "ats_varet_type"</span>
+<span class="keyword">#define</span> <span class="neuexp">VOID_TYPE_NAME          "ats_void_type"</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> hityp_abs <span class="keyword">=</span> hityp_extype_nil ABS_TYPE_NAME
+<span class="keyword">implement</span> hityp_bool <span class="keyword">=</span> hityp_extype_nil BOOL_TYPE_NAME
+<span class="keyword">implement</span> hityp_char <span class="keyword">=</span> hityp_extype_nil CHAR_TYPE_NAME
+<span class="keyword">implement</span> hityp_clo <span class="keyword">=</span> hityp_extype_nil CLO_TYPE_NAME
+<span class="keyword">implement</span> hityp_clo_ptr <span class="keyword">=</span> hityp_extype_nil CLO_PTR_TYPE_NAME
+<span class="keyword">implement</span> hityp_clo_ref <span class="keyword">=</span> hityp_extype_nil CLO_REF_TYPE_NAME
+<span class="keyword">implement</span> hityp_double <span class="keyword">=</span> hityp_extype_nil DOUBLE_TYPE_NAME
+<span class="keyword">implement</span> hityp_float <span class="keyword">=</span> hityp_extype_nil FLOAT_TYPE_NAME
+<span class="keyword">implement</span> hityp_int <span class="keyword">=</span> hityp_extype_nil INT_TYPE_NAME
+<span class="keyword">implement</span> hityp_proof <span class="keyword">=</span> hityp_extype_nil PROOF_TYPE_NAME
+<span class="keyword">implement</span> hityp_ptr <span class="keyword">=</span> hityp_extype_nil PTR_TYPE_NAME
+<span class="keyword">implement</span> hityp_string <span class="keyword">=</span> hityp_extype_nil STRING_TYPE_NAME
+<span class="keyword">implement</span> hityp_tysum_ptr <span class="keyword">=</span> hityp_extype_nil SUM_PTR_TYPE_NAME
+<span class="comment">(*
+implement hityp_var = hityp_extype_nil VAR_TYPE_NAME
+implement hityp_varet = hityp_extype_nil VARET_TYPE_NAME
+*)</span>
+<span class="keyword">implement</span> hityp_void <span class="keyword">=</span> hityp_extype_nil VOID_TYPE_NAME
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">val</span> hityp_name_ptr<span class="keyword">:</span> <span class="staexp">hityp_name</span> <span class="keyword">=</span> HITNAM <span class="keyword">(</span>0<span class="keyword">,</span> PTR_TYPE_NAME<span class="keyword">)</span>
+<span class="keyword">val</span> hityp_name_ref<span class="keyword">:</span> <span class="staexp">hityp_name</span> <span class="keyword">=</span> HITNAM <span class="keyword">(</span>0<span class="keyword">,</span> REF_TYPE_NAME<span class="keyword">)</span>
+<span class="keyword">val</span> hityp_name_var<span class="keyword">:</span> <span class="staexp">hityp_name</span> <span class="keyword">=</span> HITNAM <span class="keyword">(</span>0<span class="keyword">,</span> VAR_TYPE_NAME<span class="keyword">)</span>
+<span class="keyword">val</span> hityp_name_varet<span class="keyword">:</span> <span class="staexp">hityp_name</span> <span class="keyword">=</span> HITNAM <span class="keyword">(</span>0<span class="keyword">,</span> VARET_TYPE_NAME<span class="keyword">)</span>
+
+<span class="keyword">val</span> hityp_name_tyrectemp_box<span class="keyword">:</span> <span class="staexp">hityp_name</span> <span class="keyword">=</span>
+  HITNAM <span class="keyword">(</span>1<span class="comment">(*box*)</span><span class="keyword">,</span> RECTEMP_TYPE_NAME<span class="keyword">)</span>
+
+<span class="keyword">val</span> hityp_name_tyrectemp_flt<span class="keyword">:</span> <span class="staexp">hityp_name</span> <span class="keyword">=</span>
+  HITNAM <span class="keyword">(</span>0<span class="comment">(*flt*)</span><span class="keyword">,</span> RECTEMP_TYPE_NAME<span class="keyword">)</span>
+
+<span class="keyword">val</span> hityp_name_tysumtemp<span class="keyword">:</span> <span class="staexp">hityp_name</span> <span class="keyword">=</span>
+  HITNAM <span class="keyword">(</span>1<span class="comment">(*box*)</span><span class="keyword">,</span> SUMTEMP_TYPE_NAME<span class="keyword">)</span>
+
+<span class="keyword">val</span> hityp_name_vararg <span class="keyword">=</span> HITNAM <span class="keyword">(</span>0<span class="comment">(*non*)</span><span class="keyword">,</span> "..."<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+hityp_extype
+  <span class="keyword">(</span>name<span class="keyword">,</span> arglst<span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">hityp</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> HITNAM <span class="keyword">(</span>0<span class="comment">(*non*)</span><span class="keyword">,</span> name<span class="keyword">)</span>
+<span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITextype <span class="keyword">(</span>name<span class="keyword">,</span> arglst<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hityp_extype]
+</span>
+<span class="keyword">implement</span>
+hityp_extype_nil <span class="keyword">(</span>name<span class="keyword">)</span> <span class="keyword">=</span> hityp_extype <span class="keyword">(</span>name<span class="keyword">,</span> list_nil<span class="keyword">)</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+hityp_fun <span class="keyword">(</span>fc<span class="keyword">,</span> hits_arg<span class="keyword">,</span> hit_res<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> hityp_name_ptr<span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITfun <span class="keyword">(</span>fc<span class="keyword">,</span> hits_arg<span class="keyword">,</span> hit_res<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hityp_fun]
+</span>
+<span class="keyword">implement</span>
+hityp_refarg <span class="keyword">(</span>refval<span class="keyword">,</span> hit_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> name <span class="keyword">=</span> <span class="keyword">(</span>
+    <span class="keyword">if</span> refval <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> hityp_name_ref <span class="keyword">else</span> hit_arg<span class="keyword">.</span>hityp_name
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">hityp_name</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> name
+<span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITrefarg <span class="keyword">(</span>refval<span class="keyword">,</span> hit_arg<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [hityp_refarg]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">fn</span> hityp_namstr_get
+  <span class="keyword">(</span>hit<span class="keyword">:</span> <span class="staexp">hityp</span><span class="keyword">)</span><span class="keyword">:</span> <span class="staexp">string</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> HITNAM <span class="keyword">(</span>knd<span class="keyword">,</span> name<span class="keyword">)</span> <span class="keyword">=</span> hit<span class="keyword">.</span>hityp_name
+<span class="keyword">in</span>
+  <span class="keyword">if</span> knd <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> PTR_TYPE_NAME <span class="keyword">else</span> name
+<span class="keyword">end</span> <span class="comment">// end of [hityp_namstr_get]
+</span>
+<span class="keyword">implement</span> hityp_tyarr
+  <span class="keyword">(</span>hit_elt<span class="keyword">,</span> s2ess_dim<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> name_elt <span class="keyword">=</span> hityp_namstr_get <span class="keyword">(</span>hit_elt<span class="keyword">)</span>
+  <span class="keyword">val</span> sbp <span class="keyword">=</span> stringlst_concat <span class="keyword">'[</span> "["<span class="keyword">,</span> name_elt<span class="keyword">,</span> "]"<span class="keyword">]</span>
+  <span class="keyword">val</span> name_arr <span class="keyword">=</span> string_of_strptr <span class="keyword">(</span>sbp<span class="keyword">)</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> HITNAM <span class="keyword">(</span>0<span class="comment">(*non*)</span><span class="keyword">,</span> name_arr<span class="keyword">)</span>
+<span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITtyarr <span class="keyword">(</span>hit_elt<span class="keyword">,</span> s2ess_dim<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [hityp_tyarr]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+hityp_tyrec <span class="keyword">(</span>knd<span class="keyword">,</span> name<span class="keyword">,</span> lhits<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> HITNAM <span class="keyword">(</span>knd<span class="comment">(*non/ptr*)</span><span class="keyword">,</span> name<span class="keyword">)</span><span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITtyrec <span class="keyword">(</span>knd<span class="keyword">,</span> lhits<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hityp_tyrecflt]
+</span>
+<span class="keyword">implement</span>
+hityp_tyrectemp <span class="keyword">(</span>knd<span class="keyword">,</span> lhits<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> name <span class="keyword">=</span> <span class="keyword">(</span>
+    <span class="keyword">if</span> knd <span class="keyword">&gt;</span> 0 <span class="keyword">then</span> hityp_name_tyrectemp_box <span class="keyword">else</span> hityp_name_tyrectemp_flt
+  <span class="keyword">)</span> <span class="keyword">:</span> <span class="staexp">hityp_name</span>
+<span class="keyword">in</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> name<span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITtyrectemp <span class="keyword">(</span>knd<span class="keyword">,</span> lhits<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="keyword">end</span> <span class="comment">// end of [hityp_tyrecflttemp]
+</span>
+<span class="keyword">implement</span>
+hityp_tyrecsin <span class="keyword">(</span>hit<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> hit<span class="keyword">.</span>hityp_name<span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITtyrecsin hit
+<span class="keyword">}</span> <span class="comment">// end of [hityp_sin]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+hityp_tysum <span class="keyword">(</span>name<span class="keyword">,</span> d2c<span class="keyword">,</span> hits<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> HITNAM <span class="keyword">(</span>1<span class="comment">(*box*)</span><span class="keyword">,</span> name<span class="keyword">)</span><span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITtysum <span class="keyword">(</span>d2c<span class="keyword">,</span> hits<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hityp_tysum]
+</span>
+<span class="keyword">implement</span>
+hityp_tysumtemp <span class="keyword">(</span>d2c<span class="keyword">,</span> hits<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> hityp_name_tysumtemp<span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITtysumtemp <span class="keyword">(</span>d2c<span class="keyword">,</span> hits<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hityp_tysumtemp]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+hityp_union <span class="keyword">(</span>name<span class="keyword">,</span> lhits<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> HITNAM <span class="keyword">(</span>0<span class="keyword">,</span> name<span class="keyword">)</span><span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITunion lhits
+<span class="keyword">}</span> <span class="comment">// end of [hityp_union]
+</span>
+<span class="keyword">implement</span>
+hityp_varetize <span class="keyword">(</span>hit<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">let</span>
+  <span class="keyword">val</span> HITNAM <span class="keyword">(</span>knd<span class="keyword">,</span> name<span class="keyword">)</span> <span class="keyword">=</span> hit<span class="keyword">.</span>hityp_name
+<span class="keyword">in</span>
+  <span class="keyword">if</span> name <span class="keyword">=</span> VAR_TYPE_NAME <span class="keyword">then</span> <span class="keyword">'{</span>
+    hityp_name<span class="keyword">=</span> hityp_name_varet<span class="keyword">,</span> hityp_node<span class="keyword">=</span> hit<span class="keyword">.</span>hityp_node
+  <span class="keyword">}</span> <span class="keyword">else</span> hit
+<span class="keyword">end</span> <span class="comment">// end of [hityp_varetize]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+hityp_s2var <span class="keyword">(</span>s2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">begin</span>
+  <span class="keyword">if</span> s2var_is_boxed s2v <span class="keyword">then</span> <span class="keyword">begin</span>
+    <span class="keyword">'{</span> hityp_name<span class="keyword">=</span> hityp_name_ptr<span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITs2var s2v <span class="keyword">}</span>
+  <span class="keyword">end</span> <span class="keyword">else</span> <span class="keyword">begin</span>
+    <span class="keyword">'{</span> hityp_name<span class="keyword">=</span> hityp_name_var<span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITs2var s2v <span class="keyword">}</span>
+  <span class="keyword">end</span> <span class="comment">// end of [if]
+</span><span class="keyword">end</span> <span class="comment">(* end of [hityp_s2var] *)</span>
+
+<span class="keyword">implement</span> hityp_vararg <span class="keyword">=</span> <span class="keyword">'{</span>
+  hityp_name<span class="keyword">=</span> hityp_name_vararg<span class="keyword">,</span> hityp_node<span class="keyword">=</span> HITvararg <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hityp_vararg]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> hipat_ann
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hip<span class="keyword">,</span> hit_ann<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPann <span class="keyword">(</span>hip<span class="keyword">,</span> hit_ann<span class="keyword">)</span>
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_ann]
+</span>
+<span class="keyword">implement</span>
+hipat_any <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPany <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_any]
+</span>
+<span class="keyword">implement</span> hipat_as
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> refknd<span class="keyword">,</span> d2v<span class="keyword">,</span> hip<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPas <span class="keyword">(</span>refknd<span class="keyword">,</span> d2v<span class="keyword">,</span> hip<span class="keyword">)</span>
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_as]
+</span>
+<span class="keyword">implement</span>
+hipat_bool <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> b<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPbool b
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_bool]
+</span>
+<span class="keyword">implement</span>
+hipat_char <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPchar c
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_char]
+</span>
+<span class="keyword">implement</span> hipat_con
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> freeknd<span class="keyword">,</span> d2c<span class="keyword">,</span> hips<span class="keyword">,</span> hit_sum<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPcon <span class="keyword">(</span>freeknd<span class="keyword">,</span> d2c<span class="keyword">,</span> hips<span class="keyword">,</span> hit_sum<span class="keyword">)</span>
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_con]
+</span>
+<span class="keyword">implement</span> hipat_con_any
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> freeknd<span class="keyword">,</span> d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPcon_any <span class="keyword">(</span>freeknd<span class="keyword">,</span> d2c<span class="keyword">)</span>
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_con_any]
+</span>
+<span class="keyword">implement</span> hipat_empty <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPempty <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_empty]
+</span>
+<span class="keyword">implement</span>
+hipat_int <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> str<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPint <span class="keyword">(</span>str<span class="keyword">,</span> int<span class="keyword">)</span>
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_int]
+</span>
+<span class="keyword">implement</span> hipat_lst
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit_lst<span class="keyword">,</span> hit_elt<span class="keyword">,</span> hips<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPlst <span class="keyword">(</span>hit_elt<span class="keyword">,</span> hips<span class="keyword">)</span>
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit_lst
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_lst]
+</span>
+<span class="keyword">implement</span> hipat_rec
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> knd<span class="keyword">,</span> lhips<span class="keyword">,</span> hit_rec<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPrec <span class="keyword">(</span>knd<span class="keyword">,</span> lhips<span class="keyword">,</span> hit_rec<span class="keyword">)</span>
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_rec]
+</span>
+<span class="keyword">implement</span>
+hipat_string <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> str<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPstring str
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_string]
+</span>
+<span class="keyword">implement</span>
+hipat_var <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> refknd<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hipat_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hipat_node<span class="keyword">=</span> HIPvar <span class="keyword">(</span>refknd<span class="keyword">,</span> d2v<span class="keyword">)</span>
+<span class="keyword">,</span> hipat_typ<span class="keyword">=</span> hit
+<span class="keyword">,</span> hipat_asvar<span class="keyword">=</span> D2VAROPTnone <span class="keyword">(</span><span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hipat_var]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> hiexp_app
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit_app<span class="keyword">,</span> hit_fun<span class="keyword">,</span> hie_fun<span class="keyword">,</span> hies_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEapp <span class="keyword">(</span>hit_fun<span class="keyword">,</span> hie_fun<span class="keyword">,</span> hies_arg<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit_app
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_app]
+</span>
+<span class="keyword">implement</span> hiexp_arrinit
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit_arr<span class="keyword">,</span> hit_elt<span class="keyword">,</span> ohie_asz<span class="keyword">,</span> hies_elt<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEarrinit <span class="keyword">(</span>hit_elt<span class="keyword">,</span> ohie_asz<span class="keyword">,</span> hies_elt<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit_arr
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_arrinit]
+</span>
+<span class="keyword">implement</span> hiexp_arrsize
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit_arr<span class="keyword">,</span> hit_elt<span class="keyword">,</span> hies_elt<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEarrsize <span class="keyword">(</span>hit_elt<span class="keyword">,</span> hies_elt<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit_arr
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_arrsize]
+</span>
+<span class="keyword">implement</span> hiexp_assgn_ptr
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hie_ptr<span class="keyword">,</span> hils<span class="keyword">,</span> hie_val<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEassgn_ptr <span class="keyword">(</span>hie_ptr<span class="keyword">,</span> hils<span class="keyword">,</span> hie_val<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_assgn_ptr]
+</span>
+<span class="keyword">implement</span> hiexp_assgn_var
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> d2v_ptr<span class="keyword">,</span> hils<span class="keyword">,</span> hie_val<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEassgn_var <span class="keyword">(</span>d2v_ptr<span class="keyword">,</span> hils<span class="keyword">,</span> hie_val<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_assgn_var]
+</span>
+<span class="keyword">implement</span>
+hiexp_bool <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> b<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEbool b<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_bool]
+</span>
+<span class="keyword">implement</span> hiexp_caseof
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> knd<span class="keyword">,</span> hies<span class="keyword">,</span> hicls<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEcaseof <span class="keyword">(</span>knd<span class="keyword">,</span> hies<span class="keyword">,</span> hicls<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_caseof]
+</span>
+<span class="keyword">implement</span> hiexp_castfn
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> d2c<span class="keyword">,</span> hie<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEcastfn <span class="keyword">(</span>d2c<span class="keyword">,</span> hie<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_castfn]
+</span>
+<span class="keyword">implement</span>
+hiexp_char <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEchar c<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_char]
+</span>
+<span class="keyword">implement</span> hiexp_con
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hit_sum<span class="keyword">,</span> d2c<span class="keyword">,</span> hies_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEcon <span class="keyword">(</span>hit_sum<span class="keyword">,</span> d2c<span class="keyword">,</span> hies_arg<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_con]
+</span>
+<span class="keyword">implement</span>
+hiexp_cst <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> d2c<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEcst d2c<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_cst]
+</span>
+<span class="keyword">implement</span>
+hiexp_cstsp <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> cst<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEcstsp cst<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_cstsp]
+</span>
+<span class="keyword">implement</span>
+hiexp_dynload <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> fil<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEdynload fil<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_dynload]
+</span>
+<span class="keyword">implement</span>
+hiexp_empty <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEempty <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_empty]
+</span>
+<span class="keyword">implement</span>
+hiexp_extval <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> code<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEextval code<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_extval]
+</span>
+<span class="keyword">implement</span>
+hiexp_fix <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> knd<span class="keyword">,</span> d2v<span class="keyword">,</span> hie<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEfix <span class="keyword">(</span>knd<span class="keyword">,</span> d2v<span class="keyword">,</span> hie<span class="keyword">)</span><span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_fix]
+</span>
+<span class="keyword">implement</span>
+hiexp_float <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> str<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEfloat str<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_float]
+</span>
+<span class="keyword">implement</span>
+hiexp_floatsp <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> str<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEfloatsp str<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_floatsp]
+</span>
+<span class="keyword">implement</span>
+hiexp_freeat <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hie<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEfreeat hie<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_freeat]
+</span>
+<span class="keyword">implement</span> hiexp_if
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> _cond<span class="keyword">,</span> _then<span class="keyword">,</span> _else<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEif <span class="keyword">(</span>_cond<span class="keyword">,</span> _then<span class="keyword">,</span> _else<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_if]
+</span>
+<span class="keyword">implement</span>
+hiexp_int <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> str<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEint <span class="keyword">(</span>str<span class="keyword">,</span> int<span class="keyword">)</span><span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_int]
+</span>
+<span class="keyword">implement</span>
+hiexp_intsp <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> str<span class="keyword">,</span> int<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEintsp <span class="keyword">(</span>str<span class="keyword">,</span> int<span class="keyword">)</span><span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_intsp]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> hiexp_is_lam <span class="keyword">(</span>hie<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">(</span>
+  <span class="keyword">case+</span> hie<span class="keyword">.</span>hiexp_node <span class="keyword">of</span> HIElam _ <span class="keyword">=&gt;</span> true <span class="keyword">|</span> _ <span class="keyword">=&gt;</span> false
+<span class="keyword">)</span> <span class="comment">// end of [hiexp_is_lam]
+</span>
+<span class="keyword">implement</span> hiexp_lam
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hips_arg<span class="keyword">,</span> hie_body<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIElam <span class="keyword">(</span>hips_arg<span class="keyword">,</span> hie_body<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_lam]
+</span>
+<span class="keyword">implement</span> hiexp_laminit
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hips_arg<span class="keyword">,</span> hie_body<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIElaminit <span class="keyword">(</span>hips_arg<span class="keyword">,</span> hie_body<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_laminit]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+hiexp_lazy_delay
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hie<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIElazy_delay <span class="keyword">(</span>hie<span class="comment">(*eval*)</span><span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit <span class="comment">(* type of eval *)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_lazy_delay]
+</span>
+<span class="keyword">implement</span>
+hiexp_lazy_vt_delay
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hie1<span class="keyword">,</span> hie2<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIElazy_vt_delay <span class="keyword">(</span>hie1<span class="comment">(*eval*)</span><span class="keyword">,</span> hie2<span class="comment">(*free*)</span><span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit <span class="comment">(* type of eval *)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_lazy_vt_delay]
+</span>
+<span class="keyword">implement</span>
+hiexp_lazy_force
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> lin<span class="keyword">:</span> <span class="staexp">int</span><span class="keyword">,</span> hie<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIElazy_force <span class="keyword">(</span>lin<span class="keyword">,</span> hie<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit <span class="comment">(* type of lazy value *)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_lazy_force]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+hiexp_let <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hids<span class="keyword">,</span> hie<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIElet <span class="keyword">(</span>hids<span class="keyword">,</span> hie<span class="keyword">)</span><span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_let]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> hiexp_loop
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> _init<span class="keyword">,</span> _test<span class="keyword">,</span> _post<span class="keyword">,</span> _body<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEloop <span class="keyword">(</span>_init<span class="keyword">,</span> _test<span class="keyword">,</span> _post<span class="keyword">,</span> _body<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_loop]
+</span>
+<span class="keyword">implement</span>
+hiexp_loopexn <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> i<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEloopexn i<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_loopexn]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> hiexp_lst
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> lin<span class="keyword">,</span> hit_elt<span class="keyword">,</span> hies_elt<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIElst <span class="keyword">(</span>lin<span class="keyword">,</span> hit_elt<span class="keyword">,</span> hies_elt<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_lst]
+</span>
+<span class="keyword">implement</span>
+hiexp_ptrof_ptr
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hie_ptr<span class="keyword">,</span> hils<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEptrof_ptr <span class="keyword">(</span>hie_ptr<span class="keyword">,</span> hils<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_ptrof_ptr]
+</span>
+<span class="keyword">implement</span>
+hiexp_ptrof_var
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> d2v_ptr<span class="keyword">,</span> hils<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEptrof_var <span class="keyword">(</span>d2v_ptr<span class="keyword">,</span> hils<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_ptrof_ptr]
+</span>
+<span class="keyword">implement</span>
+hiexp_raise <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hie<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEraise hie<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_raise]
+</span>
+<span class="keyword">implement</span> hiexp_rec
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> knd<span class="keyword">,</span> hit_rec<span class="keyword">,</span> lhies<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIErec <span class="keyword">(</span>knd<span class="keyword">,</span> hit_rec<span class="keyword">,</span> lhies<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_rec]
+</span>
+<span class="keyword">implement</span> hiexp_refarg
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> refval<span class="keyword">,</span> freeknd<span class="keyword">,</span> hie<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIErefarg <span class="keyword">(</span>refval<span class="keyword">,</span> freeknd<span class="keyword">,</span> hie<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_refarg]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> hiexp_sel
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hie<span class="keyword">,</span> hils<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEsel <span class="keyword">(</span>hie<span class="keyword">,</span> hils<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_sel]
+</span>
+<span class="keyword">implement</span> hiexp_sel_ptr
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hie_ptr<span class="keyword">,</span> hils<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEsel_ptr <span class="keyword">(</span>hie_ptr<span class="keyword">,</span> hils<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_sel_ptr]
+</span>
+<span class="keyword">implement</span> hiexp_sel_var
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> d2v_ptr<span class="keyword">,</span> hils<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEsel_var <span class="keyword">(</span>d2v_ptr<span class="keyword">,</span> hils<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_sel_var]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+hiexp_seq <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hies<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEseq hies<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_seq]
+</span>
+<span class="keyword">implement</span>
+hiexp_sif <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hie_then<span class="keyword">,</span> hie_else<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEsif <span class="keyword">(</span>hie_then<span class="keyword">,</span> hie_else<span class="keyword">)</span><span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_sif]
+</span>
+<span class="keyword">implement</span>
+hiexp_sizeof <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hit_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEsizeof hit_arg<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_sizeof]
+</span>
+<span class="keyword">implement</span>
+hiexp_string <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> str<span class="keyword">,</span> len<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEstring <span class="keyword">(</span>str<span class="keyword">,</span> len<span class="keyword">)</span><span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_string]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> hiexp_tmpcst
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> d2c<span class="keyword">,</span> hitss_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEtmpcst <span class="keyword">(</span>d2c<span class="keyword">,</span> hitss_arg<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_tmpcst]
+</span>
+<span class="keyword">implement</span> hiexp_tmpvar
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> d2v<span class="keyword">,</span> hitss_arg<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEtmpvar <span class="keyword">(</span>d2v<span class="keyword">,</span> hitss_arg<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_tmpvar]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+hiexp_top <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEtop <span class="keyword">(</span><span class="keyword">)</span><span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_top]
+</span>
+<span class="keyword">implement</span> hiexp_trywith
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> hie<span class="keyword">,</span> hicls<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEtrywith <span class="keyword">(</span>hie<span class="keyword">,</span> hicls<span class="keyword">)</span>
+<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_trywith]
+</span>
+<span class="keyword">implement</span>
+hiexp_var <span class="keyword">(</span>loc<span class="keyword">,</span> hit<span class="keyword">,</span> d2v<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiexp_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiexp_node<span class="keyword">=</span> HIEvar d2v<span class="keyword">,</span> hiexp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [hiexp_var]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+hilab_lab <span class="keyword">(</span>loc<span class="keyword">,</span> l<span class="keyword">,</span> hit_rec<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hilab_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hilab_node<span class="keyword">=</span> HILlab <span class="keyword">(</span>l<span class="keyword">,</span> hit_rec<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hilab_lab]
+</span>
+<span class="keyword">implement</span>
+hilab_ind <span class="keyword">(</span>loc<span class="keyword">,</span> hiess_ind<span class="keyword">,</span> hit_elt<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hilab_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hilab_node<span class="keyword">=</span> HILind <span class="keyword">(</span>hiess_ind<span class="keyword">,</span> hit_elt<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hilab_ind]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+himat_make <span class="keyword">(</span>loc<span class="keyword">,</span> hie<span class="keyword">,</span> ohip<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  himat_loc<span class="keyword">=</span> loc<span class="keyword">,</span> himat_exp<span class="keyword">=</span> hie<span class="keyword">,</span> himat_pat<span class="keyword">=</span> ohip
+<span class="keyword">}</span> <span class="comment">// end of [himat_make]
+</span>
+<span class="keyword">implement</span>
+hiclau_make
+  <span class="keyword">(</span>loc<span class="keyword">,</span> hips<span class="keyword">,</span> gua<span class="keyword">,</span> body<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiclau_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiclau_pat<span class="keyword">=</span> hips
+<span class="keyword">,</span> hiclau_gua<span class="keyword">=</span> gua
+<span class="keyword">,</span> hiclau_exp<span class="keyword">=</span> body
+<span class="keyword">}</span> <span class="comment">// end of [hiclau_make]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+hidec_list <span class="keyword">(</span>loc<span class="keyword">,</span> hids<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDlist hids
+<span class="keyword">}</span> <span class="comment">// end of [hidec_list]
+</span>
+<span class="keyword">implement</span>
+hidec_saspdec <span class="keyword">(</span>loc<span class="keyword">,</span> saspdec<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDsaspdec saspdec
+<span class="keyword">}</span> <span class="comment">// end of [hidec_saspdec]
+</span>
+<span class="keyword">implement</span>
+hidec_dcstdec <span class="keyword">(</span>loc<span class="keyword">,</span> knd<span class="keyword">,</span> d2cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDdcstdec <span class="keyword">(</span>knd<span class="keyword">,</span> d2cs<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_dcstdec]
+</span>
+<span class="keyword">implement</span>
+hidec_datdec <span class="keyword">(</span>loc<span class="keyword">,</span> knd<span class="keyword">,</span> s2cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDdatdec <span class="keyword">(</span>knd<span class="keyword">,</span> s2cs<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_datdec]
+</span>
+<span class="keyword">implement</span>
+hidec_exndec <span class="keyword">(</span>loc<span class="keyword">,</span> d2cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDexndec <span class="keyword">(</span>d2cs<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_exndec]
+</span>
+<span class="keyword">implement</span>
+hidec_extern <span class="keyword">(</span>loc<span class="keyword">,</span> position<span class="keyword">,</span> code<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDextern <span class="keyword">(</span>position<span class="keyword">,</span> code<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_extern]
+</span>
+<span class="keyword">implement</span>
+hidec_extype <span class="keyword">(</span>loc<span class="keyword">,</span> name<span class="keyword">,</span> hit_def<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDextype <span class="keyword">(</span>name<span class="keyword">,</span> hit_def<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_extype]
+</span>
+<span class="keyword">implement</span>
+hidec_extval <span class="keyword">(</span>loc<span class="keyword">,</span> name<span class="keyword">:</span> <span class="staexp">string</span><span class="keyword">,</span> hie_def<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDextval <span class="keyword">(</span>name<span class="keyword">,</span> hie_def<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_extval]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+hidec_impdec <span class="keyword">(</span>loc<span class="keyword">,</span> impdec<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDimpdec <span class="keyword">(</span>impdec<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_impdec]
+</span>
+<span class="keyword">implement</span>
+hidec_impdec_prf <span class="keyword">(</span>loc<span class="keyword">,</span> impdec_prf<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDimpdec_prf <span class="keyword">(</span>impdec_prf<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_impdec_prf]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+hifundec_make <span class="keyword">(</span>loc<span class="keyword">,</span> _fun<span class="keyword">,</span> _def<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hifundec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hifundec_var<span class="keyword">=</span> _fun<span class="keyword">,</span> hifundec_def<span class="keyword">=</span> _def
+<span class="keyword">}</span> <span class="comment">// end of [hifundec_make]
+</span>
+<span class="keyword">implement</span>
+hidec_fundecs <span class="keyword">(</span>loc<span class="keyword">,</span> tmp<span class="keyword">,</span> knd<span class="keyword">,</span> hids<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDfundecs <span class="keyword">(</span>tmp<span class="keyword">,</span> knd<span class="keyword">,</span> hids<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_fundecs]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+hivaldec_make <span class="keyword">(</span>loc<span class="keyword">,</span> _pat<span class="keyword">,</span> _def<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hivaldec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hivaldec_pat<span class="keyword">=</span> _pat<span class="keyword">,</span> hivaldec_def<span class="keyword">=</span> _def
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span>
+hidec_valdecs <span class="keyword">(</span>loc<span class="keyword">,</span> knd<span class="keyword">,</span> hids<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDvaldecs <span class="keyword">(</span>knd<span class="keyword">,</span> hids<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span>
+hidec_valdecs_par <span class="keyword">(</span>loc<span class="keyword">,</span> hids<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDvaldecs_par <span class="keyword">(</span>hids<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="keyword">implement</span>
+hidec_valdecs_rec <span class="keyword">(</span>loc<span class="keyword">,</span> hids<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDvaldecs_rec <span class="keyword">(</span>hids<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+hivardec_make <span class="keyword">(</span>loc<span class="keyword">,</span> knd<span class="keyword">,</span> d2v<span class="keyword">,</span> ini<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hivardec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hivardec_knd<span class="keyword">=</span> knd<span class="keyword">,</span> hivardec_ptr<span class="keyword">=</span> d2v<span class="keyword">,</span> hivardec_ini<span class="keyword">=</span> ini
+<span class="keyword">}</span> <span class="comment">// end of [hivardec_make]
+</span>
+<span class="keyword">implement</span>
+hidec_vardecs <span class="keyword">(</span>loc<span class="keyword">,</span> hids<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDvardecs <span class="keyword">(</span>hids<span class="keyword">)</span>
+<span class="keyword">}</span>
+
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span> hiimpdec_make
+  <span class="keyword">(</span>loc<span class="keyword">,</span> d2c<span class="keyword">,</span> tmp<span class="keyword">,</span> decarg<span class="keyword">,</span> tmparg<span class="keyword">,</span> hie_def<span class="keyword">,</span> d2cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiimpdec_loc<span class="keyword">=</span> loc
+<span class="keyword">,</span> hiimpdec_cst<span class="keyword">=</span> d2c
+<span class="keyword">,</span> hiimpdec_tmp<span class="keyword">=</span> tmp
+<span class="keyword">,</span> hiimpdec_decarg<span class="keyword">=</span> decarg<span class="comment">(*s2qualst*)</span><span class="keyword">,</span> hiimpdec_tmparg<span class="keyword">=</span> tmparg<span class="comment">(*hityplstlst*)</span>
+<span class="keyword">,</span> hiimpdec_def<span class="keyword">=</span> hie_def
+<span class="keyword">,</span> hiimpdec_cstset<span class="keyword">=</span> d2cs
+<span class="keyword">}</span> <span class="comment">// end of [hiimpdec_make]
+</span>
+<span class="keyword">implement</span> hiimpdec_prf_make <span class="keyword">(</span>loc<span class="keyword">,</span> d2c<span class="keyword">,</span> d2cs<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hiimpdec_prf_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hiimpdec_prf_cst<span class="keyword">=</span> d2c<span class="keyword">,</span> hiimpdec_prf_cstset<span class="keyword">=</span> d2cs
+<span class="keyword">}</span> <span class="comment">// end of [hiimpdec_prf_make]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">implement</span>
+hidec_local <span class="keyword">(</span>loc<span class="keyword">,</span> _head<span class="keyword">,</span> _body<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDlocal <span class="keyword">(</span>_head<span class="keyword">,</span> _body<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_local]
+</span>
+<span class="keyword">implement</span>
+hidec_staload
+  <span class="keyword">(</span>loc<span class="keyword">,</span> fil<span class="keyword">,</span> loadflag<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDstaload <span class="keyword">(</span>fil<span class="keyword">,</span> loadflag<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_staload]
+</span>
+<span class="keyword">implement</span>
+hidec_dynload <span class="keyword">(</span>loc<span class="keyword">,</span> fil<span class="keyword">)</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  hidec_loc<span class="keyword">=</span> loc<span class="keyword">,</span> hidec_node<span class="keyword">=</span> HIDdynload <span class="keyword">(</span>fil<span class="keyword">)</span>
+<span class="keyword">}</span> <span class="comment">// end of [hidec_dynload]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">local</span>
+
+<span class="keyword">typedef</span> <span class="staexp"><a name="20764"><span class="stacstdec">vartyp <span class="keyword">=</span> <span class="keyword">'{</span>
+  vartyp_var<span class="keyword">=</span> d2var_t<span class="keyword">,</span> vartyp_typ<span class="keyword">=</span> hityp_t
+<span class="keyword">}</span></span></a></span>
+
+<span class="keyword">assume</span> <span class="staexp">vartyp_t <span class="keyword">=</span> vartyp</span>
+
+<span class="keyword">in</span> <span class="comment">// in of [local]
+</span>
+<span class="keyword">fn</span> _vartyp_make
+  <span class="keyword">(</span>d2v<span class="keyword">:</span> <span class="staexp">d2var_t</span><span class="keyword">,</span> hit<span class="keyword">:</span> <span class="staexp">hityp_t</span><span class="keyword">)</span>
+  <span class="keyword">:</span> <span class="staexp">vartyp</span> <span class="keyword">=</span> <span class="keyword">'{</span>
+  vartyp_var<span class="keyword">=</span> d2v<span class="keyword">,</span> vartyp_typ<span class="keyword">=</span> hit
+<span class="keyword">}</span> <span class="comment">// end of [_vartyp_make]
+</span>
+<span class="keyword">implement</span> vartyp_typ_get <span class="keyword">(</span>vtp<span class="keyword">)</span> <span class="keyword">=</span> vtp<span class="keyword">.</span>vartyp_typ
+<span class="keyword">implement</span> vartyp_var_get <span class="keyword">(</span>vtp<span class="keyword">)</span> <span class="keyword">=</span> vtp<span class="keyword">.</span>vartyp_var
+<span class="keyword">implement</span> vartyp_make <span class="keyword">(</span>d2v<span class="keyword">,</span> hit<span class="keyword">)</span> <span class="keyword">=</span> _vartyp_make <span class="keyword">(</span>d2v<span class="keyword">,</span> hit<span class="keyword">)</span>
+
+<span class="keyword">implement</span>
+eq_vartyp_vartyp <span class="keyword">(</span>vtp1<span class="keyword">,</span> vtp2<span class="keyword">)</span> <span class="keyword">=</span>
+  eq_d2var_d2var <span class="keyword">(</span>vtp1<span class="keyword">.</span>vartyp_var<span class="keyword">,</span> vtp2<span class="keyword">.</span>vartyp_var<span class="keyword">)</span>
+<span class="comment">// end of [eq_vartyp_vartyp]
+</span>
+<span class="keyword">implement</span>
+compare_vartyp_vartyp <span class="keyword">(</span>vtp1<span class="keyword">,</span> vtp2<span class="keyword">)</span> <span class="keyword">=</span>
+  compare_d2var_d2var <span class="keyword">(</span>vtp1<span class="keyword">.</span>vartyp_var<span class="keyword">,</span> vtp2<span class="keyword">.</span>vartyp_var<span class="keyword">)</span>
+<span class="comment">// end of [compare_vartyp_vartyp]
+</span>
+<span class="keyword">end</span> <span class="comment">// end of [local]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="keyword">extern</span> <span class="keyword">typedef</span> <span class="staexp">"hipat_t" <span class="keyword">=</span> hipat</span>
+
+<span class="extern">%{$
+
+ats_void_type
+ats_hiexp_hipat_asvar_set (
+  ats_ptr_type hip, ats_ptr_type od2v
+) {
+  ((hipat_t)hip)-&gt;atslab_hipat_asvar = od2v; return ;
+} // end of [ats_hiexp_hipat_asvar_set]
+
+%}</span> <span class="comment">// end of [%{$]
+</span>
+<span class="comment">(* ****** ****** *)</span>
+
+<span class="comment">(* end of [ats_hiexp.dats] *)</span>
+</pre>
+</body>
+</html>

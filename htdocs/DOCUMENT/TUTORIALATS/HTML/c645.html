@@ -1,0 +1,387 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>Call-by-Reference</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+TITLE="A Tutorial on Programming Features in ATS"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Basic Tutorial Topics"
+HREF="p34.html"><LINK
+REL="PREVIOUS"
+TITLE="Persistent References"
+HREF="c595.html"><LINK
+REL="NEXT"
+TITLE="Lazy Evaluation"
+HREF="c680.html"></HEAD
+><BODY
+CLASS="chapter"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>A Tutorial on Programming Features in ATS: </TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="c595.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="c680.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="chapter"
+><H1
+><A
+NAME="callbyref"
+></A
+>Call-by-Reference</H1
+><P
+>&#13;The feature of call-by-reference in ATS is similar to the corresponding one
+in C++. What is special in ATS is the way in which this feature is handled
+by the type system.  In general, if <FONT
+COLOR="RED"
+>f</FONT
+> is given a type of the following
+form for some viewtypes <FONT
+COLOR="RED"
+>VT1</FONT
+> and <FONT
+COLOR="RED"
+>VT2</FONT
+>:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN651"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>(..., &#38;VT1 &#62;&#62; VT2, ...) -&#62; ...
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+then a function call <FONT
+COLOR="RED"
+>f(..., lval, ...)</FONT
+> on some left-value
+<FONT
+COLOR="RED"
+>lval</FONT
+> of the viewtype <FONT
+COLOR="RED"
+>VT1</FONT
+> is to change the viewtype of
+<FONT
+COLOR="RED"
+>lval</FONT
+> into <FONT
+COLOR="RED"
+>VT2</FONT
+> upon its return.  In the case where
+<FONT
+COLOR="RED"
+>VT1</FONT
+> and <FONT
+COLOR="RED"
+>VT2</FONT
+> are the same, <FONT
+COLOR="RED"
+>&#38;VT1 &#62;&#62; VT2</FONT
+> may
+simply be written as <FONT
+COLOR="RED"
+>&#38;VT1</FONT
+>.
+
+</P
+><P
+>&#13;As an example, an implementation of the factorial function is given as
+follows that makes use of call-by-reference:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN663"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun fact (x: int): int = let
+  fun loop {l:addr} (x: int, res: &#38;int): void =
+    if x &#62; 0 then (res := res * x; loop (x-1, res)) else ()
+  var res: int = 1 // [res] is a variable!
+in
+  loop (x, res); res
+end // end of [fact]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+Note that if the line for introducing the variable <FONT
+COLOR="RED"
+>res</FONT
+> in the
+above implementation is replaced with the following one:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN666"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>  val res: int = 1 // [res] is no longer a variable but a value!
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+then a type error is to be reported as <FONT
+COLOR="RED"
+>res</FONT
+> is no longer a left-value
+when it is passed as an argument to <FONT
+COLOR="RED"
+>loop</FONT
+>.
+
+</P
+><P
+>In functional programming, optional types are often used for
+error-handling. For instance, the following function <FONT
+COLOR="RED"
+>divopt</FONT
+>
+returns a value of the type <FONT
+COLOR="RED"
+>Option(int)</FONT
+> that either contains
+the result of the division or indicates a case of division-by-zero:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN673"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun divopt
+  (x: int, y: int): Option (int) =
+  if y != 0 then Some (x/y) else None ()
+// end of [divopt]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+Given that a value of the form <FONT
+COLOR="RED"
+>Some(v)</FONT
+> is heap-allocated, the
+memory for storing it can only be reclaimed by garbage collection (GC).
+In other words, the memory is leaked if GC is not available. To address
+the issue of error-handing in the absence of GC, we can employ call-by-reference
+as is shown below:
+
+<DIV
+CLASS="informalexample"
+><P
+></P
+><A
+NAME="AEN676"
+></A
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="programlisting"
+>fun diverr (
+  x: int, y: int, err: &#38;int
+) : int =
+  if y != 0 then x/y else (err := err+1; 0(*meaningless*))
+// end of [diverr]
+</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+>
+
+
+We can tell whether division-by-zero has occurred by comparing the values
+of <FONT
+COLOR="RED"
+>err</FONT
+> before and after a call to <FONT
+COLOR="RED"
+>diverr</FONT
+>. This style of
+error-handling is commonly seen in code written in languages like C.
+
+</P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="c595.html"
+ACCESSKEY="P"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="c680.html"
+ACCESSKEY="N"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Persistent References</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="p34.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Lazy Evaluation</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>
